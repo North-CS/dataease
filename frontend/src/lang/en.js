@@ -1018,6 +1018,7 @@ export default {
     fast_calc: 'Fast Calculation',
     sum: 'Sum',
     count: 'Count',
+    value: 'Value',
     avg: 'Avg',
     max: 'Max',
     min: 'Min',

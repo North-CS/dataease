@@ -2730,7 +2730,7 @@ export default {
 
     onThresholdChange(val) {
       this.view.senior.threshold = val
-      this.calcStyle()
+      this.calcData()
     },
 
     onScrollChange(val) {
