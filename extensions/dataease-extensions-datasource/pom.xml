@@ -17,6 +17,7 @@
         <module>kylin</module>
         <module>kingbase</module>
         <module>influxdb</module>
+        <module>sls</module>
     </modules>
 
     <artifactId>dataease-extensions-datasource</artifactId>
