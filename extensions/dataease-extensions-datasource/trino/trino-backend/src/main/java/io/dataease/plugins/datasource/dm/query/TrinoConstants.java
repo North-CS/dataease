@@ -26,6 +26,7 @@ public class TrinoConstants extends SQLConstants {
     public static final String WHERE_NUMBER_VALUE = "%s";
     public static final String AGG_COUNT = "COUNT(*)";
     public static final String AGG_FIELD = "%s(%s)";
+    public static final String AGG_FIELD2 = "count(distinct(%s))";
     public static final String WHERE_BETWEEN = "%s AND %s";
     public static final String WHERE_TIME_BETWEEN = "timestamp '%s' AND timestamp '%s'";
     public static final String BRACKETS = "(%s)";

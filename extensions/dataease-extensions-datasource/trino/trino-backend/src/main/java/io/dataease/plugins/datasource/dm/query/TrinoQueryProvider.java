@@ -1076,6 +1076,7 @@ public class TrinoQueryProvider extends QueryProvider {
         }
         List<String> res = new ArrayList<>();
         for (ChartFieldCustomFilterDTO request : requestList) {
+            Boolean numberValueFlag = false;
             List<SQLObj> list = new ArrayList<>();
             DatasetTableField field = request.getField();
 
@@ -1113,6 +1114,7 @@ public class TrinoQueryProvider extends QueryProvider {
                 if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
                     whereName = originName;
                 }
+                numberValueFlag = true;
             } else {
                 whereName = originName;
             }
@@ -1141,7 +1143,11 @@ public class TrinoQueryProvider extends QueryProvider {
                     } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "like")) {
                         whereValue = "'%" + value + "%'";
                     } else {
-                        whereValue = String.format(TrinoConstants.WHERE_VALUE_VALUE, value);
+                        if (numberValueFlag || StringUtils.equalsIgnoreCase(value, "null")) {
+                            whereValue = String.format(TrinoConstants.WHERE_NUMBER_VALUE, value);
+                        } else {
+                            whereValue = String.format(TrinoConstants.WHERE_VALUE_VALUE, value);
+                        }
                     }
                     list.add(SQLObj.builder()
                             .whereField(whereName)
@@ -1357,7 +1363,11 @@ public class TrinoQueryProvider extends QueryProvider {
                 fieldName = String.format(TrinoConstants.CAST, agg, TrinoConstants.DEFAULT_FLOAT_FORMAT);
             } else {
                 String cast = String.format(TrinoConstants.CAST, originField, y.getDeType() == DeTypeConstants.DE_INT ? TrinoConstants.DEFAULT_INT_FORMAT : TrinoConstants.DEFAULT_FLOAT_FORMAT);
-                fieldName = String.format(TrinoConstants.AGG_FIELD, y.getSummary(), cast);
+                if (StringUtils.equals(y.getSummary(), "count_distinct")) {
+                    fieldName = String.format(TrinoConstants.AGG_FIELD2, cast);
+                } else {
+                    fieldName = String.format(TrinoConstants.AGG_FIELD, y.getSummary(), cast);
+                }
             }
         }
         return SQLObj.builder()
