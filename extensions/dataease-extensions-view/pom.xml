@@ -17,6 +17,7 @@
         <module>view-chartmix</module>
         <module>view-racebar</module>
         <module>view-3dcolumn</module>
+        <module>view-3dring</module>
     </modules>
 
     <artifactId>dataease-extensions-view</artifactId>
