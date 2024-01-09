@@ -16,6 +16,7 @@ public class TrinoConstants extends SQLConstants {
     public static final String STR_TO_DATE = "to_timestamp(%s, '%s')";
     public static final String CAST = "CAST(%s AS %s)";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    public static final String DEFAULT_DATE_PARSE = "%Y-%m-%d H%:i%:s%";
     public static final String FORMAT_DATETIME = "format_datetime(%s, '%s')";
     public static final String date_parse = "date_parse(%s, '%s')";
     public static final String to_date = "to_date(%s, '%s')";

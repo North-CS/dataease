@@ -225,7 +225,7 @@ public class TrinoQueryProvider extends QueryProvider {
 //                        fieldName = String.format(TrinoConstants.STR_TO_DATE, originField,
 //                                StringUtils.isNotEmpty(f.getDateFormat()) ? f.getDateFormat()
 //                                        : TrinoConstants.DEFAULT_DATE_FORMAT);
-                        fieldName = String.format(TrinoConstants.to_date, originField, StringUtils.isNotEmpty(f.getDateFormat()) ? f.getDateFormat() : TrinoConstants.DEFAULT_DATE_FORMAT);
+                        fieldName = String.format(TrinoConstants.date_parse, originField, StringUtils.isNotEmpty(f.getDateFormat()) ? f.getDateFormat() : TrinoConstants.DEFAULT_DATE_PARSE);
                     } else {
                         fieldName = originField;
                     }
@@ -1455,11 +1455,11 @@ public class TrinoQueryProvider extends QueryProvider {
         ObjectMapper objectMapper = new ObjectMapper();
         List<Dateformat> dateformats = new ArrayList();
 
-//        try {
-//            dateformats = (List)objectMapper.readValue("[\n{\"dateformat\": \"yyyy-MM-dd\"},\n{\"dateformat\": \"yyyy/MM/dd\"},\n{\"dateformat\": \"YyyyyMMdd\"},\n{\"dateformat\": \"yyyy-MM-dd HH:mm:s\"},\n{\"dateformat\": \"yyyy-MM-dd HH:mm:s\"},\n{\"dateformat\": \"yyyy-MM-dd HH:mm:s\"}\n]", new TypeReference<List<Dateformat>>() {
-//            });
-//        } catch (Exception var4) {
-//        }
+        try {
+            dateformats = (List)objectMapper.readValue("[\n{\"dateformat\": \"%Y-%m-%d\"},\n{\"dateformat\": \"%Y/%m/%d\"},\n{\"dateformat\": \"%Y%m%d\"},\n{\"dateformat\": \"%Y-%m-%d H%\"},\n{\"dateformat\": \"%Y-%m-%d H%:i%\"},\n{\"dateformat\": \"%Y-%m-%d H%:i%:s%\"}\n]", new TypeReference<List<Dateformat>>() {
+            });
+        } catch (Exception var4) {
+        }
 
         return (List)dateformats;
     }
