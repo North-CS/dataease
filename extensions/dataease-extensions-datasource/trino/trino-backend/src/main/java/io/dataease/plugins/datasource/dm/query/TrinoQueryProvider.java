@@ -17,12 +17,13 @@ import io.dataease.plugins.common.dto.chart.ChartViewFieldDTO;
 import io.dataease.plugins.common.dto.datasource.DeSortField;
 import io.dataease.plugins.common.dto.sqlObj.SQLObj;
 import io.dataease.plugins.common.request.chart.ChartExtFilterRequest;
+import io.dataease.plugins.common.request.chart.filter.FilterTreeItem;
+import io.dataease.plugins.common.request.chart.filter.FilterTreeObj;
 import io.dataease.plugins.common.request.permission.DataSetRowPermissionsTreeDTO;
 import io.dataease.plugins.common.request.permission.DatasetRowPermissionsTreeItem;
 import io.dataease.plugins.datasource.dm.provider.TrinoConfig;
 import io.dataease.plugins.datasource.entity.Dateformat;
 import io.dataease.plugins.datasource.entity.JdbcConfiguration;
-import io.dataease.plugins.datasource.entity.PageInfo;
 import io.dataease.plugins.datasource.query.QueryProvider;
 import io.dataease.plugins.datasource.query.Utils;
 import org.apache.commons.collections4.CollectionUtils;
@@ -86,101 +87,14 @@ public class TrinoQueryProvider extends QueryProvider {
 
     @Override
     public String createQuerySQL(String table, List<DatasetTableField> fields, boolean isGroup, Datasource ds,
-                                 List<ChartFieldCustomFilterDTO> fieldCustomFilter,
+                                 FilterTreeObj fieldCustomFilter,
                                  List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
         return createQuerySQL(table, fields, isGroup, ds, fieldCustomFilter, rowPermissionsTree, null, null, null);
     }
 
-
-
-//    @Override
-//    public String createQuerySQL(String table, List<DatasetTableField> fields, boolean isGroup, Datasource ds, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<DeSortField> sortFields) {
-//        SQLObj tableObj = SQLObj.builder()
-//                .tableName((table.startsWith("(") && table.endsWith(")")) ? table : String.format(TrinoConstants.KEYWORD_TABLE, table))
-//                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 0))
-//                .build();
-//
-//        setSchema(tableObj, ds);
-//        List<SQLObj> xFields = new ArrayList<>();
-//        if (CollectionUtils.isNotEmpty(fields)) {
-//            for (int i = 0; i < fields.size(); i++) {
-//                DatasetTableField f = fields.get(i);
-//                String originField;
-//                if (ObjectUtils.isNotEmpty(f.getExtField()) && f.getExtField() == 2) {
-//                    // 解析origin name中有关联的字段生成sql表达式
-//                    originField = calcFieldRegex(f.getOriginName(), tableObj);
-//                } else if (ObjectUtils.isNotEmpty(f.getExtField()) && f.getExtField() == 1) {
-//                    originField = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(), f.getOriginName());
-//                } else {
-//                    originField = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(), f.getOriginName());
-//                }
-//                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
-//                String fieldName = "";
-//                // 处理横轴字段
-//                if (f.getDeExtractType() == DeTypeConstants.DE_TIME) {
-//                    if (f.getDeType() == DeTypeConstants.DE_INT || f.getDeType() == DeTypeConstants.DE_FLOAT) {
-//                        fieldName = String.format(TrinoConstants.UNIX_TIMESTAMP, originField);
-//                    } else {
-//                        fieldName = originField;
-//                    }
-//                } else if (f.getDeExtractType() == DeTypeConstants.DE_STRING) {
-//                    if (f.getDeType() == DeTypeConstants.DE_INT) {
-//                        fieldName = String.format(TrinoConstants.CAST, originField, TrinoConstants.DEFAULT_INT_FORMAT);
-//                    } else if (f.getDeType() == DeTypeConstants.DE_FLOAT) {
-//                        fieldName = String.format(TrinoConstants.CAST, originField, TrinoConstants.DEFAULT_FLOAT_FORMAT);
-//                    } else if (f.getDeType() == DeTypeConstants.DE_TIME) {
-//                        fieldName = String.format(TrinoConstants.to_date, originField, StringUtils.isNotEmpty(f.getDateFormat()) ? f.getDateFormat() : TrinoConstants.DEFAULT_DATE_FORMAT);
-//                    } else {
-//                        fieldName = originField;
-//                    }
-//                } else {
-//                    if (f.getDeType() == DeTypeConstants.DE_TIME) {
-//                        fieldName = String.format(TrinoConstants.FORMAT_DATETIME, String.format(TrinoConstants.FROM_UNIXTIME, originField + "/1000"), TrinoConstants.DEFAULT_DATE_FORMAT);
-//                    } else if (f.getDeType() == DeTypeConstants.DE_INT) {
-//                        fieldName = String.format(TrinoConstants.CAST, originField, TrinoConstants.DEFAULT_INT_FORMAT);
-//                    } else {
-//                        fieldName = originField;
-//                    }
-//                }
-//                xFields.add(SQLObj.builder()
-//                        .fieldName(fieldName)
-//                        .fieldAlias(fieldAlias)
-//                        .build());
-//            }
-//        }
-//
-//        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
-//        ST st_sql = stg.getInstanceOf("previewSql");
-//        st_sql.add("isGroup", isGroup);
-//        if (CollectionUtils.isNotEmpty(xFields)) st_sql.add("groups", xFields);
-//        if (ObjectUtils.isNotEmpty(tableObj)) st_sql.add("table", tableObj);
-//        String customWheres = transCustomFilterList(tableObj, fieldCustomFilter);
-//        // row permissions tree
-//        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
-//        List<String> wheres = new ArrayList<>();
-//        if (customWheres != null) wheres.add(customWheres);
-//        if (whereTrees != null) wheres.add(whereTrees);
-//        if (CollectionUtils.isNotEmpty(wheres)) st_sql.add("filters", wheres);
-//
-//        List<SQLObj> xOrders = new ArrayList<>();
-//        if (CollectionUtils.isNotEmpty(sortFields)) {
-//            int step = fields.size();
-//            for (int i = step; i < (step + sortFields.size()); i++) {
-//                DeSortField deSortField = sortFields.get(i - step);
-//                SQLObj order = buildSortField(deSortField, tableObj, i);
-//                xOrders.add(order);
-//            }
-//        }
-//        if (ObjectUtils.isNotEmpty(xOrders)) {
-//            st_sql.add("orders", xOrders);
-//        }
-//
-//        return st_sql.render();
-//    }
-
     @Override
     public String createQuerySQL(String table, List<DatasetTableField> fields, boolean isGroup, Datasource ds,
-                                 List<ChartFieldCustomFilterDTO> fieldCustomFilter,
+                                 FilterTreeObj fieldCustomFilter,
                                  List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
                                  List<DeSortField> sortFields, Long limit, String keyword) {
         SQLObj tableObj = SQLObj.builder()
@@ -255,7 +169,7 @@ public class TrinoQueryProvider extends QueryProvider {
             st_sql.add("groups", xFields);
         if (ObjectUtils.isNotEmpty(tableObj))
             st_sql.add("table", tableObj);
-        String customWheres = transCustomFilterList(tableObj, fieldCustomFilter);
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
         // row permissions tree
         String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
         List<String> wheres = new ArrayList<>();
@@ -335,7 +249,7 @@ public class TrinoQueryProvider extends QueryProvider {
 
     @Override
     public String createQuerySQLAsTmp(String sql, List<DatasetTableField> fields, boolean isGroup,
-                                      List<ChartFieldCustomFilterDTO> fieldCustomFilter,
+                                      FilterTreeObj fieldCustomFilter,
                                       List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
                                       List<DeSortField> sortFields,
                                       Long limit,
@@ -344,28 +258,28 @@ public class TrinoQueryProvider extends QueryProvider {
                 sortFields, limit, keyword);
     }
 
-    public String createQuerySQLAsTmp(String sql, List<DatasetTableField> fields, boolean isGroup, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+    public String createQuerySQLAsTmp(String sql, List<DatasetTableField> fields, boolean isGroup, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
         return this.createQuerySQL("(" + this.sqlFix(sql) + ")", fields, isGroup, (Datasource)null, fieldCustomFilter, rowPermissionsTree);
     }
 
-    public String createQueryTableWithPage(String table, List<DatasetTableField> fields, Integer page, Integer pageSize, Integer realSize, boolean isGroup, Datasource ds, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+    public String createQueryTableWithPage(String table, List<DatasetTableField> fields, Integer page, Integer pageSize, Integer realSize, boolean isGroup, Datasource ds, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
         return this.createQuerySQL(table, fields, isGroup, ds, fieldCustomFilter, rowPermissionsTree) + " LIMIT " + realSize;
     }
 
-    public String createQuerySQLWithPage(String sql, List<DatasetTableField> fields, Integer page, Integer pageSize, Integer realSize, boolean isGroup, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+    public String createQuerySQLWithPage(String sql, List<DatasetTableField> fields, Integer page, Integer pageSize, Integer realSize, boolean isGroup, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
         return this.createQuerySQLAsTmp(sql, fields, isGroup, fieldCustomFilter, rowPermissionsTree) + " LIMIT " + realSize;
     }
 
-    public String createQueryTableWithLimit(String table, List<DatasetTableField> fields, Integer limit, boolean isGroup, Datasource ds, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+    public String createQueryTableWithLimit(String table, List<DatasetTableField> fields, Integer limit, boolean isGroup, Datasource ds, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
         return this.createQuerySQL(table, fields, isGroup, ds, fieldCustomFilter, rowPermissionsTree) + " LIMIT " + limit;
     }
 
-    public String createQuerySqlWithLimit(String sql, List<DatasetTableField> fields, Integer limit, boolean isGroup, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+    public String createQuerySqlWithLimit(String sql, List<DatasetTableField> fields, Integer limit, boolean isGroup, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
         return this.createQuerySQLAsTmp(sql, fields, isGroup, fieldCustomFilter, rowPermissionsTree) + " LIMIT " + limit;
     }
 
     @Override
-    public String getSQL(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+    public String getSQL(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
         SQLObj tableObj = SQLObj.builder()
                 .tableName((table.startsWith("(") && table.endsWith(")")) ? table : String.format(TrinoConstants.KEYWORD_TABLE, table))
                 .tableAlias(String.format(TABLE_ALIAS_PREFIX, 0))
@@ -429,7 +343,7 @@ public class TrinoQueryProvider extends QueryProvider {
             }
         }
         // 处理视图中字段过滤
-        String customWheres = transCustomFilterList(tableObj, fieldCustomFilter);
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
         // 处理仪表板字段过滤
         String extWheres = transExtFilterList(tableObj, extFilterRequestList);
         // row permissions tree
@@ -470,7 +384,7 @@ public class TrinoQueryProvider extends QueryProvider {
         return sqlLimit(st.render(), view);
     }
 
-    private String originalTableInfo(String table, List<ChartViewFieldDTO> xAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+    private String originalTableInfo(String table, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
         SQLObj tableObj = SQLObj.builder()
                 .tableName((table.startsWith("(") && table.endsWith(")")) ? table : String.format(TrinoConstants.KEYWORD_TABLE, table))
                 .tableAlias(String.format(TABLE_ALIAS_PREFIX, 0))
@@ -508,7 +422,7 @@ public class TrinoQueryProvider extends QueryProvider {
             }
         }
         // 处理视图中字段过滤
-        String customWheres = transCustomFilterList(tableObj, fieldCustomFilter);
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
         // 处理仪表板字段过滤
         String extWheres = transExtFilterList(tableObj, extFilterRequestList);
         // row permissions tree
@@ -545,20 +459,20 @@ public class TrinoQueryProvider extends QueryProvider {
         return st.render();
     }
 
-    public String getSQLTableInfo(String table, List<ChartViewFieldDTO> xAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+    public String getSQLTableInfo(String table, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
         return this.sqlLimit(this.originalTableInfo(table, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view), view);
     }
 
-    public String getSQLAsTmpTableInfo(String sql, List<ChartViewFieldDTO> xAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+    public String getSQLAsTmpTableInfo(String sql, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
         return this.getSQLTableInfo("(" + this.sqlFix(sql) + ")", xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view);
     }
 
-    public String getSQLAsTmp(String sql, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view) {
+    public String getSQLAsTmp(String sql, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view) {
         return this.getSQL("(" + this.sqlFix(sql) + ")", xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, (Datasource)null, view);
     }
 
     @Override
-    public String getSQLStack(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, Datasource ds, ChartViewWithBLOBs view) {
+    public String getSQLStack(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, Datasource ds, ChartViewWithBLOBs view) {
         SQLObj tableObj = SQLObj.builder()
                 .tableName((table.startsWith("(") && table.endsWith(")")) ? table : String.format(TrinoConstants.KEYWORD_TABLE, table))
                 .tableAlias(String.format(TABLE_ALIAS_PREFIX, 0))
@@ -625,7 +539,7 @@ public class TrinoQueryProvider extends QueryProvider {
             }
         }
         // 处理视图中字段过滤
-        String customWheres = transCustomFilterList(tableObj, fieldCustomFilter);
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
         // 处理仪表板字段过滤
         String extWheres = transExtFilterList(tableObj, extFilterRequestList);
         // row permissions tree
@@ -666,13 +580,13 @@ public class TrinoQueryProvider extends QueryProvider {
         return sqlLimit(st.render(), view);
     }
 
-    public String getSQLAsTmpStack(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, ChartViewWithBLOBs view) {
+    public String getSQLAsTmpStack(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, ChartViewWithBLOBs view) {
         return this.getSQLStack("(" + this.sqlFix(table) + ")", xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, extStack, (Datasource)null, view);
     }
 
     @Override
     public String getSQLAsTmpScatter(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
-                                     List<ChartFieldCustomFilterDTO> fieldCustomFilter,
+                                     FilterTreeObj fieldCustomFilter,
                                      List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
                                      List<ChartExtFilterRequest> extFilterRequestList,
                                      List<ChartViewFieldDTO> extBubble, List<ChartViewFieldDTO> extGroup,
@@ -682,8 +596,153 @@ public class TrinoQueryProvider extends QueryProvider {
     }
 
     @Override
+    public String getSQLRangeBar(String table, List<ChartViewFieldDTO> baseXAxis, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, Datasource ds, ChartViewWithBLOBs view) {
+        SQLObj tableObj = SQLObj.builder()
+                .tableName((table.startsWith("(") && table.endsWith(")")) ? table
+                        : String.format(TrinoConstants.KEYWORD_TABLE, table))
+                .tableAlias(String.format(TrinoConstants.ALIAS_FIX, String.format(TABLE_ALIAS_PREFIX, 0)))
+                .build();
+        setSchema(tableObj, ds);
+        List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xOrders = new ArrayList<>();
+
+        List<SQLObj> yFields = new ArrayList<>(); // 要把两个时间字段放进y里面
+        List<String> yWheres = new ArrayList<>();
+        List<SQLObj> yOrders = new ArrayList<>();
+
+        if (CollectionUtils.isNotEmpty(xAxis)) {
+            for (int i = 0; i < xAxis.size(); i++) {
+                ChartViewFieldDTO x = xAxis.get(i);
+                String originField;
+
+                if (StringUtils.equalsIgnoreCase(x.getGroupType(), "q")) {
+                    if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                        // 解析origin name中有关联的字段生成sql表达式
+                        originField = calcFieldRegex(x.getOriginName(), tableObj);
+                    } else if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 1) {
+                        originField = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(),
+                                x.getOriginName());
+                    } else {
+                        originField = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(),
+                                x.getOriginName());
+                    }
+                    String fieldAlias = String.format(TrinoConstants.ALIAS_FIX,
+                            String.format(SQLConstants.FIELD_ALIAS_Y_PREFIX, i));
+                    // 处理纵轴字段
+                    yFields.add(getYFields(x, originField, fieldAlias));
+                    // 处理纵轴过滤
+                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                    // 处理纵轴排序
+                    if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                        yOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(fieldAlias)
+                                .orderDirection(x.getSort())
+                                .build());
+                    }
+                    continue;
+                }
+
+                if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(x.getOriginName(), tableObj);
+                } else if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 1) {
+                    originField = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(),
+                            x.getOriginName());
+                } else {
+                    originField = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(),
+                            x.getOriginName());
+                }
+                String fieldAlias = String.format(TrinoConstants.ALIAS_FIX,
+                        String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i));
+
+                if (i == baseXAxis.size()) {// 起止时间
+                    String fieldName = String.format(TrinoConstants.AGG_FIELD, "min", originField);
+                    yFields.add(getXFields(x, fieldName, fieldAlias));
+
+                    yWheres.add(getYWheres(x, originField, fieldAlias));
+
+                } else if (i == baseXAxis.size() + 1) {
+                    String fieldName = String.format(TrinoConstants.AGG_FIELD, "max", originField);
+
+                    yFields.add(getXFields(x, fieldName, fieldAlias));
+
+                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                } else {
+                    // 处理横轴字段
+                    xFields.add(getXFields(x, originField, fieldAlias));
+                }
+                // 处理横轴排序
+                if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                    xOrders.add(SQLObj.builder()
+                            .orderField(originField)
+                            .orderAlias(fieldAlias)
+                            .orderDirection(x.getSort())
+                            .build());
+                }
+            }
+        }
+
+        // 处理视图中字段过滤
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // 处理仪表板字段过滤
+        String extWheres = transExtFilterList(tableObj, extFilterRequestList);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        // 构建sql所有参数
+        List<SQLObj> fields = new ArrayList<>();
+        fields.addAll(xFields);
+        fields.addAll(yFields);
+        List<String> wheres = new ArrayList<>();
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (extWheres != null)
+            wheres.add(extWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        List<SQLObj> groups = new ArrayList<>();
+        groups.addAll(xFields);
+        // 外层再次套sql
+        List<SQLObj> orders = new ArrayList<>();
+        orders.addAll(xOrders);
+        orders.addAll(yOrders);
+        List<String> aggWheres = new ArrayList<>();
+        aggWheres.addAll(yWheres.stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList()));
+
+        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("querySql");
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("groups", xFields);
+        if (CollectionUtils.isNotEmpty(yFields))
+            st_sql.add("aggregators", yFields);
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String sql = st_sql.render();
+
+        ST st = stg.getInstanceOf("querySql");
+        SQLObj tableSQL = SQLObj.builder()
+                .tableName(String.format(TrinoConstants.BRACKETS, sql))
+                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
+                .build();
+        if (CollectionUtils.isNotEmpty(aggWheres))
+            st.add("filters", aggWheres);
+        if (CollectionUtils.isNotEmpty(orders))
+            st.add("orders", orders);
+        if (ObjectUtils.isNotEmpty(tableSQL))
+            st.add("table", tableSQL);
+        return sqlLimit(st.render(), view);
+    }
+
+    @Override
+    public String getSQLAsTmpRangeBar(String table, List<ChartViewFieldDTO> baseXAxis, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, ChartViewWithBLOBs view) {
+        return getSQLRangeBar("(" + table + ")", baseXAxis, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, extStack, null, view);
+    }
+
+    @Override
     public String getSQLScatter(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
-                                List<ChartFieldCustomFilterDTO> fieldCustomFilter,
+                                FilterTreeObj fieldCustomFilter,
                                 List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
                                 List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extBubble, List<ChartViewFieldDTO> extGroup,
                                 Datasource ds,
@@ -780,7 +839,7 @@ public class TrinoQueryProvider extends QueryProvider {
             }
         }
         // 处理视图中字段过滤
-        String customWheres = transCustomFilterList(tableObj, fieldCustomFilter);
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
         // 处理仪表板字段过滤
         String extWheres = transExtFilterList(tableObj, extFilterRequestList);
         // row permissions tree
@@ -835,7 +894,7 @@ public class TrinoQueryProvider extends QueryProvider {
         return "SELECT table_name FROM information_schema.TABLES WHERE table_name ='" + table + "'";
     }
 
-    public String getSQLSummary(String table, List<ChartViewFieldDTO> yAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view, Datasource ds) {
+    public String getSQLSummary(String table, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view, Datasource ds) {
         SQLObj tableObj = SQLObj.builder().tableName(table.startsWith("(") && table.endsWith(")") ? table : String.format("%s", table)).tableAlias(String.format("t_a_%s", 0)).build();
         this.setSchema(tableObj, ds);
         List<SQLObj> yFields = new ArrayList();
@@ -862,7 +921,7 @@ public class TrinoQueryProvider extends QueryProvider {
             }
         }
 
-        String customWheres = this.transCustomFilterList(tableObj, fieldCustomFilter);
+        String customWheres = this.transChartFilterTrees(tableObj, fieldCustomFilter);
         String extWheres = this.transExtFilterList(tableObj, extFilterRequestList);
         originField = this.transFilterTrees(tableObj, rowPermissionsTree);
         List<SQLObj> fields = new ArrayList();
@@ -917,7 +976,7 @@ public class TrinoQueryProvider extends QueryProvider {
         return this.sqlLimit(st.render(), view);
     }
 
-    public String getSQLSummaryAsTmp(String sql, List<ChartViewFieldDTO> yAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view) {
+    public String getSQLSummaryAsTmp(String sql, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view) {
         return this.getSQLSummary("(" + this.sqlFix(sql) + ")", yAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, view, (Datasource)null);
     }
 
@@ -954,6 +1013,81 @@ public class TrinoQueryProvider extends QueryProvider {
 
     @Override
     public String transTreeItem(SQLObj tableObj, DatasetRowPermissionsTreeItem item) {
+        String res = null;
+        DatasetTableField field = item.getField();
+        if (ObjectUtils.isEmpty(field)) {
+            return null;
+        }
+        String whereName = "";
+        String originName;
+        if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 2) {
+            // 解析origin name中有关联的字段生成sql表达式
+            originName = calcFieldRegex(field.getOriginName(), tableObj);
+        } else if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 1) {
+            originName = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(), field.getOriginName());
+        } else {
+            originName = String.format(TrinoConstants.KEYWORD_FIX, tableObj.getTableAlias(), field.getOriginName());
+        }
+        if (field.getDeType() == 1) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(TrinoConstants.CAST, originName, "timestamp");
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                String cast = String.format(TrinoConstants.CAST, originName, "bigint");
+                whereName = String.format(TrinoConstants.FROM_UNIXTIME, cast);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = originName;
+            }
+        } else if (field.getDeType() == 2 || field.getDeType() == 3) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(TrinoConstants.CAST, originName, TrinoConstants.DEFAULT_FLOAT_FORMAT);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = String.format(TrinoConstants.UNIX_TIMESTAMP, originName);
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                whereName = originName;
+            }
+        } else {
+            whereName = originName;
+        }
+
+        if (StringUtils.equalsIgnoreCase(item.getFilterType(), "enum")) {
+            if (CollectionUtils.isNotEmpty(item.getEnumValue())) {
+                res = "(" + whereName + " IN ('" + String.join("','", item.getEnumValue()) + "'))";
+            }
+        } else {
+            String value = item.getValue();
+            String whereTerm = transMysqlFilterTerm(item.getTerm());
+            String whereValue = "";
+
+            if (StringUtils.equalsIgnoreCase(item.getTerm(), "null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "empty")) {
+                whereValue = "''";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
+                whereValue = "''";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "in") || StringUtils.containsIgnoreCase(item.getTerm(), "not in")) {
+                whereValue = "('" + String.join("','", value.split(",")) + "')";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
+                whereValue = "'%" + value + "%'";
+            } else {
+                whereValue = String.format(TrinoConstants.WHERE_VALUE_VALUE, value);
+            }
+            SQLObj build = SQLObj.builder()
+                    .whereField(whereName)
+                    .whereTermAndValue(whereTerm + whereValue)
+                    .build();
+            res = build.getWhereField() + " " + build.getWhereTermAndValue();
+        }
+        return res;
+    }
+
+    @Override
+    public String transTreeItem(SQLObj tableObj, FilterTreeItem item) {
         String res = null;
         DatasetTableField field = item.getField();
         if (ObjectUtils.isEmpty(field)) {
@@ -1070,6 +1204,7 @@ public class TrinoQueryProvider extends QueryProvider {
         }
     }
 
+    @Deprecated
     public String transCustomFilterList(SQLObj tableObj, List<ChartFieldCustomFilterDTO> requestList) {
         if (CollectionUtils.isEmpty(requestList)) {
             return null;
@@ -1464,7 +1599,7 @@ public class TrinoQueryProvider extends QueryProvider {
         return (List)dateformats;
     }
 
-    public String getResultCount(boolean isTable, String sql, List<ChartViewFieldDTO> xAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+    public String getResultCount(boolean isTable, String sql, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
         return null;
     }
 }
