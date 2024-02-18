@@ -988,6 +988,13 @@ public class ExtractDataService {
                 inputSteps = inputStep(transMeta, selectSQL, mysqlConfiguration);
                 udjcStep = udjc(datasetTableFields, DatasourceTypes.mysql, mysqlConfiguration);
                 break;
+            case hive:
+                HiveConfiguration hiveConfiguration = new Gson().fromJson(datasource.getConfiguration(), HiveConfiguration.class);
+                dataMeta = new DatabaseMeta("db", "HIVE2", "Native", hiveConfiguration.getHost().trim(), hiveConfiguration.getDataBase(), hiveConfiguration.getPort().toString(), hiveConfiguration.getUsername(), hiveConfiguration.getPassword());
+                transMeta.addDatabase(dataMeta);
+                inputSteps = inputStep(transMeta, selectSQL, hiveConfiguration);
+                udjcStep = udjc(datasetTableFields, DatasourceTypes.hive, hiveConfiguration, isSetKey);
+                break;
             case sqlServer:
                 SqlServerConfiguration sqlServerConfiguration = new Gson().fromJson(datasource.getConfiguration(), SqlServerConfiguration.class);
                 dataMeta = new DatabaseMeta("db", "MSSQLNATIVE", "Native", sqlServerConfiguration.getHost().trim(), sqlServerConfiguration.getDataBase(), sqlServerConfiguration.getPort().toString(), sqlServerConfiguration.getUsername(), sqlServerConfiguration.getPassword());
