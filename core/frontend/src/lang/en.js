@@ -1276,6 +1276,7 @@ export default {
     chart_data: 'Data',
     chart_style: 'Style',
     drag_block_type_axis: 'Type Axis',
+    drag_block_series_stack: 'Series Stack',
     drag_block_value_axis: 'Value Axis',
     drag_block_table_data_column: 'Data Column',
     drag_block_pie_angel: 'Sector Angle',
@@ -1546,6 +1547,7 @@ export default {
                           If you enter content in the same format as the reference field, it will be treated as a reference field.`,
     scatter_tip: 'When this indicator is in effect, the bubble size attribute in the style size will be invalid',
     scatter_group_tip: 'This setting only active when quota value in xAxis',
+    echarts_scatter_group_tip: 'This parameter is valid only when the indicator is a basic bar chart',
     place_name_mapping: 'Place name mapping',
     axis_tip: 'The minimum value, maximum value, and interval are all numeric types; it will be regarded as automatic if left blank.<br/>Please make sure that the filled values can be calculated correctly, otherwise the axis values will not be displayed normally.',
     format_tip: `The template variables include {a}, {b}, {c}, {d}, which represent series name, data name, data value, etc. respectively.<br>

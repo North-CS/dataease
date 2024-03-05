@@ -684,6 +684,9 @@ public class ChartViewService {
         if (CollectionUtils.isNotEmpty(xAxis) && StringUtils.equals(xAxis.get(0).getGroupType(), "q") && StringUtils.equalsIgnoreCase(view.getRender(), "antv")) {
             extStack.addAll(xAxisExt);
         }
+        if (CollectionUtils.isNotEmpty(xAxis) && StringUtils.equals(view.getType(), "chart-mix") && StringUtils.equalsIgnoreCase(view.getRender(), "echarts")) {
+            extStack.addAll(xAxisExt);
+        }
         List<ChartViewFieldDTO> extBubble = gson.fromJson(view.getExtBubble(), tokenType);
         FilterTreeObj fieldCustomFilter = gson.fromJson(view.getCustomFilter(), FilterTreeObj.class);
         List<ChartViewFieldDTO> drill = gson.fromJson(view.getDrillFields(), tokenType);
@@ -777,6 +780,7 @@ public class ChartViewService {
             case "bar-group":
             case "bar-group-stack":
             case "flow-map":
+            case "chart-mix":
                 xAxis = xAxis.stream().filter(item -> chartViewFieldNameList.contains(item.getDataeaseName()) || (!desensitizationList.keySet().contains(item.getDataeaseName()) && dataeaseNames.contains(item.getDataeaseName()))).collect(Collectors.toList());
                 yAxis = yAxis.stream().filter(item -> chartViewFieldNameList.contains(item.getDataeaseName()) || (!desensitizationList.keySet().contains(item.getDataeaseName()) && dataeaseNames.contains(item.getDataeaseName()))).collect(Collectors.toList());
                 xAxisBase = xAxisBase.stream().filter(item -> chartViewFieldNameList.contains(item.getDataeaseName()) || (!desensitizationList.keySet().contains(item.getDataeaseName()) && dataeaseNames.contains(item.getDataeaseName()))).collect(Collectors.toList());
@@ -1120,6 +1124,8 @@ public class ChartViewService {
                     totalPageSql = qp.getResultCount(true, dataTableInfoDTO.getTable(), xAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, ds, view);
                 } else if (StringUtils.equalsIgnoreCase("bar-time-range", view.getType())) {
                     querySql = qp.getSQLRangeBar(dataTableInfoDTO.getTable(), xAxisBase, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, ds, view);
+                } else if (StringUtils.containsIgnoreCase(view.getType(), "chart-mix") && StringUtils.containsIgnoreCase(view.getRender(), "echarts")) {
+                    querySql = qp.getSQLStack(dataTableInfoDTO.getTable(), xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, ds, view);
                 } else {
                     querySql = qp.getSQL(dataTableInfoDTO.getTable(), xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, ds, view);
                     if (containDetailField(view) && CollectionUtils.isNotEmpty(viewFields)) {
@@ -1147,6 +1153,8 @@ public class ChartViewService {
 
                     querySql = qp.getSQLAsTmpRangeBar(sql, xAxisBase, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, view);
 
+                } else if (StringUtils.containsIgnoreCase(view.getType(), "chart-mix") && StringUtils.containsIgnoreCase(view.getRender(), "echarts")) {
+                    querySql = qp.getSQLAsTmpStack(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, view);
                 } else {
                     querySql = qp.getSQLAsTmp(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, view);
                     if (containDetailField(view) && CollectionUtils.isNotEmpty(viewFields)) {
@@ -1165,6 +1173,8 @@ public class ChartViewService {
                 if (StringUtils.equalsAnyIgnoreCase(view.getType(), "text", "gauge", "liquid")) {
                     querySql = qp.getSQLSummaryAsTmp(sql, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, view);
                 } else if (StringUtils.containsIgnoreCase(view.getType(), "stack")) {
+                    querySql = qp.getSQLAsTmpStack(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, view);
+                } else if (StringUtils.containsIgnoreCase(view.getType(), "chart-mix") && StringUtils.containsIgnoreCase(view.getRender(), "echarts")) {
                     querySql = qp.getSQLAsTmpStack(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, view);
                 } else if (StringUtils.containsIgnoreCase(view.getType(), "scatter")) {
                     querySql = qp.getSQLAsTmpScatter(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extBubble, extStack, view);
@@ -1192,6 +1202,8 @@ public class ChartViewService {
                 if (StringUtils.equalsAnyIgnoreCase(view.getType(), "text", "gauge", "liquid")) {
                     querySql = qp.getSQLSummaryAsTmp(sql, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, view);
                 } else if (StringUtils.containsIgnoreCase(view.getType(), "stack")) {
+                    querySql = qp.getSQLAsTmpStack(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, view);
+                } else if (StringUtils.containsIgnoreCase(view.getType(), "chart-mix") && StringUtils.containsIgnoreCase(view.getRender(), "echarts")) {
                     querySql = qp.getSQLAsTmpStack(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, view);
                 } else if (StringUtils.containsIgnoreCase(view.getType(), "scatter")) {
                     querySql = qp.getSQLAsTmpScatter(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extBubble, extStack, view);
@@ -1251,6 +1263,8 @@ public class ChartViewService {
             if (StringUtils.equalsAnyIgnoreCase(view.getType(), "text", "gauge", "liquid")) {
                 datasourceRequest.setQuery(qp.getSQLSummary(tableName, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, view, ds));
             } else if (StringUtils.containsIgnoreCase(view.getType(), "stack")) {
+                datasourceRequest.setQuery(qp.getSQLStack(tableName, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, ds, view));
+            } else if (StringUtils.containsIgnoreCase(view.getType(), "chart-mix") && StringUtils.containsIgnoreCase(view.getRender(), "echarts")) {
                 datasourceRequest.setQuery(qp.getSQLStack(tableName, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extStack, ds, view));
             } else if (StringUtils.containsIgnoreCase(view.getType(), "scatter")) {
                 datasourceRequest.setQuery(qp.getSQLScatter(tableName, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterList, extBubble, extStack, ds, view));
@@ -1447,7 +1461,12 @@ public class ChartViewService {
                     || StringUtils.equalsIgnoreCase("liquid", view.getType())) {
                 mapChart = ChartDataBuild.transNormalChartData(xAxis, yAxis, view, data, isDrill);
             } else if (StringUtils.containsIgnoreCase(view.getType(), "chart-mix")) {
-                mapChart = ChartDataBuild.transMixChartData(xAxis, yAxis, view, data, isDrill);
+                if (CollectionUtils.isEmpty(extStack)) {
+                    mapChart = ChartDataBuild.transMixChartData(xAxis, yAxis, view, data, isDrill);
+                } else {
+                    List<ChartViewFieldDTO> originExtStack = gson.fromJson(view.getExtStack(), tokenType);
+                    mapChart = ChartDataBuild.transMixChartEchartsData(xAxis, yAxis, view, data, originExtStack, xAxisExt, isDrill);
+                }
             } else if (StringUtils.containsIgnoreCase(view.getType(), "label")) {
                 mapChart = ChartDataBuild.transLabelChartData(xAxis, yAxis, view, data, isDrill);
             } else {

@@ -14,5 +14,6 @@ import java.util.List;
 public class Series {
     private String name;
     private String type;
+    private String stack;
     private List<Object> data;
 }

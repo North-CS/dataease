@@ -1274,6 +1274,7 @@ export default {
     chart_data: '數據',
     chart_style: '樣式',
     drag_block_type_axis: '類別軸',
+    drag_block_series_stack: '堆疊項',
     drag_block_value_axis: '值軸',
     drag_block_table_data_column: '數據列',
     drag_block_pie_angel: '扇區角度',
@@ -1538,6 +1539,7 @@ export default {
     reference_field_tip: '引用字段以 "[" 開始，"]" 結束。請<br/>勿修改引用內容，否則將引用失敗。<br/>若輸入與引用字段相同格式的內容，將被當做引用字段處理。',
     scatter_tip: '該指標生效時，樣式大小中的氣泡大小屬性將失效',
     scatter_group_tip: '僅當橫軸內為指標時生效',
+    echarts_scatter_group_tip: '僅當指標爲基礎柱狀圖時生效',
     place_name_mapping: '地名映射',
     axis_tip: '最小值、最大值、間隔均為數值類型；若不填，則該項視為自動。<br/>請確保填寫數值能正確計算，否則將無法正常顯示值軸',
     format_tip: `模板變量有 {a}, {b}，{c}，{d}，分別表示系列名，數據名，數據值等。<br>

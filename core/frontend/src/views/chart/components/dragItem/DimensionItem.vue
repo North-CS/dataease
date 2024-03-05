@@ -219,6 +219,10 @@ export default {
       type: Array,
       required: true
     },
+    stackData: {
+      type: Array,
+      required: true
+    },
     quotaData: {
       type: Array,
       required: true

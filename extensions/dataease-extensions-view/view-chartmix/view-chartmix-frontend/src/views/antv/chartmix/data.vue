@@ -3,7 +3,7 @@
     <!-- source -->
     <el-row class="padding-lr">
       <span style="width: 80px;text-align: right;">
-        <span>{{ $t('plugin_view_chartmix.source') }}</span>/<span>{{ $t('chart.dimension') }}</span>
+        <span>{{ $t('plugin_view_chartmix.source') }}test</span>/<span>{{ $t('chart.dimension') }}</span>
       </span>
       <draggable
         v-model="view.xaxis"
@@ -136,7 +136,7 @@
     </el-row>
     <FilterTree
       ref="filterTree"
-     @filter-data="changeFilterData"    @execute-axios="executeAxios"                               
+     @filter-data="changeFilterData"    @execute-axios="executeAxios"
     />
 
   </div>
