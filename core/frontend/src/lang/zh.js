@@ -1281,6 +1281,7 @@ export default {
     chart_data: '数据',
     chart_style: '样式',
     drag_block_type_axis: '类别轴',
+    drag_block_series_stack: '堆叠项',
     drag_block_value_axis: '值轴',
     drag_block_table_data_column: '数据列',
     drag_block_pie_angel: '扇区角度',
@@ -1546,6 +1547,7 @@ export default {
     reference_field_tip: '引用字段以 "[" 开始， "]" 结束。<br/>请勿修改引用内容，否则将引用失败。<br/>若输入与引用字段相同格式的内容，将被当作引用字段处理。',
     scatter_tip: '该指标生效时，样式大小中的气泡大小属性将失效',
     scatter_group_tip: '仅当横轴内为指标时生效',
+    echarts_scatter_group_tip: '仅当指标为基础柱状图时生效',
     place_name_mapping: '地名映射',
     axis_tip: '最小值、最大值、间隔均为数值类型；若不填，则该项视为自动。<br/>请确保填写数值能正确计算，否则将无法正常显示轴值。',
     format_tip: `模板变量有 {a}, {b}，{c}，{d}，分别表示系列名，数据名，数据值等。<br>

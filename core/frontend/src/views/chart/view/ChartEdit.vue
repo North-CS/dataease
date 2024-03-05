@@ -683,6 +683,128 @@
                         <span class="drag-placeholder-style-span">{{ $t('chart.placeholder_field') }}</span>
                       </div>
                     </el-row>
+
+                    <!-- 子维度 -->
+                    <el-row v-if="view.type === 'chart-mix' && view.render === 'echarts'"
+                      class="padding-lr"
+                    >
+                      <span class="data-area-label">
+                        <span>
+                          {{ $t('chart.chart_group') }}
+                        </span>
+                        /
+                        <span>{{ $t('chart.dimension') }}</span>
+                        <el-tooltip
+                          class="item"
+                          effect="dark"
+                          placement="bottom"
+                        >
+                          <div slot="content">
+                            {{ $t('chart.echarts_scatter_group_tip') }}
+                          </div>
+                          <i
+                            class="el-icon-info"
+                            style="cursor: pointer;color: #606266;"
+                          />
+                        </el-tooltip>
+                        <i
+                          class="el-icon-arrow-down el-icon-delete data-area-clear"
+                          @click="clearData('xaxisExt')"
+                        />
+                      </span>
+                      <draggable
+                        v-model="view.xaxisExt"
+                        group="drag"
+                        animation="300"
+                        :move="onMove"
+                        class="drag-block-style"
+                        @add="addXaxisExt"
+                        @update="calcData(true)"
+                      >
+                        <transition-group class="draggable-group">
+                          <dimension-ext-item
+                            v-for="(item,index) in view.xaxisExt"
+                            :key="item.id"
+                            :param="param"
+                            :index="index"
+                            :item="item"
+                            :dimension-data="dimension"
+                            :quota-data="quota"
+                            :chart="chart"
+                            @onDimensionItemChange="dimensionItemChange"
+                            @onDimensionItemRemove="dimensionItemRemove"
+                            @editItemFilter="showDimensionEditFilter"
+                            @onNameEdit="showRename"
+                          />
+                        </transition-group>
+                      </draggable>
+                      <div
+                        v-if="!view.xaxisExt || view.xaxisExt.length === 0"
+                        class="drag-placeholder-style"
+                      >
+                        <span class="drag-placeholder-style-span">{{ $t('chart.placeholder_field') }}</span>
+                      </div>
+                    </el-row>
+                    <!-- 堆叠项 -->
+                    <el-row
+                      v-if="view.type =='chart-mix' && view.render === 'echarts'"
+                      class="padding-lr"
+                    >
+                      <span class="data-area-label">
+                        <span>{{$t('chart.drag_block_series_stack')}} / {{ $t('chart.dimension') }}</span>
+                        <el-tooltip
+                          class="item"
+                          effect="dark"
+                          placement="bottom"
+                        >
+                          <div slot="content">
+                            {{ $t('chart.echarts_scatter_group_tip') }}
+                          </div>
+                          <i
+                            class="el-icon-info"
+                            style="cursor: pointer;color: #606266;"
+                          />
+                        </el-tooltip>
+                        <i
+                          class="el-icon-arrow-down el-icon-delete data-area-clear"
+                          @click="clearData('extStack')"
+                        />
+                      </span>
+                      <draggable
+                        v-model="view.extStack"
+                        group="drag"
+                        animation="300"
+                        :move="onMove"
+                        class="drag-block-style"
+                        @add="addStack"
+                        @update="calcData(true)"
+                      >
+                        <transition-group class="draggable-group">
+                          <chart-drag-item
+                            v-for="(item,index) in view.extStack"
+                            :key="item.id"
+                            :conf="'sort'"
+                            :param="param"
+                            :index="index"
+                            :item="item"
+                            :chart="chart"
+                            :dimension-data="dimension"
+                            :quota-data="quota"
+                            @onItemChange="stackItemChange"
+                            @onItemRemove="stackItemRemove"
+                            @onItemCustomSort="item => onCustomSort(item, 'extStack')"
+                            @onNameEdit="showRename"
+                          />
+                        </transition-group>
+                      </draggable>
+                      <div
+                        v-if="!view.extStack || view.extStack.length === 0"
+                        class="drag-placeholder-style"
+                      >
+                        <span class="drag-placeholder-style-span">{{ $t('chart.placeholder_field') }}</span>
+                      </div>
+                    </el-row>
+
                     <!--group field,use xaxisExt-->
                     <el-row
                       v-if="view.type === 'bar-group'
@@ -1985,11 +2107,13 @@ export default {
       loading: false,
       table: {},
       dimension: [],
+      stacks: [],
       quota: [],
       dimensionData: [],
       quotaData: [],
       view: {
         xaxis: [],
+        stack: [],
         xaxisExt: [],
         yaxis: [],
         yaxisExt: [],
@@ -2611,6 +2735,7 @@ export default {
         }
       })
       if (equalsAny(view.type, 'chart-mix', 'bidirectional-bar')) {
+        console.log('>>>>>>>>>view:', view);
         view.yaxisExt.forEach(function(ele) {
           if (!ele.chartType) {
             ele.chartType = view.type === 'chart-mix' ? 'line' : 'bar'
@@ -2883,6 +3008,7 @@ export default {
 
             // 将视图传入echart组件
             this.chart = response.data
+            console.log("将视图传入echart组件 this.chart:", this.chart);
             this.data = response.data.data
           }
         }).catch(err => {
@@ -2931,7 +3057,7 @@ export default {
       } else if (item.removeType === 'dimensionExt') {
         this.view.xaxisExt.splice(item.index, 1)
       }
-      this.calcData(true)
+      this.calcData(true);
     },
     dimensionItemExtRemove(item) {
       this.view.xaxisExt.splice(item.index, 1)
@@ -3335,6 +3461,11 @@ export default {
       if ((this.view.type === 'map' || this.view.type === 'word-cloud' || this.view.type === 'label') && this.view.xaxis.length > 1) {
         this.view.xaxis = [this.view.xaxis[0]]
       }
+      this.calcData(true)
+    },
+    adStack(e) {
+      this.multiAdd(e, this.view.stack)
+      this.dragMoveDuplicate(this.view.stack, e)
       this.calcData(true)
     },
     addXaxisExt(e) {

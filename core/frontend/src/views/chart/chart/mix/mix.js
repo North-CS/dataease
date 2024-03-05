@@ -14,8 +14,21 @@ export function baseMixOption(chart_option, chart) {
     // tooltip
     if (customAttr.tooltip) {
       const tooltip = JSON.parse(JSON.stringify(customAttr.tooltip))
-      const reg = new RegExp('\n', 'g')
-      tooltip.formatter = tooltip.formatter.replace(reg, '<br/>')
+      if (tooltip.formatter == null || tooltip.formatter == "") {
+        tooltip.formatter = function (params) {
+          const a = chart_option.series[params.seriesIndex].stack;
+          const b = chart_option.series[params.seriesIndex].name;
+          const c = params.value;
+          if (a == null) {
+            return b + "<br/>" + c;
+          } else {
+            return a + "<br/>" + b + "<br/>" + c;
+          }
+        };
+      } else {
+        const reg = new RegExp('\n', 'g');
+        tooltip.formatter = tooltip.formatter.replace(reg, '<br/>')
+      }
       chart_option.tooltip = tooltip
 
       const bgColor = tooltip.backgroundColor ? tooltip.backgroundColor : DEFAULT_TOOLTIP.backgroundColor
