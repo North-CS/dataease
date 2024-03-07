@@ -427,7 +427,7 @@
                         size="mini"
                         @change="calcData"
                       >
-                        <el-radio label="all"><span>{{ $t('chart.result_mode_all') }}</span></el-radio>
+                        <el-radio v-show="view.type!=='table-info' && view.type!=='table-normal' && view.type!=='table-pivot'" label="all"><span>{{ $t('chart.result_mode_all') }}</span></el-radio>
                         <el-radio label="custom">
                           <el-input
                             v-model="view.resultCount"

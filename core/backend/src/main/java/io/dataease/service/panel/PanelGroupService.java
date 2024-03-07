@@ -31,6 +31,7 @@ import io.dataease.listener.util.CacheUtils;
 import io.dataease.plugins.common.base.domain.*;
 import io.dataease.plugins.common.base.mapper.*;
 import io.dataease.plugins.common.constants.DeTypeConstants;
+import io.dataease.plugins.common.dto.chart.ChartViewFieldDTO;
 import io.dataease.plugins.common.exception.DataEaseException;
 import io.dataease.plugins.common.util.HttpClientUtil;
 import io.dataease.service.chart.ChartViewService;
@@ -1162,28 +1163,24 @@ public class PanelGroupService {
 
     public void findExcelData(PanelViewDetailsRequest request) {
         ChartViewWithBLOBs viewInfo = chartViewService.get(request.getViewId());
-        if ("table-info".equals(viewInfo.getType())) {
+        if ("table-info".equals(viewInfo.getType()) || "table-normal".equals(viewInfo.getType()) || "table-pivot".equals(viewInfo.getType())) {
             try {
-                List<String> excelHeaderKeys = request.getExcelHeaderKeys();
-                ChartExtRequest componentFilterInfo = request.getComponentFilterInfo();
-                componentFilterInfo.setGoPage(1L);
-                componentFilterInfo.setPageSize(limit);
-                componentFilterInfo.setExcelExportFlag(true);
-                componentFilterInfo.setProxy(request.getProxy());
-                componentFilterInfo.setUser(request.getUserId());
-                ChartViewDTO chartViewInfo = chartViewService.getData(request.getViewId(), componentFilterInfo);
-                List<Map> tableRow = (List) chartViewInfo.getData().get("tableRow");
-                List<Object[]> result = new ArrayList<>();
-                for (Map detailMap : tableRow) {
-                    List<Object> detailObj = new ArrayList<>();
-                    for (String key : excelHeaderKeys) {
-                        detailObj.add(detailMap.get(key));
+                ChartViewDTO chartViewDTO = chartViewService.getExportData(request.getViewId(), request.getComponentFilterInfo());
+                List<Object> tableRows = (List<Object>) chartViewDTO.getData().get("tableRow");
+                List<ChartViewFieldDTO> fields = (List<ChartViewFieldDTO>) chartViewDTO.getData().get("fields");
+
+                List<Object[]> details = new ArrayList<>();
+                for (int i = 0; i < tableRows.size(); i++) {
+                    Object[] details2Obj = new Object[fields.size()];
+                    Object row = tableRows.get(i);
+                    for (int j = 0; j < fields.size(); j++) {
+                        details2Obj[j] = ((HashMap) row).get(fields.get(j).getDataeaseName());
                     }
-                    result.add(detailObj.toArray());
+                    details.add(details2Obj);
                 }
-                request.setDetails(result);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+                request.setDetails(details);
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
             }
         }
 
