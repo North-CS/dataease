@@ -801,7 +801,7 @@ public class ChartDataBuild {
                 Map<String, Double> groupDataMap = new HashMap<>();
                 for (String[] d : data) {
                     String key = d[xAxis.size() - 1];
-                    Double value = Double.valueOf(d[xAxis.size() + extStack.size() + xAxisExt.size() + i]);
+                    Double value = Double.valueOf(StringUtils.isNotEmpty(d[xAxis.size() + extStack.size() + xAxisExt.size() + i]) ? d[xAxis.size() + extStack.size() + xAxisExt.size() + i] : "0");
 
                     if (groupDataMap.keySet().contains(key)) {
                         Double v = groupDataMap.get(key);
