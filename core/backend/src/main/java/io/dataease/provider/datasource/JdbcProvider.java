@@ -175,6 +175,8 @@ public class JdbcProvider extends DefaultJdbcProvider {
         } else {
             if (datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.hive.name()) && tableField.getFieldType().equalsIgnoreCase("BOOLEAN")) {
                 tableField.setFieldSize(1);
+            } else if (datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.hive.name()) && tableField.getFieldType().equalsIgnoreCase("STRING")) {
+                tableField.setFieldSize(500);
             } else {
                 String size = resultSet.getString("COLUMN_SIZE");
                 if (size == null) {
@@ -331,6 +333,8 @@ public class JdbcProvider extends DefaultJdbcProvider {
             if (datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.ck.name())) {
                 QueryProvider qp = ProviderFactory.getQueryProvider(datasourceRequest.getDatasource().getType());
                 field.setFieldSize(qp.transFieldSize(t));
+            } else if (datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.hive.name()) && metaData.getColumnTypeName(j + 1).equals("string")) {
+                field.setFieldSize(500);
             } else {
                 field.setFieldSize(metaData.getColumnDisplaySize(j + 1));
             }
