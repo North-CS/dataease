@@ -966,7 +966,11 @@ public class HiveQueryProvider extends QueryProvider {
             if (f.getDeExtractType() == 4) { // 处理 tinyint
                 stringBuilder.append("concat(`").append(f.getOriginName()).append("`,'') AS ").append(f.getDataeaseName());
             } else {
-                stringBuilder.append("`").append(f.getOriginName()).append("` AS ").append(f.getDataeaseName());
+                if (StringUtils.equalsIgnoreCase(f.getType(), "STRING")) {
+                    stringBuilder.append("cast(").append("`").append(f.getOriginName()).append("` as varchar(500))").append(" AS ").append(f.getDataeaseName());
+                } else {
+                    stringBuilder.append("`").append(f.getOriginName()).append("` AS ").append(f.getDataeaseName());
+                }
             }
             return stringBuilder.toString();
         }).toArray(String[]::new);
