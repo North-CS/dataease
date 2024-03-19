@@ -993,7 +993,7 @@ public class ExtractDataService {
                 dataMeta = new DatabaseMeta("db", "HIVE2", "Native", hiveConfiguration.getHost().trim(), hiveConfiguration.getDataBase(), hiveConfiguration.getPort().toString(), hiveConfiguration.getUsername(), hiveConfiguration.getPassword());
                 transMeta.addDatabase(dataMeta);
                 inputSteps = inputStep(transMeta, selectSQL, hiveConfiguration);
-                udjcStep = udjc(datasetTableFields, DatasourceTypes.hive, hiveConfiguration, isSetKey);
+                udjcStep = udjc(datasetTableFields, DatasourceTypes.hive, hiveConfiguration);
                 break;
             case sqlServer:
                 SqlServerConfiguration sqlServerConfiguration = new Gson().fromJson(datasource.getConfiguration(), SqlServerConfiguration.class);
