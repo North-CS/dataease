@@ -665,6 +665,7 @@ public class ChartDataBuild {
             series1.setName(y.getName());
             series1.setType(y.getChartType());
             series1.setData(new ArrayList<>());
+            series1.setShaft(y.getShaft());
             series.add(series1);
         }
         for (int i1 = 0; i1 < data.size(); i1++) {
@@ -721,6 +722,7 @@ public class ChartDataBuild {
             series1.setName(y.getName());
             series1.setType(y.getChartType());
             series1.setData(new ArrayList<>());
+            series1.setShaft(y.getShaft());
             series.add(series1);
         }
         for (int i1 = 0; i1 < data.size(); i1++) {
@@ -784,8 +786,20 @@ public class ChartDataBuild {
         return series;
     }
 
+    static class ValueComparator implements Comparator<String> {
+        Map<String, Double> base;
+        ValueComparator(Map<String, Double> map) {
+            this.base = map;
+        }
+
+        @Override
+        public int compare(String a, String b) {
+            return base.get(a).compareTo(base.get(b));
+        }
+    }
+
     // Echarts组合图
-    public static Map<String, Object> transMixChartEchartsData(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, List<ChartViewFieldDTO> extStack, List<ChartViewFieldDTO> xAxisExt, boolean isDrill) {
+    public static Map<String, Object> transMixChartEchartsData(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,List<ChartViewFieldDTO> yAxisExt, ChartViewWithBLOBs view, List<String[]> data, List<ChartViewFieldDTO> extStack, List<ChartViewFieldDTO> xAxisExt, boolean isDrill) {
         Map<String, Object> map = new HashMap<>();
 
         List<String> x = new ArrayList<>();
@@ -794,8 +808,16 @@ public class ChartDataBuild {
         List<ChartViewFieldDTO> yAxisBar = new ArrayList<>();
 
         // 折线数据处理——按类别轴维度 xAxis 汇总
+        int index = 0;
+        List<String[]> newData = new ArrayList<>();
         for (int i = 0; i < yAxis.size(); i++) {
             ChartViewFieldDTO y = yAxis.get(i);
+            if (CollectionUtils.isNotEmpty(yAxisExt) && yAxisExt.stream().anyMatch(ext -> StringUtils.equals(ext.getId(), y.getId()))) {
+                y.setShaft("auxiliary");
+            } else {
+                y.setShaft("principal");
+            }
+
             if (StringUtils.equals(y.getChartType(), "line")) {
                 // data 聚合处理
                 Map<String, Double> groupDataMap = new HashMap<>();
@@ -812,14 +834,9 @@ public class ChartDataBuild {
                     }
                 }
 
-                // data分组聚合后的数据
+                // 按值排序
                 List<String[]> groupData = new ArrayList<>();
-                for (String key : groupDataMap.keySet()) {
-                    String[] keyData = new String[2];
-                    keyData[0] = key;
-                    keyData[1] = String.valueOf(groupDataMap.get(key));
-                    groupData.add(keyData);
-                }
+                newData =sortForY(groupData, y, groupDataMap, data);
 
                 List<ChartViewFieldDTO> yAxisChild = new ArrayList<>();
                 yAxisChild.add(y);
@@ -842,14 +859,9 @@ public class ChartDataBuild {
                     }
                 }
 
-                // data分组聚合后的数据
+                // 按值排序
                 List<String[]> groupData = new ArrayList<>();
-                for (String key : groupDataMap.keySet()) {
-                    String[] keyData = new String[2];
-                    keyData[0] = key;
-                    keyData[1] = String.valueOf(groupDataMap.get(key));
-                    groupData.add(keyData);
-                }
+                newData =sortForY(groupData, y, groupDataMap, data);
 
                 List<ChartViewFieldDTO> yAxisChild = new ArrayList<>();
                 yAxisChild.add(y);
@@ -858,11 +870,12 @@ public class ChartDataBuild {
                 // 柱状图处理
             } else {
                 yAxisBar.add(y);
+                index = i;
             }
         }
 
         // 构建横轴
-        for (String[] d : data) {
+        for (String[] d : newData) {
             StringBuilder a = new StringBuilder();
             if (isDrill) {
                 a.append(d[xAxis.size() - 1]);
@@ -879,18 +892,21 @@ public class ChartDataBuild {
         }
         x = x.stream().distinct().collect(Collectors.toList());
 
+        // data 排序
+
+
         if (yAxis.size() > series.size()) {
             // 堆叠柱状图
             if (CollectionUtils.isEmpty(xAxisExt)) {
-                List<Series> stackSeries = getStackChartData(xAxis, yAxisBar, view, data, extStack, isDrill);
+                List<Series> stackSeries = getStackChartData(xAxis, yAxisBar, view, newData, extStack, isDrill, index);
                 series.addAll(stackSeries);
                 //  分组柱状图
             } else if (CollectionUtils.isNotEmpty(xAxisExt) && CollectionUtils.isEmpty(extStack)) {
-                List<Series> groupSeries = transBaseGroupDataEcharts(xAxis, xAxisExt, yAxisBar, view, data, isDrill);
+                List<Series> groupSeries = transBaseGroupDataEcharts(xAxis, xAxisExt, yAxisBar, view, newData, isDrill, index);
                 series.addAll(groupSeries);
                 // 分组堆叠柱状图
             } else {
-                List<Series> stackGroupSeries = getStackGroupChartData(xAxis, xAxisExt, yAxisBar, view, data, extStack, isDrill);
+                List<Series> stackGroupSeries = getStackGroupChartData(xAxis, xAxisExt, yAxisBar, view, newData, extStack, isDrill, index);
                 series.addAll(stackGroupSeries);
             }
         }
@@ -898,6 +914,70 @@ public class ChartDataBuild {
         map.put("x", x);
         map.put("series", series);
         return map;
+    }
+
+    public static List<String[]> sortForY(List<String[]> groupData, ChartViewFieldDTO y, Map<String, Double> groupDataMap, List<String[]> data) {
+        if (StringUtils.equals(y.getSort(), "desc")) {
+            List<Map.Entry<String, Double>> wordMap = new ArrayList<Map.Entry<String, Double>>(groupDataMap.entrySet());
+            Collections.sort(wordMap, new Comparator<Map.Entry<String, Double>>() {
+                //根据value排序
+                public int compare(Map.Entry<String, Double> o1,
+                                   Map.Entry<String, Double> o2) {
+                    double result = o2.getValue() - o1.getValue();
+                    if (result > 0)
+                        return 1;
+                    else if (result == 0)
+                        return 0;
+                    else
+                        return -1;
+                }
+            });
+            for (int i1 = 0; i1 < wordMap.size(); i1++) {
+                String[] keyData = new String[2];
+                keyData[0] = wordMap.get(i1).getKey();
+                keyData[1] = String.valueOf(wordMap.get(i1).getValue());
+                groupData.add(keyData);
+            }
+        } else if (StringUtils.equals(y.getSort(), "asc")) {
+            List<Map.Entry<String, Double>> wordMap = new ArrayList<Map.Entry<String, Double>>(groupDataMap.entrySet());
+            Collections.sort(wordMap, new Comparator<Map.Entry<String, Double>>() {
+                //根据value排序
+                public int compare(Map.Entry<String, Double> o1,
+                                   Map.Entry<String, Double> o2) {
+                    double result = o2.getValue() - o1.getValue();
+                    if (result < 0)
+                        return 1;
+                    else if (result == 0)
+                        return 0;
+                    else
+                        return -1;
+                }
+            });
+            for (int i1 = 0; i1 < wordMap.size(); i1++) {
+                String[] keyData = new String[2];
+                keyData[0] = wordMap.get(i1).getKey();
+                keyData[1] = String.valueOf(wordMap.get(i1).getValue());
+                groupData.add(keyData);
+            }
+        } else {
+            for (String key : groupDataMap.keySet()) {
+                String[] keyData = new String[2];
+                keyData[0] = key;
+                keyData[1] = String.valueOf(groupDataMap.get(key));
+                groupData.add(keyData);
+            }
+        }
+
+        List<String[]> newData = new ArrayList<>();
+        for (int i = 0; i < groupData.size(); i++) {
+            String key = groupData.get(i)[0];
+            for (int j = 0; j < data.size(); j++) {
+                if (StringUtils.equals(data.get(j)[0], key)) {
+                    newData.add(data.get(j));
+                }
+            }
+        }
+        return newData;
     }
 
     // 文本卡图形
@@ -1018,7 +1098,7 @@ public class ChartDataBuild {
     }
 
     // 分组图
-    public static List<Series> transBaseGroupDataEcharts(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> xAxisExt, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, boolean isDrill) {
+    public static List<Series> transBaseGroupDataEcharts(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> xAxisExt, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, boolean isDrill, int yIndex) {
         List<String> x = new ArrayList<>();
         List<Series> series = new ArrayList<>();
         List<String> groupNames = new ArrayList<>();
@@ -1057,6 +1137,7 @@ public class ChartDataBuild {
                 list.add(defaultAxisChartDataDTO);
             }
             series1.setData(list);
+            series1.setShaft(yAxis.get(0).getShaft());
             series.add(series1);
         }
         for (Series ss : series) {
@@ -1099,7 +1180,7 @@ public class ChartDataBuild {
                                 dimensionList.add(chartDimensionDTO);
                                 axisChartDataDTO.setDimensionList(dimensionList);
 
-                                String s = row[xAxis.size() + xAxisExt.size()];
+                                String s = row[xAxis.size() + xAxisExt.size() + yIndex];
                                 if (StringUtils.isNotEmpty(s)) {
                                     axisChartDataDTO.setValue(new BigDecimal(s));
                                     ss.getData().set(i, axisChartDataDTO);
@@ -1116,7 +1197,7 @@ public class ChartDataBuild {
     }
 
     // 堆叠图
-    public static List<Series> getStackChartData(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, List<ChartViewFieldDTO> extStack, boolean isDrill) {
+    public static List<Series> getStackChartData(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, List<ChartViewFieldDTO> extStack, boolean isDrill, int yIndex) {
         List<String> x = new ArrayList<>();
         List<Series> series = new ArrayList<>();
 
@@ -1151,6 +1232,7 @@ public class ChartDataBuild {
                 list.add(defaultAxisChartDataDTO);
             }
             series1.setData(list);
+            series1.setShaft(yAxis.get(0).getShaft());
             series.add(series1);
         }
         for (Series ss : series) {
@@ -1193,7 +1275,7 @@ public class ChartDataBuild {
                                 dimensionList.add(chartDimensionDTO);
                                 axisChartDataDTO.setDimensionList(dimensionList);
 
-                                String s = row[xAxis.size() + extStack.size()];
+                                String s = row[xAxis.size() + extStack.size() + yIndex];
                                 if (StringUtils.isNotEmpty(s)) {
                                     axisChartDataDTO.setValue(new BigDecimal(s));
                                     ss.getData().set(i, axisChartDataDTO);
@@ -1210,7 +1292,7 @@ public class ChartDataBuild {
     }
 
     // 分组堆叠图
-    public static List<Series> getStackGroupChartData(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> xAxisExt, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, List<ChartViewFieldDTO> extStack, boolean isDrill) {
+    public static List<Series> getStackGroupChartData(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> xAxisExt, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, List<ChartViewFieldDTO> extStack, boolean isDrill, int yIndex) {
         List<String> x = new ArrayList<>();
         List<Series> series = new ArrayList<>();
 
@@ -1245,6 +1327,7 @@ public class ChartDataBuild {
                 list.add(defaultAxisChartDataDTO);
             }
             series1.setData(list);
+            series1.setShaft(yAxis.get(0).getShaft());
             series.add(series1);
         }
         for (Series ss : series) {
@@ -1287,7 +1370,7 @@ public class ChartDataBuild {
                                 dimensionList.add(chartDimensionDTO);
                                 axisChartDataDTO.setDimensionList(dimensionList);
 
-                                String s = row[xAxis.size() + xAxisExt.size() + extStack.size()];
+                                String s = row[xAxis.size() + xAxisExt.size() + extStack.size() + yIndex];
                                 if (StringUtils.isNotEmpty(s)) {
                                     axisChartDataDTO.setValue(new BigDecimal(s));
                                     ss.getData().set(i, axisChartDataDTO);

@@ -18,4 +18,6 @@ public class ChartViewFieldDTO extends ChartViewFieldBaseDTO implements Serializ
     private String busiType;
 
     private boolean drill;
+
+    private String shaft; // principal(主轴) or auxiliary（副轴）
 }

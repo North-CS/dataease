@@ -15,5 +15,6 @@ public class Series {
     private String name;
     private String type;
     private String stack;
+    private String shaft; // principal(主轴) or auxiliary（副轴）
     private List<Object> data;
 }

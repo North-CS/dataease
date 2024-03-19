@@ -41,6 +41,7 @@ export function baseMixOption(chart_option, chart) {
   if (chart.data) {
     chart_option.title.text = chart.title
     chart_option.xAxis.data = chart.data.x
+    // console.log('yAxis:', yAxis);
     for (let i = 0; i < chart.data.series.length; i++) {
       const y = chart.data.series[i]
       y.type = y.type ? y.type : 'bar'
@@ -81,7 +82,9 @@ export function baseMixOption(chart_option, chart) {
         y.label = customAttr.label
       }
       chart_option.legend.data.push(y.name)
-      i >= yAxis.length ? (y.yAxisIndex = 1) : (y.yAxisIndex = 0)
+      // 主轴值全部用左侧纵轴，副轴值全部用右侧轴值
+      // i >= yAxis.length ? (y.yAxisIndex = 1) : (y.yAxisIndex = 0)
+      y.yAxisIndex = y.shaft === 'principal' ? 0 : 1;
 
       // get max
       if (i >= yAxis.length) {

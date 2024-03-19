@@ -672,8 +672,9 @@ public class ChartViewService {
             xAxis.addAll(xAxisExt);
         }
         List<ChartViewFieldDTO> yAxis = gson.fromJson(view.getYAxis(), tokenType);
+        List<ChartViewFieldDTO> yAxisExt = new ArrayList<>();
         if (StringUtils.equalsAnyIgnoreCase(view.getType(), "chart-mix", "bidirectional-bar")) {
-            List<ChartViewFieldDTO> yAxisExt = gson.fromJson(view.getYAxisExt(), tokenType);
+            yAxisExt = gson.fromJson(view.getYAxisExt(), tokenType);
             yAxis.addAll(yAxisExt);
         }
         if (StringUtils.equalsIgnoreCase(view.getRender(), "antv") && StringUtils.equalsAnyIgnoreCase(view.getType(), "gauge", "liquid")) {
@@ -1489,7 +1490,7 @@ public class ChartViewService {
                     mapChart = ChartDataBuild.transMixChartData(xAxis, yAxis, view, data, isDrill);
                 } else {
                     List<ChartViewFieldDTO> originExtStack = gson.fromJson(view.getExtStack(), tokenType);
-                    mapChart = ChartDataBuild.transMixChartEchartsData(xAxis, yAxis, view, data, originExtStack, xAxisExt, isDrill);
+                    mapChart = ChartDataBuild.transMixChartEchartsData(xAxis, yAxis, yAxisExt, view, data, originExtStack, xAxisExt, isDrill);
                 }
             } else if (StringUtils.containsIgnoreCase(view.getType(), "label")) {
                 mapChart = ChartDataBuild.transLabelChartData(xAxis, yAxis, view, data, isDrill);
