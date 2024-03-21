@@ -19,7 +19,7 @@
       label-width="180px"
       label-position="right"
     >
-      <el-form-item
+      <el-form-item v-if="showItem(driverForm.id)"
         :label="$t('driver.driver')"
         prop="driverClass"
       >
@@ -41,6 +41,7 @@
       </el-form-item>
     </el-form>
     <el-upload
+      v-show="showItem(driverForm.id)"
       :action="baseUrl + 'driver/file/upload'"
       :multiple="true"
       :show-file-list="false"
@@ -62,7 +63,7 @@
         {{ uploading ? $t('dataset.uploading') : $t('dataset.upload_file') }}
       </deBtn>
     </el-upload>
-    <p class="tips">
+    <p class="tips" v-show="showItem(driverForm.id)">
       {{ $t('datasource.can_be_uploaded') }}
     </p>
     <div class="jar-cont">
@@ -107,7 +108,7 @@
 <script>
 import i18n from '@/lang/index'
 import {
-  deleteDriverFile,
+  deleteDriverFile, getDriver,
   listDriverDetails,
   updateDriver
 } from '@/api/system/datasource'
@@ -216,6 +217,10 @@ export default {
       this.params.showModel === 'show' &&
       !this.canEdit
     this.listDriverDetails()
+
+    getDriver(this.driverForm.id).then((res) => {
+      this.driverForm = res.data
+    })
   },
   methods: {
     beforeUpload(file) {
@@ -299,7 +304,14 @@ export default {
     },
     refreshType(form) {
       this.$emit('refresh-type', form)
-    }
+    },
+    showItem(id){
+      if (id !== '' && id.indexOf("default") !== -1) {
+        return false
+      } else {
+        return true
+      }
+    },
   }
 }
 </script>

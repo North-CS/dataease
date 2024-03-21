@@ -6,7 +6,7 @@
     v-model="value"
     :class-id="'visual-' + element.id + '-' + inDraw + '-' + inScreen"
     :collapse-tags="showNumber"
-    :clearable="!element.options.attrs.multiple && (inDraw || !selectFirst)"
+    :clearable="(inDraw || !selectFirst)"
     :multiple="element.options.attrs.multiple"
     :placeholder="showRequiredTips ? $t('panel.required_tips') : ($t(element.options.attrs.placeholder) + placeholderSuffix)"
     :popper-append-to-body="inScreen"
@@ -17,7 +17,7 @@
     :key-word="keyWord"
     popper-class="coustom-de-select"
     :class="{'disabled-close': !inDraw && selectFirst && element.options.attrs.multiple, 'show-required-tips': showRequiredTips}"
-    :list="data"
+    :list="(element.options.attrs.showEmpty ? [{ text: '空数据', id: '_empty_$'}, ...data] : data)"
     :flag="flag"
     :is-config="isConfig"
     :custom-style="customStyle"
@@ -370,7 +370,7 @@ export default {
           this.firstChange(this.value)
           return
         }
-        if (this.value.toString() !== eleVal && this.defaultValueStr === eleVal) {
+        if (this.value?.toString() !== eleVal && this.defaultValueStr === eleVal) {
           this.value = this.fillValueDerfault()
           this.changeValue(this.value)
         }
@@ -387,7 +387,8 @@ export default {
     },
     initLoad() {
       this.initOptions(this.fillFirstSelected)
-      if (this.element.options.value && !this.selectFirst) {
+      const existLastValidFilters = this.$store.state.lastValidFilters && this.$store.state.lastValidFilters[this.element.id]
+      if ((this.element.options.value || existLastValidFilters) && !this.selectFirst) {
         this.value = this.fillValueDerfault()
         this.changeValue(this.value)
       }
@@ -554,12 +555,27 @@ export default {
       if (this.isCustomSortWidget && this.element.options.attrs?.sort?.sort === 'custom') {
         tempData = mergeCustomSortOption(this.element.options.attrs.sort.list, tempData)
       }
+      this.filterInvalidValue(this.element.options.attrs.showEmpty ? [...tempData, '_empty_$'] : tempData)
       return tempData.map(item => {
         return {
           id: item,
           text: item
         }
       })
+    },
+    filterInvalidValue(data) {
+      if (this.value === null) {
+        return
+      }
+      if (!data.length) {
+        this.value = null
+        return
+      }
+      if (this.element.options.attrs.multiple) {
+        this.value = this.value.filter(item => data.includes(item))
+      } else {
+        this.value = data.includes(this.value) ? this.value : null
+      }
     },
     setOptionWidth(event) {
       this.onFocus = true

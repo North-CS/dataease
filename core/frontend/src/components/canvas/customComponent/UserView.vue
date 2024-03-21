@@ -101,6 +101,7 @@
       :terminal-type="scaleCoefficientType"
       :track-menu="trackMenu"
       :search-count="searchCount"
+      :in-screen="inScreen"
       @onChartClick="chartClick"
       @onJumpClick="jumpClick"
       @onPageChange="pageClick"
@@ -119,15 +120,17 @@
       v-else-if="labelShowFlag"
       :ref="element.propValue.id"
       :chart="chart"
+      :in-screen="inScreen"
       class="table-class"
     />
     <label-normal-text
       v-else-if="labelTextShowFlag"
       :ref="element.propValue.id"
       :chart="chart"
-      class="table-class"
       :track-menu="trackMenu"
       :search-count="searchCount"
+      :in-screen="inScreen"
+      class="table-class"
       @onChartClick="chartClick"
       @onJumpClick="jumpClick"
     />
@@ -154,15 +157,39 @@
         v-if="chartDetailsVisible"
         style="position: absolute;right: 70px;top:15px"
       >
-        <el-button
-          v-if="showChartInfoType==='enlarge' && hasDataPermission('export',panelInfo.privileges)&& showChartInfo && !equalsAny(showChartInfo.type, 'symbol-map', 'flow-map')"
-          class="el-icon-picture-outline"
-          size="mini"
-          :disabled="imageDownloading"
-          @click="exportViewImg"
-        >
-          {{ $t('chart.export_img') }}
-        </el-button>
+        <span v-if="showChartInfoType==='enlarge' && hasDataPermission('export',panelInfo.privileges)&& showChartInfo && !equalsAny(showChartInfo.type, 'symbol-map', 'flow-map')">
+          <span style="font-size: 12px">
+            导出分辨率
+          </span>
+          <el-select
+            v-model="pixel"
+            style="width: 120px; margin-right: 8px; margin-top: -1px"
+            :popper-append-to-body="false"
+            size="mini"
+          >
+            <el-option-group
+              v-for="group in pixelOptions"
+              :key="group.label"
+              :label="group.label"
+            >
+              <el-option
+                v-for="item in group.options"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-option-group>
+          </el-select>
+          <el-button
+            class="el-icon-picture-outline"
+            size="mini"
+            :disabled="imageDownloading"
+            @click="exportViewImg"
+          >
+            {{ $t('chart.export_img') }}
+          </el-button>
+        </span>
+
         <el-button
           v-if="showChartInfoType==='details' && hasDataPermission('export',panelInfo.privileges)"
           size="mini"
@@ -182,6 +209,7 @@
         :chart-table="showChartTableInfo"
         :canvas-style-data="canvasStyleData"
         :open-type="showChartInfoType"
+        :user-id="userId"
       />
     </el-dialog>
 
@@ -318,6 +346,10 @@ export default {
       type: String,
       require: false,
       default: 'preview'
+    },
+    userId: {
+      type: String,
+      require: false
     }
   },
   data() {
@@ -367,7 +399,44 @@ export default {
         show: 0
       },
       view: {},
-      cancelTime: null
+      cancelTime: null,
+      pixelOptions: [
+        {
+          label: 'Windows(16:9)',
+          options: [
+            {
+              value: '1920 * 1080',
+              label: '1920 * 1080'
+            },
+            {
+              value: '1600 * 900',
+              label: '1600 * 900'
+            },
+            {
+              value: '1280 * 720',
+              label: '1280 * 720'
+            }
+          ]
+        },
+        {
+          label: 'MacOS(16:10)',
+          options: [
+            {
+              value: '2560 * 1600',
+              label: '2560 * 1600'
+            },
+            {
+              value: '1920 * 1200',
+              label: '1920 * 1200'
+            },
+            {
+              value: '1680 * 1050',
+              label: '1680 * 1050'
+            }
+          ]
+        }
+      ],
+      pixel: '1280 * 720'
     }
   },
 
@@ -685,7 +754,7 @@ export default {
     },
     exportViewImg() {
       this.imageDownloading = true
-      this.$refs['userViewDialog'].exportViewImg(() => {
+      this.$refs['userViewDialog'].exportViewImg(this.pixel, () => {
         this.imageDownloading = false
       })
     },
@@ -786,10 +855,9 @@ export default {
       param.viewId && param.viewId === this.element.propValue.viewId && this.getDataEdit(param)
     },
     clearPanelLinkage(param) {
-      console.log('clear linkage')
       if (param.viewId === 'all' || param.viewId === this.element.propValue.viewId) {
         try {
-          // do nothing
+          this.$refs[this.element.propValue.id]?.clearLinkage?.()
         } catch (e) {
           console.error('reDrawView-error：', this.element.propValue.id)
         }
@@ -871,13 +939,13 @@ export default {
         // table-info明细表增加分页
         if (this.view && this.view.customAttr) {
           const attrSize = JSON.parse(this.view.customAttr).size
-          if (this.chart.type === 'table-info' && this.view.datasetMode === 0 && (!attrSize.tablePageMode || attrSize.tablePageMode === 'page')) {
+          if (this.chart.type === 'table-info' && (!attrSize.tablePageMode || attrSize.tablePageMode === 'page')) {
             requestInfo.goPage = this.currentPage.page
             requestInfo.pageSize = this.currentPage.pageSize === parseInt(attrSize.tablePageSize) ? this.currentPage.pageSize : parseInt(attrSize.tablePageSize)
           }
         }
         if (this.isFirstLoad) {
-          this.element.filters = this.filters?.length ? JSON.parse(JSON.stringify(this.filters)) : []
+          this.element.filters = this.filter.filter?.length ? JSON.parse(JSON.stringify(this.filter.filter)) : []
         }
         method(id, this.panelInfo.id, requestInfo).then(response => {
           try {
@@ -1047,6 +1115,8 @@ export default {
         tableChart.customAttr.color.enableTableCrossBG = false
         tableChart.customAttr.size.showTableHeader = true
       }
+      tableChart.customAttr.size.tableTitleFontSize = 14
+      tableChart.customAttr.size.tableItemFontSize = 14
       tableChart.customAttr.size.tableColumnFreezeHead = 0
       tableChart.customAttr.size.tableRowFreezeHead = 0
       tableChart.customAttr.color.tableStripe = true
@@ -1110,7 +1180,7 @@ export default {
           }
         })
       }
-      if (!jumpInfo) {
+      if (!jumpInfo && !this.chart.type.includes('table')) {
         for (let i = param.dimensionList.length - 1; i >= 0; i--) {
           dimension = param.dimensionList[i]
           sourceInfo = param.viewId + '#' + dimension.id
@@ -1161,13 +1231,11 @@ export default {
           this.windowsJump(url, jumpInfo.jumpType)
         }
       } else {
-        if (this.chart.type.indexOf('table') === -1) {
-          this.$message({
-            type: 'warn',
-            message: '未获取跳转信息',
-            showClose: true
-          })
-        }
+        this.$message({
+          type: 'warn',
+          message: '未获取跳转信息',
+          showClose: true
+        })
       }
     },
     setIdValueTrans(from, to, content, colList) {

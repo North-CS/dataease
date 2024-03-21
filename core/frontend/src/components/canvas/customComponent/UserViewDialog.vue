@@ -4,8 +4,12 @@
     :class="isAbsoluteContainer ? 'abs-container' : ''"
   >
     <de-main-container
-      v-show="showChartCanvas"
-      class=""
+      v-if="showChartCanvas"
+      v-loading="exportLoading"
+      style="overflow: hidden"
+      :element-loading-text="$t('panel.data_loading')"
+      element-loading-spinner="el-icon-loading"
+      element-loading-background="rgba(220,220,220,1)"
     >
       <div
         id="chartCanvas"
@@ -18,6 +22,7 @@
         >
           <plugin-com
             v-if="chart.isPlugin"
+            :ref="element.propValue.id"
             :component-name="chart.type + '-view'"
             :obj="{chart: mapChart || chart}"
             :chart="mapChart || chart"
@@ -27,40 +32,47 @@
           />
           <chart-component
             v-else-if="!chart.type.includes('text') && chart.type !== 'label' && !chart.type.includes('table') && renderComponent() === 'echarts'"
+            :ref="element.propValue.id"
             :theme-style="element.commonBackground"
             class="chart-class"
             :chart="mapChart || chart"
           />
           <chart-component-g2
             v-else-if="!chart.type.includes('text') && chart.type !== 'label' && !chart.type.includes('table') && renderComponent() === 'antv'"
-            class="chart-class show-in-dialog"
+            :ref="element.propValue.id"
+            class="chart-class"
             :chart="chart"
           />
           <chart-component-s2
             v-else-if="chart.type.includes('table') && renderComponent() === 'antv'"
+            :ref="element.propValue.id"
             class="chart-class"
             :chart="chart"
           />
           <label-normal
             v-else-if="chart.type.includes('text')"
+            :ref="element.propValue.id"
             :chart="chart"
             class="table-class"
           />
           <label-normal-text
             v-else-if="chart.type === 'label'"
+            :ref="element.propValue.id"
             :chart="chart"
             class="table-class"
           />
           <table-normal
             v-else-if="chart.type.includes('table') && renderComponent() === 'echarts'"
+            :ref="element.propValue.id"
             :chart="chart"
             class="table-class"
           />
         </div>
       </div>
     </de-main-container>
-    <de-main-container v-show="!showChartCanvas">
+    <de-main-container v-else>
       <table-normal
+        id="chartCanvas"
         :enable-scroll="false"
         :chart="chartTable"
         :show-summary="false"
@@ -84,7 +96,9 @@ import ChartComponentS2 from '@/views/chart/components/ChartComponentS2'
 import LabelNormalText from '@/views/chart/components/normal/LabelNormalText'
 import html2canvas from 'html2canvasde'
 import { hexColorToRGBA } from '@/views/chart/chart/util'
-import { deepCopy, exportExcelDownload, exportImg, imgUrlTrans } from '@/components/canvas/utils/utils'
+import {deepCopy, exportExcelDownload, exportImg, exportImgNew, imgUrlTrans} from '@/components/canvas/utils/utils'
+import { activeWatermark } from '@/components/canvas/tools/watermark'
+import { proxyUserLoginInfo, userLoginInfo } from '@/api/systemInfo/userLogin'
 
 export default {
   name: 'UserViewDialog',
@@ -111,6 +125,10 @@ export default {
     openType: {
       type: String,
       default: 'details'
+    },
+    userId: {
+      type: String,
+      require: false
     }
 
   },
@@ -119,7 +137,10 @@ export default {
       refId: null,
       element: {},
       lastMapChart: null,
-      linkLoading: false
+      linkLoading: false,
+      exporting: false,
+      exportLoading: false,
+      pixel: '1280 * 720'
     }
   },
   computed: {
@@ -137,6 +158,13 @@ export default {
     },
     customStyle() {
       let style = {}
+      if (this.exporting) {
+        const bashStyle = this.pixel.split(' * ')
+        style = {
+          width: bashStyle[0] + 'px!important',
+          height: bashStyle[1] + 'px!important'
+        }
+      }
       if (this.canvasStyleData.openCommonStyle) {
         if (this.canvasStyleData.panel.backgroundType === 'image' && this.canvasStyleData.panel.imageUrl) {
           style = {
@@ -237,8 +265,22 @@ export default {
     this.element = deepCopy(this.curComponent)
   },
   mounted() {
+    this.initWatermark()
   },
   methods: {
+    initWatermark(waterDomId = 'chartCanvas') {
+      if (this.panelInfo.watermarkInfo) {
+        if (this.userInfo) {
+          activeWatermark(this.panelInfo.watermarkInfo.settingContent, this.userInfo, waterDomId, 'canvas-main', this.panelInfo.watermarkOpen, 'de-watermark-view')
+        } else {
+          const method = this.userId ? proxyUserLoginInfo : userLoginInfo
+          method().then(res => {
+            this.userInfo = res.data
+            activeWatermark(this.panelInfo.watermarkInfo.settingContent, this.userInfo, waterDomId, 'canvas-main', this.panelInfo.watermarkOpen, 'de-watermark-view')
+          })
+        }
+      }
+    },
     exportExcel(callBack) {
       const _this = this
       if (this.isOnlyDetails) {
@@ -254,8 +296,24 @@ export default {
         }
       }
     },
-    exportViewImg(callback) {
-      exportImg(this.chart.name, callback)
+    exportViewImg(pixel, callback) {
+      this.pixel = pixel
+      this.exportLoading = true
+      this.$nextTick(() => {
+        this.exporting = true
+        this.resizeChart()
+        setTimeout(() => {
+          this.initWatermark()
+          exportImgNew(this.chart.name, (params) => {
+            this.exporting = false
+            this.resizeChart()
+            setTimeout(() => {
+              this.exportLoading = false
+            }, 500)
+            callback(params)
+          })
+        }, 500)
+      })
     },
     setLastMapChart(data) {
       this.lastMapChart = JSON.parse(JSON.stringify(data))
@@ -267,6 +325,13 @@ export default {
 
     renderComponent() {
       return this.chart.render
+    },
+    resizeChart() {
+      if (this.$refs[this.element.propValue.id]) {
+        this.chart.isPlugin
+          ? this.$refs[this.element.propValue.id].callPluginInner({ methodName: 'chartResize' })
+          : this.$refs[this.element.propValue.id].chartResize()
+      }
     }
   }
 }
@@ -299,6 +364,10 @@ export default {
   width: 100%;
   height: 100%;
   background-size: 100% 100% !important;
+}
+.canvas-class-exporting {
+  width: 1980px!important;
+  height: 860px!important;
 }
 
 .abs-container {

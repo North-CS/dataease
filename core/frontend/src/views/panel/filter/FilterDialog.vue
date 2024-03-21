@@ -6,6 +6,7 @@
   >
     <de-aside-container
       :show-drag-bar="false"
+      close
       class="ms-aside-container"
     >
       <el-tabs
@@ -655,14 +656,14 @@ export default {
       if (this.widgetInfo.name.indexOf('time') !== -1) {
         type = 'DATE'
       }
-      if (this.widgetInfo.name === 'numberSelectWidget') {
+      if (this.widgetInfo.name.indexOf('numberSelect') !== -1) {
         type = 'NUM'
       }
-      viewIds && viewIds.length > 0 && paramsWithIds(type, viewIds).then(res => {
-        const data = res.data
-
-        this.childViews.datasetParams = data
-      })
+      if(viewIds && viewIds.length > 0){
+        paramsWithIds(type, viewIds).then(res => {
+          this.childViews.datasetParams =  res.data
+        })
+      }
     },
     updateParentName() {
       if (this.fieldsParent && this.viewInfos?.length && this.activeName !== 'dataset') {
@@ -839,7 +840,7 @@ export default {
       if (this.widgetInfo.name.indexOf('time') !== -1) {
         type = 'DATE'
       }
-      if (this.widgetInfo.name === 'numberSelectWidget') {
+      if (this.widgetInfo.name.indexOf('numberSelect') !== -1) {
         type = 'NUM'
       }
       datasetParams(tableId, type).then(res => {

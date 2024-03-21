@@ -63,16 +63,6 @@ public class DriverMgmController {
     @GetMapping("/list/{type}")
     public List<DriverDTO> listDeDriver(@PathVariable String type) throws Exception {
         List<DriverDTO> driverDTOS = listDeDriver().stream().filter(driverDTO -> driverDTO.getType().equalsIgnoreCase(type)).collect(Collectors.toList());
-        DriverDTO driverDTO = new DriverDTO();
-        driverDTO.setId("default");
-        driverDTO.setName("default");
-        driverDTO.setDriverClass("default");
-        datasourceService.types().forEach(dataSourceType -> {
-            if (dataSourceType.getType().equalsIgnoreCase(type)) {
-                driverDTO.setSurpportVersions(dataSourceType.getSurpportVersions());
-            }
-        });
-        driverDTOS.add(driverDTO);
         driverDTOS.forEach(driverDTO1 -> {
             if (StringUtils.isEmpty(driverDTO1.getSurpportVersions())) {
                 driverDTO1.setNameAlias(driverDTO1.getName());
@@ -96,6 +86,13 @@ public class DriverMgmController {
     public DeDriver save(@RequestBody DeDriver deDriver) throws Exception {
         checkPermission();
         return driverService.save(deDriver);
+    }
+
+    @RequiresPermissions("datasource:read")
+    @ApiOperation("获取驱动")
+    @GetMapping("/getDriver/{id}")
+    public DeDriver getDriver(@PathVariable String id) throws Exception {
+        return driverService.get(id);
     }
 
     @RequiresPermissions("datasource:read")

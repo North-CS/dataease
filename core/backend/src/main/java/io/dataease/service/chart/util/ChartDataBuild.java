@@ -1,14 +1,16 @@
 package io.dataease.service.chart.util;
 
-import cn.hutool.core.util.ArrayUtil;
 import io.dataease.controller.request.chart.ChartDrillRequest;
 import io.dataease.dto.chart.*;
 import io.dataease.plugins.common.base.domain.ChartViewWithBLOBs;
 import io.dataease.plugins.common.dto.chart.ChartViewFieldDTO;
 import io.dataease.plugins.xpack.auth.dto.request.ColumnPermissionItem;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 public class ChartDataBuild {
 
     private final static String format = "(%s)";
+
+    private static final Logger logger = LoggerFactory.getLogger(ChartDataBuild.class);
 
     // AntV
     public static Map<String, Object> transChartDataAntV(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, ChartViewWithBLOBs view, List<String[]> data, boolean isDrill) {
@@ -1049,7 +1053,7 @@ public class ChartDataBuild {
         Map<String, Object> map = transTableNormal(fields, null, data, desensitizationList);
         List<Map<String, Object>> tableRow = (List<Map<String, Object>>) map.get("tableRow");
         final int xEndIndex = detailIndex;
-        Map<String, List<String[]>> groupDataList = detailData.stream().collect(Collectors.groupingBy(item -> ArrayUtil.join(ArrayUtil.sub(item, 0, xEndIndex), "-de-", "(", ")")));
+        Map<String, List<String[]>> groupDataList = detailData.stream().collect(Collectors.groupingBy(item -> String.format(format, StringUtils.join(ArrayUtils.subarray(item, 0, xEndIndex), "-de-"))));
 
         tableRow.forEach(row -> {
             String key = xAxis.stream().map(x -> String.format(format, row.get(x.getDataeaseName()).toString())).collect(Collectors.joining("-de-"));
@@ -1087,6 +1091,7 @@ public class ChartDataBuild {
         List<ChartViewFieldDTO> fields = new ArrayList<>();
         List<ChartViewFieldDTO> yfields = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(fieldMap.get("xAxis"))) fields.addAll(fieldMap.get("xAxis"));
+        if (CollectionUtils.isNotEmpty(fieldMap.get("xAxisExt"))) fields.addAll(fieldMap.get("xAxisExt"));
 
         for (Map.Entry<String, List<ChartViewFieldDTO>> entry : fieldMap.entrySet()) {
             if (StringUtils.equalsAny(entry.getKey(), keys)) {
@@ -1130,7 +1135,7 @@ public class ChartDataBuild {
                     if (StringUtils.isEmpty(originStr) || originStr.length() <= columnPermissionItem.getDesensitizationRule().getM() + columnPermissionItem.getDesensitizationRule().getN() + 1) {
                         desensitizationStr = String.join("", Collections.nCopies(columnPermissionItem.getDesensitizationRule().getM(), "X")) + "***" + String.join("", Collections.nCopies(columnPermissionItem.getDesensitizationRule().getN(), "X"));
                     } else {
-                        desensitizationStr = StringUtils.substring(originStr, 0, columnPermissionItem.getDesensitizationRule().getM()) + "***" + StringUtils.substring(originStr, originStr.length() - columnPermissionItem.getDesensitizationRule().getN() - 1, originStr.length() - 1);
+                        desensitizationStr = StringUtils.substring(originStr, 0, columnPermissionItem.getDesensitizationRule().getM()) + "***" + StringUtils.substring(originStr, originStr.length() - columnPermissionItem.getDesensitizationRule().getN() - 1, originStr.length());
                     }
                     break;
                 case RetainMToN:

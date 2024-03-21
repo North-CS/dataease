@@ -1,29 +1,88 @@
-import { TableSheet, BaseEvent, S2Event, PivotSheet, DataCell, EXTRA_FIELD, TOTAL_VALUE } from '@antv/s2'
+import {
+  TableSheet,
+  S2Event,
+  PivotSheet,
+  DataCell,
+  EXTRA_FIELD,
+  TOTAL_VALUE,
+  BaseTooltip,
+  getAutoAdjustPosition,
+  getTooltipDefaultOptions,
+  setTooltipContainerStyle,
+  SERIES_NUMBER_FIELD
+} from '@antv/s2'
 import { getCustomTheme, getSize } from '@/views/chart/chart/common/common_table'
 import { DEFAULT_COLOR_CASE, DEFAULT_TOTAL } from '@/views/chart/chart/chart'
 import { formatterItem, valueFormatter } from '@/views/chart/chart/formatter'
 import { handleTableEmptyStrategy, hexColorToRGBA } from '@/views/chart/chart/util'
+import { maxBy, minBy, find } from 'lodash-es'
+import TableTooltip from '@/views/chart/components/table/TableTooltip.vue'
+import { copyString } from '@/views/chart/chart/common/common'
 
-class RowHoverInteraction extends BaseEvent {
-  bindEvents() {
-    this.spreadsheet.on(S2Event.ROW_CELL_HOVER, (event) => {
-      this.spreadsheet.tooltip.show({
-        position: { x: 0, y: 0 },
-        content: '...'
-      })
+class SortTooltip extends BaseTooltip {
+  vueCom
+  constructor(spreadsheet, vueCom) {
+    super(spreadsheet)
+    this.vueCom = vueCom
+  }
+
+  show(showOptions) {
+    const { iconName } = showOptions
+    if (iconName) {
+      this.showSortTooltip(showOptions)
+      return
+    }
+    super.show(showOptions)
+  }
+
+  showSortTooltip(showOptions) {
+    const { position, options, meta, event } = showOptions
+    const { enterable } = getTooltipDefaultOptions(options)
+    const { autoAdjustBoundary, adjustPosition } =
+    this.spreadsheet.options.tooltip || {}
+    this.visible = true
+    this.options = showOptions
+    const container = this.getContainer()
+    // 用 vue 手动 patch
+    const vNode = this.vueCom.$createElement(TableTooltip, {
+      props: {
+        table: this.spreadsheet,
+        meta
+      }
+    })
+    this.spreadsheet.tooltip.container.innerHTML = ''
+    const childElement = document.createElement('div')
+    this.spreadsheet.tooltip.container.appendChild(childElement)
+    this.vueCom.__patch__(childElement, vNode, false, true)
+
+    const { x, y } = getAutoAdjustPosition({
+      spreadsheet: this.spreadsheet,
+      position,
+      tooltipContainer: container,
+      autoAdjustBoundary
+    })
+
+    this.position = adjustPosition?.({ position: { x, y }, event }) ?? {
+      x,
+      y
+    }
+
+    setTooltipContainerStyle(container, {
+      style: {
+        left: `${this.position?.x}px`,
+        top: `${this.position?.y}px`,
+        pointerEvents: enterable ? 'all' : 'none'
+      },
+      visible: true
     })
   }
 }
-
-export function baseTableInfo(s2, container, chart, action, tableData, pageInfo) {
+export function baseTableInfo(container, chart, action, tableData, pageInfo, vueCom, resizeFunc) {
   const containerDom = document.getElementById(container)
 
   // fields
   let fields = chart.data.fields
   if (!fields || fields.length === 0) {
-    if (s2) {
-      s2.destroy()
-    }
     return
   }
 
@@ -97,12 +156,55 @@ export function baseTableInfo(s2, container, chart, action, tableData, pageInfo)
   }
 
   const customAttr = JSON.parse(chart.customAttr)
+  const sortIconMap = {
+    'asc': 'SortUp',
+    'desc': 'SortDown'
+  }
   // options
   const s2Options = {
     width: containerDom.offsetWidth,
     height: containerDom.offsetHeight,
     showSeriesNumber: customAttr.size.showIndex,
     style: getSize(chart),
+    tooltip: {
+      renderTooltip: sheet => new SortTooltip(sheet, vueCom),
+      getContainer: () => containerDom,
+      adjustPosition: ({ event }) => {
+        return getTooltipPosition(event)
+      },
+      style: {
+        position: 'absolute',
+        padding: '4px 2px'
+      }
+    },
+    headerActionIcons: [
+      {
+        iconNames: ['GroupAsc', 'SortUp', 'SortDown'],
+        belongsCell: 'colCell',
+        displayCondition: (meta, iconName) => {
+          if (meta.field === SERIES_NUMBER_FIELD) {
+            return false
+          }
+          const sortMethodMap = meta.spreadsheet.store.get('sortMethodMap')
+          const sortType = sortMethodMap?.[meta.field]
+          if (sortType) {
+            return iconName === sortIconMap[sortType]
+          }
+          return iconName === 'GroupAsc'
+        },
+        onClick: (props) => {
+          const { meta, event } = props
+          meta.spreadsheet.showTooltip({
+            position: {
+              x: event.clientX,
+              y: event.clientY
+            },
+            event,
+            ...props
+          })
+        }
+      }
+    ],
     conditions: getConditions(chart),
     frozenColCount: customAttr.size.tableColumnFreezeHead ?? 0,
     frozenRowCount: customAttr.size.tableRowFreezeHead ?? 0
@@ -138,10 +240,7 @@ export function baseTableInfo(s2, container, chart, action, tableData, pageInfo)
   }
 
   // 开始渲染
-  if (s2) {
-    s2.destroy()
-  }
-  s2 = new TableSheet(containerDom, s2DataConfig, s2Options)
+  const s2 = new TableSheet(containerDom, s2DataConfig, s2Options)
 
   // click
   s2.on(S2Event.DATA_CELL_CLICK, action)
@@ -151,7 +250,13 @@ export function baseTableInfo(s2, container, chart, action, tableData, pageInfo)
     s2.on(S2Event.COL_CELL_HOVER, event => showTooltip(s2, event))
   }
   if (size.tableCellTooltip?.show) {
-    s2.on(S2Event.DATA_CELL_HOVER, event => showTooltipValue(s2, event))
+    s2.on(S2Event.DATA_CELL_HOVER, event => showTooltipValue(s2, event, meta))
+  }
+  // right click
+  s2.on(S2Event.GLOBAL_CONTEXT_MENU, event => copyContent(s2, event, meta))
+  // column resize
+  if (size.tableColumnMode === 'field') {
+    s2.on(S2Event.LAYOUT_RESIZE_COL_WIDTH, event => resizeFunc(event))
   }
   // theme
   const customTheme = getCustomTheme(chart)
@@ -160,16 +265,13 @@ export function baseTableInfo(s2, container, chart, action, tableData, pageInfo)
   return s2
 }
 
-export function baseTableNormal(s2, container, chart, action, tableData) {
+export function baseTableNormal(container, chart, action, tableData, vueCom, resizeFunc) {
   const containerDom = document.getElementById(container)
   if (!containerDom) return
 
   // fields
   const fields = chart.data.fields
   if (!fields || fields.length === 0) {
-    if (s2) {
-      s2.destroy()
-    }
     return
   }
 
@@ -291,12 +393,55 @@ export function baseTableNormal(s2, container, chart, action, tableData) {
   }
 
   const customAttr = JSON.parse(chart.customAttr)
+  const sortIconMap = {
+    'asc': 'SortUp',
+    'desc': 'SortDown'
+  }
   // options
   const s2Options = {
     width: containerDom.offsetWidth,
     height: containerDom.offsetHeight,
     showSeriesNumber: customAttr.size.showIndex,
     style: getSize(chart),
+    tooltip: {
+      renderTooltip: sheet => new SortTooltip(sheet, vueCom),
+      getContainer: () => containerDom,
+      adjustPosition: ({ event }) => {
+        return getTooltipPosition(event)
+      },
+      style: {
+        position: 'absolute',
+        padding: '4px 2px'
+      }
+    },
+    headerActionIcons: [
+      {
+        iconNames: ['GroupAsc', 'SortUp', 'SortDown'],
+        belongsCell: 'colCell',
+        displayCondition: (meta, iconName) => {
+          if (meta.field === SERIES_NUMBER_FIELD) {
+            return false
+          }
+          const sortMethodMap = meta.spreadsheet.store.get('sortMethodMap')
+          const sortType = sortMethodMap?.[meta.field]
+          if (sortType) {
+            return iconName === sortIconMap[sortType]
+          }
+          return iconName === 'GroupAsc'
+        },
+        onClick: (props) => {
+          const { meta, event } = props
+          meta.spreadsheet.showTooltip({
+            position: {
+              x: event.clientX,
+              y: event.clientY
+            },
+            event,
+            ...props
+          })
+        }
+      }
+    ],
     conditions: getConditions(chart),
     frozenColCount: customAttr.size.tableColumnFreezeHead ?? 0,
     frozenRowCount: customAttr.size.tableRowFreezeHead ?? 0
@@ -329,10 +474,7 @@ export function baseTableNormal(s2, container, chart, action, tableData) {
   }
 
   // 开始渲染
-  if (s2) {
-    s2.destroy()
-  }
-  s2 = new TableSheet(containerDom, s2DataConfig, s2Options)
+  const s2 = new TableSheet(containerDom, s2DataConfig, s2Options)
 
   // click
   s2.on(S2Event.DATA_CELL_CLICK, action)
@@ -342,7 +484,13 @@ export function baseTableNormal(s2, container, chart, action, tableData) {
     s2.on(S2Event.COL_CELL_HOVER, event => showTooltip(s2, event))
   }
   if (size.tableCellTooltip?.show) {
-    s2.on(S2Event.DATA_CELL_HOVER, event => showTooltipValue(s2, event))
+    s2.on(S2Event.DATA_CELL_HOVER, event => showTooltipValue(s2, event, meta))
+  }
+  // right click
+  s2.on(S2Event.GLOBAL_CONTEXT_MENU, event => copyContent(s2, event, meta))
+  // column resize
+  if (size.tableColumnMode === 'field') {
+    s2.on(S2Event.LAYOUT_RESIZE_COL_WIDTH, event => resizeFunc(event))
   }
   // theme
   const customTheme = getCustomTheme(chart)
@@ -351,7 +499,7 @@ export function baseTableNormal(s2, container, chart, action, tableData) {
   return s2
 }
 
-export function baseTablePivot(s2, container, chart, action, headerAction, tableData) {
+export function baseTablePivot(container, chart, action, headerAction, tableData) {
   const containerDom = document.getElementById(container)
 
   // row and column
@@ -372,9 +520,6 @@ export function baseTablePivot(s2, container, chart, action, headerAction, table
   // fields
   const fields = chart.data.fields
   if (!fields || fields.length === 0) {
-    if (s2) {
-      s2.destroy()
-    }
     return
   }
 
@@ -500,6 +645,25 @@ export function baseTablePivot(s2, container, chart, action, headerAction, table
     }
     sortParams.push(sort)
   }
+  // 自定义总计小计
+  const totals = [
+    totalCfg.row.calcTotals,
+    totalCfg.row.calcSubTotals,
+    totalCfg.col.calcTotals,
+    totalCfg.col.calcSubTotals
+  ]
+  totals.forEach(total => {
+    if (total.cfg?.length) {
+      delete total.aggregation
+      const totalCfgMap = total.cfg.reduce((p, n) => {
+        p[n.dataeaseName] = n
+        return p
+      }, {})
+      total.calcFunc = (query, data) => {
+        return customCalcFunc(query, data, totalCfgMap)
+      }
+    }
+  })
   // 空值处理
   const newData = handleTableEmptyStrategy(tableData, chart)
   // data config
@@ -520,14 +684,21 @@ export function baseTablePivot(s2, container, chart, action, headerAction, table
     height: containerDom.offsetHeight,
     style: getSize(chart),
     totals: totalCfg,
-    conditions: getConditions(chart)
+    conditions: getConditions(chart),
+    tooltip: {
+      getContainer: () => containerDom,
+      adjustPosition: ({ event }) => {
+        return getTooltipPosition(event)
+      },
+      style: {
+        position: 'absolute',
+        padding: '4px 2px'
+      }
+    },
   }
 
   // 开始渲染
-  if (s2) {
-    s2.destroy()
-  }
-  s2 = new PivotSheet(containerDom, s2DataConfig, s2Options)
+  const s2 = new PivotSheet(containerDom, s2DataConfig, s2Options)
 
   // click
   s2.on(S2Event.DATA_CELL_CLICK, action)
@@ -542,8 +713,10 @@ export function baseTablePivot(s2, container, chart, action, headerAction, table
     s2.on(S2Event.COL_CELL_HOVER, event => showTooltip(s2, event, fieldMap))
   }
   if (size.tableCellTooltip?.show) {
-    s2.on(S2Event.DATA_CELL_HOVER, event => showTooltipValue(s2, event))
+    s2.on(S2Event.DATA_CELL_HOVER, event => showTooltipValue(s2, event, meta))
   }
+  // right click
+  s2.on(S2Event.GLOBAL_CONTEXT_MENU, event => copyContent(s2, event, meta))
   // theme
   const customTheme = getCustomTheme(chart)
   s2.setThemeCfg({ theme: customTheme })
@@ -801,15 +974,30 @@ function mappingColor(value, defaultColor, field, type, filedValueMap, rowData) 
   return color
 }
 
-function showTooltipValue(s2Instance, event) {
+function showTooltipValue(s2Instance, event, meta) {
   const cell = s2Instance.getCell(event.target)
-  const content = cell.actualText
+  const valueField = cell.getMeta().valueField
+  const cellMeta = cell.getMeta()
+  if (!cellMeta.data) {
+    return
+  }
+  const value = cellMeta.data[valueField]
+  const metaObj = find(meta, m =>
+    m.field === valueField
+  )
+  event.s2Instance = s2Instance
+  let content = value?.toString()
+  if (metaObj) {
+    content = metaObj.formatter(value)
+  }
   s2Instance.showTooltip({
     position: {
       x: event.clientX,
       y: event.clientY
     },
-    content
+    content,
+    meta: cellMeta,
+    event
   })
 }
 
@@ -820,12 +1008,15 @@ function showTooltip(s2Instance, event, fieldMap) {
   if (fieldMap?.[content]) {
     content = fieldMap?.[content]
   }
+  event.s2Instance = s2Instance
   s2Instance.showTooltip({
     position: {
       x: event.clientX,
       y: event.clientY
     },
-    content
+    content,
+    meta,
+    event
   })
 }
 
@@ -837,4 +1028,100 @@ function getFieldValueMap(view) {
     })
   }
   return fieldValueMap
+}
+
+function customCalcFunc(query, data, totalCfgMap) {
+  if (!data?.length || !query[EXTRA_FIELD]) {
+    return 0
+  }
+  const aggregation = totalCfgMap[query[EXTRA_FIELD]].aggregation
+  switch (aggregation) {
+    case 'SUM': {
+      return data.reduce((p, n) => {
+        return p + n[query[EXTRA_FIELD]]
+      }, 0)
+    }
+    case 'AVG': {
+      const sum = data.reduce((p, n) => {
+        return p + n[query[EXTRA_FIELD]]
+      }, 0)
+      return sum / data.length
+    }
+    case 'MIN': {
+      const result = minBy(data, n => {
+        return n[query[EXTRA_FIELD]]
+      })
+      return result?.[query[EXTRA_FIELD]]
+    }
+    case 'MAX': {
+      const result = maxBy(data, n => {
+        return n[query[EXTRA_FIELD]]
+      })
+      return result?.[query[EXTRA_FIELD]]
+    }
+    default: {
+      return data.reduce((p, n) => {
+        return p + n[query[EXTRA_FIELD]]
+      }, 0)
+    }
+  }
+}
+
+function getTooltipPosition(event) {
+  const s2Instance = event.s2Instance
+  const { x, y } = event
+  const result = { x: x + 15, y: y + 10 }
+  if (!s2Instance) {
+    return result
+  }
+  const { height, width} = s2Instance.getCanvasElement().getBoundingClientRect()
+  const { offsetHeight, offsetWidth } = s2Instance.tooltip.getContainer()
+  if (offsetWidth > width) {
+    result.x = 0
+  }
+  if (offsetHeight > height) {
+    result.y = 0
+  }
+  if (!(result.x || result.y)) {
+    return result
+  }
+  if (result.x && result.x + offsetWidth > width) {
+    result.x -= (result.x + offsetWidth - width)
+  }
+  if (result.y && result.y + offsetHeight > height) {
+    result.y -= (offsetHeight + 15)
+  }
+  return result
+}
+
+function copyContent(s2Instance, event, fieldMeta) {
+  event.preventDefault()
+  const cell = s2Instance.getCell(event.target)
+  const valueField = cell.getMeta().valueField
+  const cellMeta = cell.getMeta()
+  let content
+  // 单元格
+  if (cellMeta?.data) {
+    const value = cellMeta.data[valueField]
+    const metaObj = find(fieldMeta, m =>
+      m.field === valueField
+    )
+    content = value?.toString()
+    if (metaObj) {
+      content = metaObj.formatter(value)
+    }
+  } else {
+    // 列头&行头
+    content = cellMeta.value
+    const fieldMap = fieldMeta?.reduce((p, n) => {
+      p[n.field] = n.name
+      return p
+    },{})
+    if (fieldMap?.[content]) {
+      content = fieldMap[content]
+    }
+  }
+  if (content) {
+    copyString(content, true)
+  }
 }

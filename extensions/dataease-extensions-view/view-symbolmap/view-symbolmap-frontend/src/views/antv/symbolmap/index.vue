@@ -453,7 +453,16 @@ export default {
               c.colors.forEach(ele => {
                 colors.push(hexColorToRGBA(ele, c.alpha))
               })
-              this.pointLayer.color(colors[0])
+              const colorAxis = JSON.parse(chart.xaxisExt)
+              if (colorAxis && colorAxis.length) {
+                this.pointLayer
+                  .scale('color', {
+                    type: 'cat'
+                  })
+                  .color('color', colors)
+              } else {
+                this.pointLayer.color(colors[0])
+              }
             }
             const yaxis = JSON.parse(chart.yaxis)
             const hasYaxis =  yaxis && yaxis.length

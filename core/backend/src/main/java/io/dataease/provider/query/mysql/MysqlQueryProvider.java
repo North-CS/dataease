@@ -27,6 +27,7 @@ import io.dataease.plugins.datasource.entity.PageInfo;
 import io.dataease.plugins.datasource.query.QueryProvider;
 import io.dataease.plugins.datasource.query.Utils;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -69,6 +70,8 @@ public class MysqlQueryProvider extends QueryProvider {
             case "TIME":
             case "YEAR":
             case "DATETIME":
+            case "DATEV2":
+            case "DATETIMEV2":
             case "TIMESTAMP":
                 return 1;// 时间
             case "INT":
@@ -106,7 +109,7 @@ public class MysqlQueryProvider extends QueryProvider {
         return createQuerySQL("(" + sqlFix(sql) + ")", fields, isGroup, null, fieldCustomFilter, rowPermissionsTree, null, null, null);
     }
 
-    private SQLObj buildSortField(DeSortField f, SQLObj tableObj, int index) {
+    public SQLObj buildSortField(DeSortField f, SQLObj tableObj, int index) {
         String originField;
         if (ObjectUtils.isNotEmpty(f.getExtField()) && f.getExtField() == 2) {
             // 解析origin name中有关联的字段生成sql表达式
@@ -417,11 +420,14 @@ public class MysqlQueryProvider extends QueryProvider {
                 .tableAlias(String.format(TABLE_ALIAS_PREFIX, 0))
                 .build();
         List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xFields2Tail = new ArrayList<>();
         List<SQLObj> xOrders = new ArrayList<>();
 
         List<SQLObj> yFields = new ArrayList<>(); // 要把两个时间字段放进y里面
         List<String> yWheres = new ArrayList<>();
         List<SQLObj> yOrders = new ArrayList<>();
+
+        boolean ifAggregate = BooleanUtils.isTrue(view.getAggregate());
 
         if (CollectionUtils.isNotEmpty(xAxis)) {
             for (int i = 0; i < xAxis.size(); i++) {
@@ -463,21 +469,29 @@ public class MysqlQueryProvider extends QueryProvider {
                 }
                 String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
 
-                if (i == baseXAxis.size()) {// 起止时间
-                    String fieldName = String.format(MySQLConstants.AGG_FIELD, "min", originField);
-                    yFields.add(getXFields(x, fieldName, fieldAlias));
+                if (ifAggregate) {
+                    if (i == baseXAxis.size()) {// 起止时间
+                        String fieldName = String.format(MySQLConstants.AGG_FIELD, "min", originField);
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
 
-                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
 
-                } else if (i == baseXAxis.size() + 1) {
-                    String fieldName = String.format(MySQLConstants.AGG_FIELD, "max", originField);
+                    } else if (i == baseXAxis.size() + 1) {
+                        String fieldName = String.format(MySQLConstants.AGG_FIELD, "max", originField);
 
-                    yFields.add(getXFields(x, fieldName, fieldAlias));
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
 
-                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
+                    } else {
+                        // 处理横轴字段
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
                 } else {
-                    // 处理横轴字段
-                    xFields.add(getXFields(x, originField, fieldAlias));
+                    if (i == baseXAxis.size() || i == baseXAxis.size() + 1) {// 起止时间
+                        xFields2Tail.add(getXFields(x, originField, fieldAlias));
+                    } else {
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
                 }
 
                 // 处理横轴排序
@@ -488,6 +502,9 @@ public class MysqlQueryProvider extends QueryProvider {
                             .orderDirection(x.getSort())
                             .build());
                 }
+            }
+            if (!ifAggregate) { //把起止时间放到数组最后
+                xFields.addAll(xFields2Tail);
             }
         }
 
@@ -1074,10 +1091,14 @@ public class MysqlQueryProvider extends QueryProvider {
                 whereValue = "''";
             } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
                 whereValue = "''";
-            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "in") || StringUtils.containsIgnoreCase(item.getTerm(), "not in")) {
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in") || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
                 whereValue = "('" + String.join("','", value.split(",")) + "')";
             } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
                 whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
             } else {
                 whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, value);
             }
@@ -1149,10 +1170,14 @@ public class MysqlQueryProvider extends QueryProvider {
                 whereValue = "''";
             } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
                 whereValue = "''";
-            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "in") || StringUtils.containsIgnoreCase(item.getTerm(), "not in")) {
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in") || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
                 whereValue = "('" + String.join("','", value.split(",")) + "')";
             } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
                 whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
             } else {
                 whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, value);
             }
@@ -1189,6 +1214,8 @@ public class MysqlQueryProvider extends QueryProvider {
             case "not in":
                 return " NOT IN ";
             case "like":
+            case "begin_with":
+            case "end_with":
                 return " LIKE ";
             case "not like":
                 return " NOT LIKE ";
@@ -1274,10 +1301,14 @@ public class MysqlQueryProvider extends QueryProvider {
                         whereValue = "''";
                     } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "not_empty")) {
                         whereValue = "''";
-                    } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "in") || StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "not in")) {
+                    } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "in") || StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "not in")) {
                         whereValue = "('" + String.join("','", value.split(",")) + "')";
                     } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "like")) {
                         whereValue = "'%" + value + "%'";
+                    } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "begin_with")) {
+                        whereValue = "'" + value + "%'";
+                    } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "end_with")) {
+                        whereValue = "'%" + value + "'";
                     } else {
                         whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, value);
                     }
@@ -1330,7 +1361,7 @@ public class MysqlQueryProvider extends QueryProvider {
 
                 if (field.getDeType() == 1) {
                     String format = transDateFormat(request.getDateStyle(), request.getDatePattern());
-                    if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5 || field.getDeExtractType() == 1) {
+                    if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
                         String date;
                         if (field.getType().equalsIgnoreCase("YEAR") || StringUtils.equalsIgnoreCase(field.getDateFormat(), "%Y")) {
                             date = String.format(MySQLConstants.DATE_FORMAT, "CONCAT(" + originName + ",'-01-01')", StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat() : MySQLConstants.DEFAULT_DATE_FORMAT);
@@ -1349,6 +1380,21 @@ public class MysqlQueryProvider extends QueryProvider {
                             }
                         }
 
+                    }
+                    if (field.getDeExtractType() == 1) {
+                        String date;
+                        if (field.getType().equalsIgnoreCase("YEAR") || StringUtils.equalsIgnoreCase(field.getDateFormat(), "%Y")) {
+                            date = String.format(MySQLConstants.DATE_FORMAT, "CONCAT(" + originName + ",'-01-01')", StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat() : MySQLConstants.DEFAULT_DATE_FORMAT);
+                        } else {
+                            date = originName;
+                        }
+                        if (StringUtils.equalsIgnoreCase(request.getDateStyle(), "y_Q")) {
+                            whereName = String.format(format,
+                                    String.format(MySQLConstants.DATE_FORMAT, originName, "%Y"),
+                                    String.format(MySQLConstants.QUARTER, String.format(MySQLConstants.DATE_FORMAT, originName, MySQLConstants.DEFAULT_DATE_FORMAT)));
+                        } else {
+                            whereName = date;
+                        }
                     }
                     if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
                         if (request.getOperator().equals("between")) {
@@ -1390,7 +1436,12 @@ public class MysqlQueryProvider extends QueryProvider {
             String whereValue = "";
 
             if (StringUtils.containsIgnoreCase(request.getOperator(), "in")) {
-                whereValue = "('" + StringUtils.join(value, "','") + "')";
+                // 过滤空数据
+                if (value.contains(SQLConstants.EMPTY_SIGN)) {
+                    whereValue = "('" + StringUtils.join(value, "','") + "', '')" + " or " + whereName + " is null ";
+                } else {
+                    whereValue = "('" + StringUtils.join(value, "','") + "')";
+                }
             } else if (StringUtils.containsIgnoreCase(request.getOperator(), "like")) {
                 String keyword = value.get(0).toUpperCase();
                 whereValue = "'%" + keyword + "%'";
@@ -1409,7 +1460,12 @@ public class MysqlQueryProvider extends QueryProvider {
                     whereValue = String.format(MySQLConstants.WHERE_BETWEEN, value.get(0), value.get(1));
                 }
             } else {
-                whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, value.get(0));
+                // 过滤空数据
+                if (StringUtils.equals(value.get(0), SQLConstants.EMPTY_SIGN)) {
+                    whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, "") + " or " + whereName + " is null ";
+                } else {
+                    whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, value.get(0));
+                }
             }
             list.add(SQLObj.builder()
                     .whereField(whereName)
@@ -1417,7 +1473,7 @@ public class MysqlQueryProvider extends QueryProvider {
                     .build());
         }
         List<String> strList = new ArrayList<>();
-        list.forEach(ele -> strList.add(ele.getWhereField() + " " + ele.getWhereTermAndValue()));
+        list.forEach(ele -> strList.add("(" + ele.getWhereField() + " " + ele.getWhereTermAndValue() + ")"));
         return CollectionUtils.isNotEmpty(list) ? "(" + String.join(" AND ", strList) + ")" : null;
     }
 
@@ -1429,7 +1485,7 @@ public class MysqlQueryProvider extends QueryProvider {
         return sql;
     }
 
-    private String transDateFormat(String dateStyle, String datePattern) {
+    public String transDateFormat(String dateStyle, String datePattern) {
         String split = "-";
         if (StringUtils.equalsIgnoreCase(datePattern, "date_sub")) {
             split = "-";
@@ -1467,7 +1523,7 @@ public class MysqlQueryProvider extends QueryProvider {
         }
     }
 
-    private SQLObj getXFields(ChartViewFieldDTO x, String originField, String fieldAlias) {
+    public SQLObj getXFields(ChartViewFieldDTO x, String originField, String fieldAlias) {
         String fieldName = "";
         if (x.getDeExtractType() == 1) {
             if (x.getDeType() == 2 || x.getDeType() == 3) {
@@ -1534,7 +1590,7 @@ public class MysqlQueryProvider extends QueryProvider {
                 .build();
     }
 
-    private List<SQLObj> getXWheres(ChartViewFieldDTO x, String originField, String fieldAlias) {
+    public List<SQLObj> getXWheres(ChartViewFieldDTO x, String originField, String fieldAlias) {
         List<SQLObj> list = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(x.getFilter()) && x.getFilter().size() > 0) {
             x.getFilter().forEach(f -> {
@@ -1555,10 +1611,14 @@ public class MysqlQueryProvider extends QueryProvider {
                     whereValue = "''";
                 } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "not_empty")) {
                     whereValue = "''";
-                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "in")) {
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "in")) {
                     whereValue = "('" + StringUtils.join(f.getValue(), "','") + "')";
-                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "like")) {
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "like")) {
                     whereValue = "'%" + f.getValue() + "%'";
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "begin_with")) {
+                    whereValue = "'" + f.getValue() + "%'";
+                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "end_with")) {
+                    whereValue = "'%" + f.getValue() + "'";
                 } else {
                     whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, f.getValue());
                 }
@@ -1572,7 +1632,7 @@ public class MysqlQueryProvider extends QueryProvider {
         return list;
     }
 
-    private SQLObj getYFields(ChartViewFieldDTO y, String originField, String fieldAlias) {
+    public SQLObj getYFields(ChartViewFieldDTO y, String originField, String fieldAlias) {
         String fieldName = "";
         if (StringUtils.equalsIgnoreCase(y.getOriginName(), "*")) {
             fieldName = MySQLConstants.AGG_COUNT;
@@ -1604,7 +1664,7 @@ public class MysqlQueryProvider extends QueryProvider {
                 .build();
     }
 
-    private String getYWheres(ChartViewFieldDTO y, String originField, String fieldAlias) {
+    public String getYWheres(ChartViewFieldDTO y, String originField, String fieldAlias) {
         List<SQLObj> list = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(y.getFilter()) && y.getFilter().size() > 0) {
             y.getFilter().forEach(f -> {
@@ -1619,10 +1679,14 @@ public class MysqlQueryProvider extends QueryProvider {
                     whereValue = "''";
                 } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "not_empty")) {
                     whereValue = "''";
-                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "in")) {
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "in")) {
                     whereValue = "('" + StringUtils.join(f.getValue(), "','") + "')";
-                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "like")) {
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "like")) {
                     whereValue = "'%" + f.getValue() + "%'";
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "begin_with")) {
+                    whereValue = "'" + f.getValue() + "%'";
+                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "end_with")) {
+                    whereValue = "'%" + f.getValue() + "'";
                 } else {
                     whereValue = String.format(MySQLConstants.WHERE_VALUE_VALUE, f.getValue());
                 }
@@ -1638,7 +1702,7 @@ public class MysqlQueryProvider extends QueryProvider {
         return CollectionUtils.isNotEmpty(list) ? "(" + String.join(" " + getLogic(y.getLogic()) + " ", strList) + ")" : null;
     }
 
-    private String calcFieldRegex(String originField, SQLObj tableObj) {
+    public String calcFieldRegex(String originField, SQLObj tableObj) {
         try {
             int i = 0;
             return buildCalcField(originField, tableObj, i);
@@ -1648,7 +1712,7 @@ public class MysqlQueryProvider extends QueryProvider {
         return null;
     }
 
-    private String buildCalcField(String originField, SQLObj tableObj, int i) throws Exception {
+    public String buildCalcField(String originField, SQLObj tableObj, int i) throws Exception {
         try {
             i++;
             if (i > 100) {
@@ -1689,7 +1753,7 @@ public class MysqlQueryProvider extends QueryProvider {
         return null;
     }
 
-    private String sqlLimit(String sql, ChartViewWithBLOBs view) {
+    public String sqlLimit(String sql, ChartViewWithBLOBs view) {
         if (StringUtils.equalsIgnoreCase(view.getResultMode(), "custom")) {
             return sql + " LIMIT 0," + view.getResultCount();
         } else {

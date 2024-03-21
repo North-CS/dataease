@@ -1,6 +1,5 @@
 package io.dataease.job.sechedule.strategy.impl;
 
-import cn.hutool.core.io.FileUtil;
 import io.dataease.auth.entity.SysUserEntity;
 import io.dataease.auth.entity.TokenInfo;
 import io.dataease.auth.service.AuthUserService;
@@ -16,6 +15,7 @@ import io.dataease.job.sechedule.strategy.TaskHandler;
 import io.dataease.plugins.common.base.domain.SysUserAssist;
 import io.dataease.plugins.common.entity.GlobalTaskEntity;
 import io.dataease.plugins.common.entity.GlobalTaskInstance;
+import io.dataease.plugins.common.util.FileUtil;
 import io.dataease.plugins.common.util.SpringContextUtil;
 import io.dataease.plugins.xpack.dingtalk.dto.entity.DingtalkMsgResult;
 import io.dataease.plugins.xpack.dingtalk.service.DingtalkXpackService;
@@ -178,7 +178,10 @@ public class EmailTaskHandler extends TaskHandler implements Job {
 
     @Async("priorityExecutor")
     public void sendReport(GlobalTaskInstance taskInstance, SysUserEntity user, Boolean isTempTask) {
-
+        if (ObjectUtils.isEmpty(user) || ObjectUtils.isEmpty(user.getEnabled()) || user.getEnabled().equals(0)) {
+            error(taskInstance, new RuntimeException("任务发起用户不存在或不可用！"));
+            return;
+        }
         EmailXpackService emailXpackService = SpringContextUtil.getBean(EmailXpackService.class);
         AuthUserServiceImpl userService = SpringContextUtil.getBean(AuthUserServiceImpl.class);
         SysUserService sysUserService = SpringContextUtil.getBean(SysUserService.class);

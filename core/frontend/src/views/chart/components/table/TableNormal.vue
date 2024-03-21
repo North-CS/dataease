@@ -37,6 +37,8 @@
         :index-config="{seqMethod}"
         :show-header="showHeader"
         @cell-click="cellClick"
+        @row-contextmenu="(_, __, e) => cellRightClick(e)"
+        @header-contextmenu="(_, e) => cellRightClick(e)"
       >
         <ux-table-column
           type="index"
@@ -80,7 +82,7 @@
             >
               {{ $t('chart.total') }}
               <span>{{
-                (chart.datasetMode === 0 && !not_support_page_dataset.includes(chart.datasourceType)) ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
+                ((chart.datasetMode === 0 && !not_support_page_dataset.includes(chart.datasourceType)) || chart.datasetMode === 1) ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
               }}</span>
               {{ $t('chart.items') }}
             </span>
@@ -112,6 +114,7 @@ import { DEFAULT_COLOR_CASE, DEFAULT_SCROLL, DEFAULT_SIZE, NOT_SUPPORT_PAGE_DATA
 import { mapState } from 'vuex'
 import DePagination from '@/components/deCustomCm/pagination.js'
 import ViewTrackBar from '@/components/canvas/components/editor/ViewTrackBar.vue'
+import { copyString } from '@/views/chart/chart/common/common'
 export default {
   name: 'TableNormal',
   components: { ViewTrackBar, DePagination },
@@ -319,7 +322,7 @@ export default {
         }
 
         data = JSON.parse(JSON.stringify(this.chart.data.tableRow))
-        if (this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) {
+        if ((this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType) || this.chart.datasetMode === 1)) {
           if (this.chart.type === 'table-info' && (attr.size.tablePageMode === 'page' || !attr.size.tablePageMode) && this.chart.totalItems > this.currentPage.pageSize) {
             this.currentPage.show = this.chart.totalItems
             this.showPage = true
@@ -500,6 +503,13 @@ export default {
           this.bg_class.background = hexColorToRGBA(customStyle.background.color, customStyle.background.alpha)
         }
       }
+      if (this.showSummary) {
+        const footerArr = this.$refs.tableContainer.getElementsByClassName('elx-footer--row')
+        if (footerArr.length) {
+          const footer = footerArr.item(0)
+          footer.addEventListener('contextmenu', this.summaryRightClick)
+        }
+      }
     },
     getRowStyle({ row, rowIndex }) {
       if (rowIndex % 2 !== 0) {
@@ -566,7 +576,7 @@ export default {
 
     pageChange(val) {
       this.currentPage.pageSize = val
-      if (this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) {
+      if ((this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) || this.chart.datasetMode === 1) {
         this.$emit('onPageChange', this.currentPage)
       } else {
         this.init()
@@ -575,7 +585,7 @@ export default {
 
     pageClick(val) {
       this.currentPage.page = val
-      if (this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) {
+      if ((this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) || this.chart.datasetMode === 1) {
         this.$emit('onPageChange', this.currentPage)
       } else {
         this.init()
@@ -653,6 +663,31 @@ export default {
         y
       }
       this.antVActionPost(dimensionList, nameIdMap[col.property] || 'null', position)
+    },
+    cellRightClick(event) {
+      if (event.target?.innerText) {
+        copyString(event.target.innerText, true)
+      }
+      event.preventDefault()
+    },
+    summaryRightClick(event) {
+      let targetDom
+      if (event.target.classList.contains('elx-cell--item')) {
+        targetDom = event.target
+      }
+      if (!targetDom) {
+        const tmp = event.target.getElementsByClassName('elx-cell--item')
+        if (tmp.length) {
+          targetDom = tmp.item(0)
+        }
+      }
+      if (targetDom) {
+        const content = targetDom.innerText
+        if (content?.trim()) {
+          copyString(content, true)
+        }
+        event.preventDefault()
+      }
     },
     antVActionPost(dimensionList, name, param) {
       this.pointParam = {

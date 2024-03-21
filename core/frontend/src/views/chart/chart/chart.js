@@ -103,6 +103,7 @@ export const DEFAULT_SIZE = {
   tableCellTooltip: {
     show: false
   },
+  tableFieldWidth: [],
   gaugeMinType: 'fix', // fix or dynamic
   gaugeMinField: {
     id: '',
@@ -227,10 +228,14 @@ export const DEFAULT_TOTAL = {
     subLabel: '小计',
     subTotalsDimensions: [],
     calcTotals: {
-      aggregation: 'SUM'
+      aggregation: 'SUM',
+      // { dataeaseName, aggregation }
+      cfg: []
     },
     calcSubTotals: {
-      aggregation: 'SUM'
+      aggregation: 'SUM',
+      // { dataeaseName, aggregation }
+      cfg: []
     },
     totalSort: 'none', // asc,desc
     totalSortField: ''
@@ -244,10 +249,14 @@ export const DEFAULT_TOTAL = {
     subLabel: '小计',
     subTotalsDimensions: [],
     calcTotals: {
-      aggregation: 'SUM'
+      aggregation: 'SUM',
+      // { dataeaseName, aggregation }
+      cfg: []
     },
     calcSubTotals: {
-      aggregation: 'SUM'
+      aggregation: 'SUM',
+      // { dataeaseName, aggregation }
+      cfg: []
     },
     totalSort: 'none', // asc,desc
     totalSortField: ''
@@ -1100,7 +1109,8 @@ export const BASE_TREEMAP = {
       breadcrumb: {
         show: false
       },
-      data: []
+      data: [],
+      nodeClick: false
     }
   ]
 }
@@ -1216,7 +1226,7 @@ export const CHART_FONT_LETTER_SPACE = [
   { name: '10px', value: '10' }
 ]
 
-export const NOT_SUPPORT_PAGE_DATASET = ['kylin', 'es', 'presto', 'StarRocks']
+export const NOT_SUPPORT_PAGE_DATASET = ['kylin', 'sqlServer_all', 'es', 'presto', 'StarRocks']
 
 export const SUPPORT_Y_M = ['y', 'y_M', 'y_M_d']
 

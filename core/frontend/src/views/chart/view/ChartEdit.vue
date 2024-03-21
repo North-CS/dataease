@@ -1192,6 +1192,39 @@
                         <span class="drag-placeholder-style-span">{{ $t('chart.placeholder_field') }}</span>
                       </div>
                     </el-row>
+                    <el-row
+                      v-if="view.type === 'bar-time-range'"
+                      class="padding-lr"
+                    >
+                      <span>
+                        {{ $t('chart.chart_bar_time2') }}
+                      </span>
+                      <span>
+                        <el-tooltip
+                          class="item"
+                          effect="dark"
+                          placement="bottom"
+                        >
+                          <div slot="content">
+                            {{ $t('chart.chart_bar_time_tip') }}
+                          </div>
+                          <i
+                            class="el-icon-info"
+                            style="cursor: pointer;color: #606266;"
+                          />
+                        </el-tooltip>
+                      </span>
+                      <span
+                        class="padding-lr"
+                      >
+                        <el-checkbox
+                          v-model="view.aggregate"
+                          class="el-input-refresh-loading"
+                          @change="aggregateChange"
+                        />
+                        {{ $t('chart.aggregate') }}
+                      </span>
+                    </el-row>
                   </div>
                 </el-row>
               </div>
@@ -2145,8 +2178,7 @@ export default {
       return this.view.type &&
         !(this.view.type.includes('table') && this.view.render === 'echarts') &&
         !includesAny(this.view.type, 'text', 'gauge') &&
-        !equalsAny(this.view.type, 'liquid', 'bidirectional-bar',
-          'word-cloud', 'table-pivot', 'label', 'richTextView', 'flow-map')
+        !equalsAny(this.view.type, 'liquid', 'bidirectional-bar', 'table-pivot', 'label', 'richTextView', 'flow-map')
     },
     isPlugin() {
       const plugins = localStorage.getItem('plugin-views') && JSON.parse(localStorage.getItem('plugin-views')) || []
@@ -2291,6 +2323,7 @@ export default {
     bus.$off('plugins-calc-style', this.calcStyle)
     bus.$off('plugin-chart-click', this.chartClick)
     bus.$off('set-dynamic-area-code', this.setDynamicAreaCode)
+    bus.$off('set-table-column-width', this.onTableFieldWidthChange)
   },
   activated() {
   },
@@ -2381,6 +2414,7 @@ export default {
       bus.$on('plugins-calc-style', this.calcStyle)
       bus.$on('plugin-chart-click', this.chartClick)
       bus.$on('set-dynamic-area-code', this.setDynamicAreaCode)
+      bus.$on('set-table-column-width', this.onTableFieldWidthChange)
     },
     initTableData(id, optType) {
       if (id != null) {
@@ -2655,6 +2689,14 @@ export default {
         view.type === 'table-pivot') {
         view.drillFields = []
       }
+      view.drillFields.forEach(ele => {
+        if (!ele.dateStyle || ele.dateStyle === '') {
+          ele.dateStyle = 'y_M_d'
+        }
+        if (!ele.datePattern || ele.datePattern === '') {
+          ele.datePattern = 'date_sub'
+        }
+      })
       this.chart = JSON.parse(JSON.stringify(view))
       this.view = JSON.parse(JSON.stringify(view))
       // stringify json param
@@ -2930,7 +2972,10 @@ export default {
       this.view.customAttr.size = val
       this.calcData()
     },
-
+    onTableFieldWidthChange(val) {
+      this.view.customAttr.size.tableFieldWidth = val
+      this.calcData()
+    },
     onTextChange(val) {
       this.view.customStyle.text = val
       this.view.title = val.title
@@ -3401,6 +3446,9 @@ export default {
     drillItemChange(item) {
       this.calcData(true)
     },
+    aggregateChange() {
+      this.calcData(true)
+    },
     drillItemRemove(item) {
       this.view.drillFields.splice(item.index, 1)
       this.calcData(true)
@@ -3615,6 +3663,9 @@ export default {
         }
       } else if (type === 'label-normal') {
         this.view.senior.functionCfg.emptyDataStrategy = 'breakLine'
+      }
+      if (type === 'table-pivot') {
+        this.view.customAttr.size.tableColumnMode = 'custom'
       }
       // reset custom colors
       this.view.customAttr.color.seriesColors = []

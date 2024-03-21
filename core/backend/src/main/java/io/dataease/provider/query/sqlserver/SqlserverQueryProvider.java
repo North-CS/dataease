@@ -28,6 +28,7 @@ import io.dataease.plugins.datasource.entity.PageInfo;
 import io.dataease.plugins.datasource.query.QueryProvider;
 import io.dataease.plugins.datasource.query.Utils;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -72,6 +73,7 @@ public class SqlserverQueryProvider extends QueryProvider {
             case "DATETIME":
             case "DATETIME2":
             case "DATETIMEOFFSET":
+            case "SMALLDATETIME":
                 return DeTypeConstants.DE_TIME;// 时间
             case "INT":
             case "MEDIUMINT":
@@ -83,6 +85,7 @@ public class SqlserverQueryProvider extends QueryProvider {
             case "DOUBLE":
             case "DECIMAL":
             case "MONEY":
+            case "REAL":
             case "NUMERIC":
                 return DeTypeConstants.DE_FLOAT;// 浮点
             case "BIT":
@@ -436,10 +439,10 @@ public class SqlserverQueryProvider extends QueryProvider {
 
     @Override
     public String getSQLTableInfo(String table, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
-        return originTableInfo(table, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, true, true);
+        return originTableInfo(table, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, true, true, false);
     }
 
-    public String originTableInfo(String table, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view, boolean needOrder, boolean needResultCount) {
+    public String originTableInfo(String table, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view, boolean needOrder, boolean needResultCount, boolean ignoreOrder) {
         SQLObj tableObj = SQLObj.builder()
                 .tableName((table.startsWith("(") && table.endsWith(")")) ? table : String.format(SqlServerSQLConstants.KEYWORD_TABLE, table))
                 .tableAlias(String.format(TABLE_ALIAS_PREFIX, 0))
@@ -493,13 +496,15 @@ public class SqlserverQueryProvider extends QueryProvider {
         groups.addAll(xFields);
         // 外层再次套sql
         List<SQLObj> orders = new ArrayList<>();
-        orders.addAll(xOrders);
-        if (needOrder && CollectionUtils.isEmpty(xOrders)) {
-            orders.add(SQLObj.builder()
-                    .orderField(String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, 0))
-                    .orderAlias(String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, 0))
-                    .orderDirection("ASC")
-                    .build());
+        if (!ignoreOrder) {
+            orders.addAll(xOrders);
+            if (needOrder && CollectionUtils.isEmpty(xOrders)) {
+                orders.add(SQLObj.builder()
+                        .orderField(String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, 0))
+                        .orderAlias(String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, 0))
+                        .orderDirection("ASC")
+                        .build());
+            }
         }
 
         STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
@@ -525,18 +530,25 @@ public class SqlserverQueryProvider extends QueryProvider {
         return st.render();
     }
 
-    public String originSQLAsTmpTableInfo(String sql, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view, boolean needOrder) {
-        return originTableInfo("(" + sqlFix(sql) + ")", xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, null, view, needOrder, true);
+    public String originSQLAsTmpTableInfo(String sql, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view, boolean needOrder, boolean ignoreOrder) {
+        return originTableInfo("(" + sqlFix(sql) + ")", xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, null, view, needOrder, true, ignoreOrder);
     }
 
-    @Override
     public String getSQLWithPage(boolean isTable, String sql, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view, PageInfo pageInfo) {
-        boolean isPage = (pageInfo.getGoPage() != null && pageInfo.getPageSize() != null);
-        String limit = (isPage ? " OFFSET " + (pageInfo.getGoPage() - 1) * pageInfo.getPageSize() + " ROW FETCH NEXT " + pageInfo.getPageSize() + " ROW ONLY " : "");
-        if (isTable) {
-            return originTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, true, !isPage) + limit;
+        if (Integer.valueOf(ds.getVersion()) < 11) {
+            if (isTable) {
+                return getSQLTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view);
+            } else {
+                return getSQLAsTmpTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view);
+            }
         } else {
-            return originTableInfo("(" + sqlFix(sql) + ")", xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, true, !isPage) + limit;
+            boolean isPage = (pageInfo.getGoPage() != null && pageInfo.getPageSize() != null);
+            String limit = (isPage ? " OFFSET " + (pageInfo.getGoPage() - 1) * pageInfo.getPageSize() + " ROW FETCH NEXT " + pageInfo.getPageSize() + " ROW ONLY " : "");
+            if (isTable) {
+                return originTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, true, !isPage, false) + limit;
+            } else {
+                return originTableInfo("(" + sqlFix(sql) + ")", xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, true, !isPage, false) + limit;
+            }
         }
     }
 
@@ -835,11 +847,14 @@ public class SqlserverQueryProvider extends QueryProvider {
                 .build();
         setSchema(tableObj, ds);
         List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xFields2Tail = new ArrayList<>();
         List<SQLObj> xOrders = new ArrayList<>();
 
         List<SQLObj> yFields = new ArrayList<>(); // 要把两个时间字段放进y里面
         List<String> yWheres = new ArrayList<>();
         List<SQLObj> yOrders = new ArrayList<>();
+
+        boolean ifAggregate = BooleanUtils.isTrue(view.getAggregate());
 
         if (CollectionUtils.isNotEmpty(xAxis)) {
             for (int i = 0; i < xAxis.size(); i++) {
@@ -881,21 +896,29 @@ public class SqlserverQueryProvider extends QueryProvider {
                 }
                 String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
 
-                if (i == baseXAxis.size()) {// 起止时间
-                    String fieldName = String.format(SqlServerSQLConstants.AGG_FIELD, "min", originField);
-                    yFields.add(getXFields(x, fieldName, fieldAlias));
+                if (ifAggregate) {
+                    if (i == baseXAxis.size()) {// 起止时间
+                        String fieldName = String.format(SqlServerSQLConstants.AGG_FIELD, "min", originField);
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
 
-                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
 
-                } else if (i == baseXAxis.size() + 1) {
-                    String fieldName = String.format(SqlServerSQLConstants.AGG_FIELD, "max", originField);
+                    } else if (i == baseXAxis.size() + 1) {
+                        String fieldName = String.format(SqlServerSQLConstants.AGG_FIELD, "max", originField);
 
-                    yFields.add(getXFields(x, fieldName, fieldAlias));
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
 
-                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
+                    } else {
+                        // 处理横轴字段
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
                 } else {
-                    // 处理横轴字段
-                    xFields.add(getXFields(x, originField, fieldAlias));
+                    if (i == baseXAxis.size() || i == baseXAxis.size() + 1) {// 起止时间
+                        xFields2Tail.add(getXFields(x, originField, fieldAlias));
+                    } else {
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
                 }
 
                 // 处理横轴排序
@@ -906,6 +929,9 @@ public class SqlserverQueryProvider extends QueryProvider {
                             .orderDirection(x.getSort())
                             .build());
                 }
+            }
+            if (!ifAggregate) { //把起止时间放到数组最后
+                xFields.addAll(xFields2Tail);
             }
         }
 
@@ -1141,7 +1167,7 @@ public class SqlserverQueryProvider extends QueryProvider {
                 whereValue = "''";
             } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
                 whereValue = "''";
-            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "in") || StringUtils.containsIgnoreCase(item.getTerm(), "not in")) {
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in") || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
                 if (field.getType().equalsIgnoreCase("NVARCHAR")) {
                     whereValue = "(" + Arrays.asList(value.split(",")).stream().map(str -> {
                         return "N" + "'" + str + "'";
@@ -1151,6 +1177,10 @@ public class SqlserverQueryProvider extends QueryProvider {
                 }
             } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
                 whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
             } else {
                 if (field.getType().equalsIgnoreCase("NVARCHAR")) {
                     whereValue = String.format(SqlServerSQLConstants.WHERE_VALUE_VALUE_CH, value);
@@ -1226,7 +1256,7 @@ public class SqlserverQueryProvider extends QueryProvider {
                 whereValue = "''";
             } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
                 whereValue = "''";
-            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "in") || StringUtils.containsIgnoreCase(item.getTerm(), "not in")) {
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in") || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
                 if (field.getType().equalsIgnoreCase("NVARCHAR")) {
                     whereValue = "(" + Arrays.asList(value.split(",")).stream().map(str -> {
                         return "N" + "'" + str + "'";
@@ -1236,6 +1266,10 @@ public class SqlserverQueryProvider extends QueryProvider {
                 }
             } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
                 whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
             } else {
                 if (field.getType().equalsIgnoreCase("NVARCHAR")) {
                     whereValue = String.format(SqlServerSQLConstants.WHERE_VALUE_VALUE_CH, value);
@@ -1278,6 +1312,8 @@ public class SqlserverQueryProvider extends QueryProvider {
             case "not in":
                 return " NOT IN ";
             case "like":
+            case "begin_with":
+            case "end_with":
                 return " LIKE ";
             case "not like":
                 return " NOT LIKE ";
@@ -1363,7 +1399,7 @@ public class SqlserverQueryProvider extends QueryProvider {
                         whereValue = "''";
                     } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "not_empty")) {
                         whereValue = "''";
-                    } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "in") || StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "not in")) {
+                    } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "in") || StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "not in")) {
                         if (field.getType().equalsIgnoreCase("NVARCHAR")) {
                             whereValue = "(" + Arrays.asList(value.split(",")).stream().map(str -> {
                                 return "N" + "'" + str + "'";
@@ -1373,6 +1409,10 @@ public class SqlserverQueryProvider extends QueryProvider {
                         }
                     } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "like")) {
                         whereValue = "'%" + value + "%'";
+                    } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "begin_with")) {
+                        whereValue = "'" + value + "%'";
+                    } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "end_with")) {
+                        whereValue = "'%" + value + "'";
                     } else {
                         if (field.getType().equalsIgnoreCase("NVARCHAR")) {
                             whereValue = String.format(SqlServerSQLConstants.WHERE_VALUE_VALUE_CH, value);
@@ -1483,7 +1523,12 @@ public class SqlserverQueryProvider extends QueryProvider {
                         return "N" + "'" + str + "'";
                     }).collect(Collectors.joining(",")) + ")";
                 } else {
-                    whereValue = "('" + StringUtils.join(value, "','") + "')";
+                    // 过滤空数据
+                    if (value.contains(SQLConstants.EMPTY_SIGN)) {
+                        whereValue = "('" + StringUtils.join(value, "','") + "', '')" + " or " + whereName + " is null ";
+                    } else {
+                        whereValue = "('" + StringUtils.join(value, "','") + "')";
+                    }
                 }
             } else if (StringUtils.containsIgnoreCase(request.getOperator(), "like")) {
                 String keyword = value.get(0).toUpperCase();
@@ -1503,7 +1548,12 @@ public class SqlserverQueryProvider extends QueryProvider {
                 if ((request.getDatasetTableField() != null && request.getDatasetTableField().getType().equalsIgnoreCase("NVARCHAR")) || (request.getDatasetTableFieldList() != null && request.getDatasetTableFieldList().stream().map(DatasetTableField::getType).collect(Collectors.toList()).contains("nvarchar"))) {
                     whereValue = String.format(SqlServerSQLConstants.WHERE_VALUE_VALUE_CH, value.get(0));
                 } else {
-                    whereValue = String.format(SqlServerSQLConstants.WHERE_VALUE_VALUE, value.get(0));
+                    // 过滤空数据
+                    if (StringUtils.equals(value.get(0), SQLConstants.EMPTY_SIGN)) {
+                        whereValue = String.format(SqlServerSQLConstants.WHERE_VALUE_VALUE, "") + " or " + whereName + " is null ";
+                    } else {
+                        whereValue = String.format(SqlServerSQLConstants.WHERE_VALUE_VALUE, value.get(0));
+                    }
                 }
 
             }
@@ -1513,7 +1563,7 @@ public class SqlserverQueryProvider extends QueryProvider {
                     .build());
         }
         List<String> strList = new ArrayList<>();
-        list.forEach(ele -> strList.add(ele.getWhereField() + " " + ele.getWhereTermAndValue()));
+        list.forEach(ele -> strList.add("(" + ele.getWhereField() + " " + ele.getWhereTermAndValue() + ")"));
         return CollectionUtils.isNotEmpty(list) ? "(" + String.join(" AND ", strList) + ")" : null;
     }
 
@@ -1766,9 +1816,9 @@ public class SqlserverQueryProvider extends QueryProvider {
     @Override
     public String getResultCount(boolean isTable, String sql, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
         if (isTable) {
-            return "SELECT COUNT(*) AS count from (" + originTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, false, true) + ") COUNT_TEMP";
+            return "SELECT COUNT(*) AS count from (" + originTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, false, true, true) + ") COUNT_TEMP";
         } else {
-            return "SELECT COUNT(*) AS count from (" + originSQLAsTmpTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, false) + ") COUNT_TEMP";
+            return "SELECT COUNT(*) AS count from (" + originSQLAsTmpTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, false, true) + ") COUNT_TEMP";
         }
     }
 }

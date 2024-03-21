@@ -382,6 +382,7 @@ export default {
     thumbnail: 'thumbnail',
     confirm_delete: 'Confirm delete',
     delete_this_dashboard: 'Are you sure to delete this dashboard?',
+    cancel_this_dashboard: 'Are you sure to cancel this default dashboard?',
     delete_this_folder: 'Are you sure to delete this folder?',
     confirm_stop: 'Confirm stop',
     stop_success: 'Stop success',
@@ -827,6 +828,11 @@ export default {
     edite_organization: 'Edit organization'
   },
   system_parameter_setting: {
+    proxy_setting: 'Proxy setting',
+    proxy_account: 'Proxy account',
+    proxy_pwd: 'Proxy password',
+    proxy_host: 'Proxy address',
+    proxy_port: '服务端口',
     email_server_config: 'Mailbox server configuration',
     edit_success: 'Edit success',
     mailbox_service_settings: 'Mail Setting',
@@ -840,6 +846,7 @@ export default {
     empty_msg: 'If empty then default value is 30 days',
     front_error: 'Valid range [0 - 300]', // 修改了提示信息
     msg_error: 'Valid range [1 - 365]',
+    log_live_time_error: 'Valid range [1 - 4000]',
     limit_times_error: 'Valid range [1 - 100]',
     relieve_times_error: 'Valid range [1 - 100]',
     SMTP_port: 'SMTP Port',
@@ -1111,6 +1118,7 @@ export default {
     asc: 'Ascending Order',
     desc: 'Descending Order',
     sort: 'Sort',
+    default: 'Default',
     filter: 'Filter',
     is_set: 'Is Set',
     none: 'None',
@@ -1134,6 +1142,8 @@ export default {
     filter_not_empty: 'Not Empty String',
     filter_include: 'Contain',
     filter_not_include: 'Not Contain',
+    filter_end_with: 'End With',
+    filter_begin_with: 'Begin With',
     rose_type: 'Rose pattern',
     radius_mode: 'Radius',
     area_mode: 'Area',
@@ -1287,6 +1297,7 @@ export default {
     map_range: 'Map range',
     select_map_range: 'Please select map range',
     area: 'Area',
+    aggregate: 'Aggregate',
     placeholder_field: 'Drag Field To Here',
     axis_label_rotate: 'Label Rotate',
     chart_scatter_bubble: 'Bubble',
@@ -1392,6 +1403,7 @@ export default {
     table_column_width_config: 'Column Width',
     table_column_adapt: 'Adapt',
     table_column_custom: 'Custom',
+    table_column_fixed: 'Fixed',
     chart_table_pivot: 'Pivot Table',
     table_pivot_row: 'Data Row',
     field_error_tips: 'This field is changed(Include dimension、quota，field type，deleted),please edit again.',
@@ -1499,6 +1511,8 @@ export default {
     gauge_size_field_delete: 'Dynamic field changed，please edit again',
     chart_group: 'Sub Type',
     chart_bar_time: 'Range',
+    chart_bar_time2: 'Time Range',
+    chart_bar_time_tip: 'Only active when the range type is time',
     chart_bar_group: 'Bar Group',
     chart_bar_group_stack: 'Group Stack Bar',
     field_dynamic: 'Dynamic',
@@ -1531,7 +1545,7 @@ export default {
     drill_dimension_tip: 'Only fields in the dataset can be drilled',
     table_scroll_tip: 'The detail table is only effective when the pagination mode is "Drop-down".',
     table_threshold_tip: 'Tip: Do not select fields repeatedly. If the same field is configured repeatedly, only the last field will take effect.',
-    table_column_width_tip: `Column width do not always work.<br/>
+    table_column_width_tip: `Fixed Column width do not always work.<br/>
                              The priority of the container width is higher than the column width, <br/>
                              which means if the result of dividing the width of the table container by the number of columns is greater than specified column width, <br/>
                              the former will take effect.`,
@@ -1736,7 +1750,7 @@ export default {
     edit_field: 'Edit Field',
     preview_100_data: 'Show 100 lines data',
     invalid_table_check: 'Please sync data first.',
-    parse_error: 'Parse failed,please check.Reference：https://dataease.io/docs/user_manual/dataset_configuration/dataset_Excel',
+    parse_error: 'Parse failed,please check.Reference：https://dataease.io/docs/v1/user_manual/dataset_configuration/dataset_Excel',
     origin_field_type: 'Field Origin Type',
     edit_excel_table: 'Edit Excel Dataset',
     edit_excel: 'Edit Excel',
@@ -1871,7 +1885,11 @@ export default {
       tip6: 'Use the functions supported by the database type corresponding to the dataset. The syntax is the same as that of the corresponding database',
       tip7: 'For example, date format: MySQL uses DATE_ FORMAT(date,format)； Oracle uses TO_ DATE(X,[,fmt])',
       tip8: 'Non direct connection mode data set, use Doris database functions, refer to Doris official website'
-    }
+    },
+    set_key: 'Set Primary Key',
+    change_to_key: 'Set as primary key',
+    selecet_key: 'Select primary key',
+    no_set_key: 'No primary key set'
   },
   driver: {
     driver: 'Driver',
@@ -2051,6 +2069,7 @@ export default {
     back_parent: 'Back to previous'
   },
   panel: {
+    app_export_tips: 'In the current dashboard, [{0}] belongs to a template view and cannot be exported. Please set up the dataset first!',
     required_tips: 'Cannot be empty!',
     filter_no_select: 'Filter components do not need to be selected',
     first_item: 'First item',
@@ -2084,7 +2103,7 @@ export default {
     component_color: 'Component color',
     chart_title: 'Chart title',
     filter_component: 'Filter component',
-    enable_refresh_view: 'Enable refresh',
+    enable_refresh_view: 'Data refresh',
     enable_view_loading: 'View loading prompt',
     image_size_tips: 'Please do not exceed 15M in the picture',
     image_add_tips: 'Only pictures can be inserted',
@@ -2131,6 +2150,8 @@ export default {
     theme_color_dark: 'Dark',
     theme_color_light: 'Light',
     refresh_frequency: 'Refresh Frequency',
+    refresh_browser_frequency: 'Refresh Browser',
+    refresh_browser_tips: 'Only public links are effective',
     card_color_matching: 'Card Color Matching',
     table_color_matching: 'Table Color Matching',
     background_color: 'Background Color',
@@ -2191,7 +2212,7 @@ export default {
     when_share: 'When share',
     share_to: 'Share to',
     share_to_some: 'Share [{some}] to',
-    org: 'Orgnization',
+    org: 'Organization',
     role: 'Role',
     user: 'User',
     datalist: 'Chart List',
@@ -2261,6 +2282,7 @@ export default {
     data_list: 'Data list',
     component_list: 'Component list',
     custom_scope: 'Target',
+    show_empty: 'Option contains empty data',
     multiple_choice: 'Multiple choice',
     show_time: 'Show time',
     single_choice: 'Single choice',
@@ -2336,6 +2358,7 @@ export default {
     switch_picture: 'Switch Picture',
     select_field: 'Select View Field',
     remove_all_linkage: 'Remove All Linkage',
+    back_to_top: 'Back To Top',
     exit_un_march_linkage_field: 'Exit Un March Linkage Field',
     details: 'Details',
     setting: 'Setting',

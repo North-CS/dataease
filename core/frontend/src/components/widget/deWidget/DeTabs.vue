@@ -27,7 +27,7 @@
       <el-tab-pane
         v-for="(item, index) in element.options.tabList"
         :key="item.name+index"
-        :lazy="!isEdit"
+        :lazy="!isEdit && terminal === 'pc'"
         :name="item.name"
       >
         <span slot="label">
@@ -74,7 +74,7 @@
         />
         <div
           v-if="item.content && item.content.type==='canvas' && (!isEdit || mobileLayoutStatus)"
-          style="width: 100%;height:100%"
+          style="width: 100%;height:100%;font-size: initial"
         >
           <Preview
             :ref="'canvasTabRef-'+item.name"
@@ -131,7 +131,7 @@
         v-model="textarea"
         type="textarea"
         :rows="2"
-        maxlength="10"
+        maxlength="20"
         show-word-limit
         :placeholder="$t('dataset.input_content')"
       />
@@ -276,6 +276,10 @@ export default {
       type: String,
       required: false,
       default: 'NotProvided'
+    },
+    terminal: {
+      type: String,
+      default: 'pc'
     }
   },
   data() {
@@ -512,7 +516,7 @@ export default {
       this.$nextTick(() => {
         if (this.element.options.tabList.length > 1) {
           const containerDom = document.getElementById('tab-' + this.element.options.tabList[this.element.options.tabList.length - 1].name)
-          this.tabsAreaScroll = containerDom.parentNode.scrollWidth > containerDom.parentNode.parentNode.scrollWidth
+          this.tabsAreaScroll = containerDom.parentNode.scrollWidth >= containerDom.parentNode.parentNode.scrollWidth
         } else {
           this.tabsAreaScroll = false
         }
