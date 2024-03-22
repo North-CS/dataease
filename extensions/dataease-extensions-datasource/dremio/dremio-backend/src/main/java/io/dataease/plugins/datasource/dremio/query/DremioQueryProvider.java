@@ -1105,8 +1105,82 @@ public class DremioQueryProvider extends QueryProvider {
     }
 
     @Override
-    public String transTreeItem(SQLObj sqlObj, FilterTreeItem filterTreeItem) {
-        return null;
+    public String transTreeItem(SQLObj tableObj, FilterTreeItem item) {
+        String res = null;
+        DatasetTableField field = item.getField();
+        if (ObjectUtils.isEmpty(field)) {
+            return null;
+        }
+        String whereName = "";
+        String originName;
+        if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 2) {
+            // 解析origin name中有关联的字段生成sql表达式
+            originName = calcFieldRegex(field.getOriginName(), tableObj);
+        } else if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 1) {
+            originName = String.format(DremioConstants.KEYWORD_FIX, tableObj.getTableAlias(), field.getOriginName());
+        } else {
+            originName = String.format(DremioConstants.KEYWORD_FIX, tableObj.getTableAlias(), field.getOriginName());
+        }
+        if (field.getDeType() == 1) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(DremioConstants.STR_TO_DATE, originName, StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat() : DremioConstants.DEFAULT_DATE_FORMAT);
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                String cast = String.format(DremioConstants.CAST, originName, DremioConstants.DEFAULT_INT_FORMAT) + "/1000";
+                whereName = String.format(DremioConstants.FROM_UNIXTIME, cast, DremioConstants.DEFAULT_DATE_FORMAT);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = originName;
+            }
+        } else if (field.getDeType() == 2 || field.getDeType() == 3) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(DremioConstants.CAST, originName, DremioConstants.DEFAULT_FLOAT_FORMAT);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = String.format(DremioConstants.UNIX_TIMESTAMP, originName);
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                whereName = originName;
+            }
+        } else {
+            whereName = originName;
+        }
+
+        if (StringUtils.equalsIgnoreCase(item.getFilterType(), "enum")) {
+            if (CollectionUtils.isNotEmpty(item.getEnumValue())) {
+                res = "(" + whereName + " IN ('" + String.join("','", item.getEnumValue()) + "'))";
+            }
+        } else {
+            String value = item.getValue();
+            String whereTerm = transMysqlFilterTerm(item.getTerm());
+            String whereValue = "";
+
+            if (StringUtils.equalsIgnoreCase(item.getTerm(), "null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "empty")) {
+                whereValue = "''";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
+                whereValue = "''";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in") || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
+                whereValue = "('" + String.join("','", value.split(",")) + "')";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
+                whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
+            } else {
+                whereValue = String.format(DremioConstants.WHERE_VALUE_VALUE, value);
+            }
+            SQLObj build = SQLObj.builder()
+                    .whereField(whereName)
+                    .whereTermAndValue(whereTerm + whereValue)
+                    .build();
+            res = build.getWhereField() + " " + build.getWhereTermAndValue();
+        }
+        return res;
     }
 
     @Override
