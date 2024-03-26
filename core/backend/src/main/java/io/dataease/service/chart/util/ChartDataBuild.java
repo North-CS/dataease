@@ -917,6 +917,8 @@ public class ChartDataBuild {
     }
 
     public static List<String[]> sortForY(List<String[]> groupData, ChartViewFieldDTO y, Map<String, Double> groupDataMap, List<String[]> data) {
+        // 指标排序标识
+        Boolean flag = true;
         if (StringUtils.equals(y.getSort(), "desc")) {
             List<Map.Entry<String, Double>> wordMap = new ArrayList<Map.Entry<String, Double>>(groupDataMap.entrySet());
             Collections.sort(wordMap, new Comparator<Map.Entry<String, Double>>() {
@@ -960,6 +962,7 @@ public class ChartDataBuild {
                 groupData.add(keyData);
             }
         } else {
+            flag = false;
             for (String key : groupDataMap.keySet()) {
                 String[] keyData = new String[2];
                 keyData[0] = key;
@@ -969,14 +972,20 @@ public class ChartDataBuild {
         }
 
         List<String[]> newData = new ArrayList<>();
-        for (int i = 0; i < groupData.size(); i++) {
-            String key = groupData.get(i)[0];
-            for (int j = 0; j < data.size(); j++) {
-                if (StringUtils.equals(data.get(j)[0], key)) {
-                    newData.add(data.get(j));
+        if (flag) {
+            for (int i = 0; i < groupData.size(); i++) {
+                String key = groupData.get(i)[0];
+                for (int j = 0; j < data.size(); j++) {
+                    if (StringUtils.equals(data.get(j)[0], key)) {
+                        newData.add(data.get(j));
+                    }
                 }
             }
+        } else {
+            newData = data;
         }
+
+
         return newData;
     }
 
