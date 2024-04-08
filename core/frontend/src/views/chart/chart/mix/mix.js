@@ -14,21 +14,38 @@ export function baseMixOption(chart_option, chart) {
     // tooltip
     if (customAttr.tooltip) {
       const tooltip = JSON.parse(JSON.stringify(customAttr.tooltip))
+      console.log('tooltip1:', tooltip);
       if (tooltip.formatter == null || tooltip.formatter == "") {
-        tooltip.formatter = function (params) {
-          const a = chart_option.series[params.seriesIndex].stack;
-          const b = chart_option.series[params.seriesIndex].name;
-          const c = params.value;
-          if (a == null) {
-            return b + "<br/>" + c;
-          } else {
-            return a + "<br/>" + b + "<br/>" + c;
+        if (tooltip.trigger == 'item') {
+          tooltip.formatter = function (params) {
+            const a = chart_option.series[params.seriesIndex].stack;
+            const b = chart_option.series[params.seriesIndex].name;
+            const c = params.value;
+            if (a == null) {
+              return b + "<br/>" + c;
+            } else {
+              return a + "<br/>" + b + "<br/>" + c;
+            }
+          };
+        } else {
+          tooltip.formatter = function (params) {
+            let result = params[0].name;
+            // console.log('params：', params);
+            for (let i = 0; i < params.length; i++) {
+              // const a = chart_option.series[params[i].seriesIndex].stack ? chart_option.series[params[i].seriesIndex].stack : "";
+              if (params[i].value > 0) {
+                // result += '<br/>' + params[i].marker + a + params[i].seriesName + ' : ' + params[i].value;
+                result += '<br/>' + params[i].marker + params[i].seriesName + ' : ' + params[i].value;
+              }
+            }
+            return result;
           }
-        };
+        }
       } else {
         const reg = new RegExp('\n', 'g');
         tooltip.formatter = tooltip.formatter.replace(reg, '<br/>')
       }
+      console.log('tooltip2:', tooltip);
       chart_option.tooltip = tooltip
 
       const bgColor = tooltip.backgroundColor ? tooltip.backgroundColor : DEFAULT_TOOLTIP.backgroundColor

@@ -386,7 +386,7 @@ export default {
         chart_option = baseTreemapOption(JSON.parse(JSON.stringify(BASE_TREEMAP)), chart)
       } else if (chart.type === 'chart-mix') {
         chart_option = baseMixOption(JSON.parse(JSON.stringify(BASE_MIX)), chart)
-        // console.log('chart_option:', chart_option);
+        console.log('chart_option:', chart_option);
       }
       if (this.myChart && this.searchCount > 0) {
         chart_option.animation = false

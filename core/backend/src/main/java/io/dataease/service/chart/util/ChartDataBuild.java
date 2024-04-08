@@ -1342,8 +1342,8 @@ public class ChartDataBuild {
         for (Series ss : series) {
             for (int i = 0; i < x.size(); i++) {
                 for (String[] row : data) {
-                    String stackColumn = row[xAxis.size() - 1] + "-" + row[xAxis.size() + xAxisExt.size() + extStack.size() - 1];
-                    if (StringUtils.equals(ss.getStack(), stackColumn)) {
+                    String stackColumn = row[xAxis.size() - 1] + "-" + row[xAxis.size() + xAxisExt.size() + extStack.size() - 1] + row[xAxis.size()] ;
+                    if (StringUtils.equals(ss.getStack() + ss.getName(), stackColumn)) {
                         StringBuilder a = new StringBuilder();
                         if (isDrill) {
                             a.append(row[xAxis.size() - 1]);
