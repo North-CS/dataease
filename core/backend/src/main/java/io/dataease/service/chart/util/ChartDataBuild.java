@@ -820,7 +820,7 @@ public class ChartDataBuild {
 
             if (StringUtils.equals(y.getChartType(), "line")) {
                 // data 聚合处理
-                Map<String, Double> groupDataMap = new HashMap<>();
+                Map<String, Double> groupDataMap = new LinkedHashMap<>();
                 for (String[] d : data) {
                     String key = d[xAxis.size() - 1];
                     Double value = Double.valueOf(StringUtils.isNotEmpty(d[xAxis.size() + extStack.size() + xAxisExt.size() + i]) ? d[xAxis.size() + extStack.size() + xAxisExt.size() + i] : "0");
