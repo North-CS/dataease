@@ -1,0 +1,13 @@
+{
+    "name":"Trino数据源插件",
+    "free":0,
+    "store":"thirdpart",
+    "cost":20000,
+    "category":"datasource",
+    "descript":"请购买正式许可",
+    "version":"1.18.14",
+    "creator":"DATAEASE",
+    "moduleName":"trino-backend",
+    "require":"1.11.0",
+    "dsType":"trino"
+}
