@@ -307,7 +307,7 @@ public class ExportCenterService {
         }
     }
 
-    public void findExcelData(PanelViewDetailsRequest request) {
+    public void findExcelDataHis(PanelViewDetailsRequest request) {
         ChartViewWithBLOBs viewInfo = chartViewService.get(request.getViewId());
         request.setDownloadType(viewInfo.getType());
         if ("table-info".equals(viewInfo.getType())) {
@@ -319,6 +319,27 @@ public class ExportCenterService {
                 componentFilterInfo.setProxy(request.getProxy());
                 componentFilterInfo.setUser(request.getUserId());
                 ChartViewDTO chartViewInfo = chartViewService.getData(request.getViewId(), componentFilterInfo);
+                List<Object[]> tableRow = (List) chartViewInfo.getData().get("sourceData");
+                request.setDetails(tableRow);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+    }
+
+    public void findExcelData(PanelViewDetailsRequest request) {
+        ChartViewWithBLOBs viewInfo = chartViewService.get(request.getViewId());
+        request.setDownloadType(viewInfo.getType());
+        if ("table-info".equals(viewInfo.getType()) || "table-normal".equals(viewInfo.getType()) || "table-pivot".equals(viewInfo.getType())) {
+            try {
+                ChartExtRequest componentFilterInfo = request.getComponentFilterInfo();
+                componentFilterInfo.setGoPage(1L);
+                componentFilterInfo.setPageSize((long) limit);
+                componentFilterInfo.setExcelExportFlag(true);
+                componentFilterInfo.setProxy(request.getProxy());
+                componentFilterInfo.setUser(request.getUserId());
+                ChartViewDTO chartViewInfo = chartViewService.getExportData(request.getViewId(), componentFilterInfo);
                 List<Object[]> tableRow = (List) chartViewInfo.getData().get("sourceData");
                 request.setDetails(tableRow);
             } catch (Exception e) {
@@ -409,6 +430,7 @@ public class ExportCenterService {
                 cellStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
                 //设置单元格填充样式(使用纯色背景颜色填充)
                 cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
                 if ("table-info".equals(request.getDownloadType())) {
                     exportTableDetails(request, wb, cellStyle, detailsSheet);
                 } else {
