@@ -319,7 +319,7 @@ public class ExportCenterService {
         }
     }
 
-    public void findExcelData(PanelViewDetailsRequest request) {
+    public void findExcelDataHis(PanelViewDetailsRequest request) {
         ChartViewWithBLOBs viewInfo = chartViewService.get(request.getViewId());
         request.setViewType(viewInfo.getType());
         if ("table-info".equals(viewInfo.getType()) || "dataset".equals(request.getDownloadType())) {
@@ -338,6 +338,27 @@ public class ExportCenterService {
                     request.setHeader((String[]) chartViewInfo.getData().get("header"));
                     request.setExcelTypes((Integer[]) chartViewInfo.getData().get("dsTypes"));
                 }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+    }
+
+    public void findExcelData(PanelViewDetailsRequest request) {
+        ChartViewWithBLOBs viewInfo = chartViewService.get(request.getViewId());
+        request.setDownloadType(viewInfo.getType());
+        if ("table-info".equals(viewInfo.getType()) || "table-normal".equals(viewInfo.getType()) || "table-pivot".equals(viewInfo.getType())) {
+            try {
+                ChartExtRequest componentFilterInfo = request.getComponentFilterInfo();
+                componentFilterInfo.setGoPage(1L);
+                componentFilterInfo.setPageSize((long) limit);
+                componentFilterInfo.setExcelExportFlag(true);
+                componentFilterInfo.setProxy(request.getProxy());
+                componentFilterInfo.setUser(request.getUserId());
+                ChartViewDTO chartViewInfo = chartViewService.getExportData(request.getViewId(), componentFilterInfo);
+                List<Object[]> tableRow = (List) chartViewInfo.getData().get("sourceData");
+                request.setDetails(tableRow);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
