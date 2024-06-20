@@ -68,7 +68,10 @@ export const TYPE_CONFIGS = [
         'indexLabel',
         'tableColTooltip',
         'tableCellTooltip',
-        'showTableHeader'
+        'showTableHeader',
+        'tableHeaderSort',
+        'showSummary',
+        'summaryLabel'
       ],
       'title-selector-ant-v': [
         'show',
@@ -123,7 +126,8 @@ export const TYPE_CONFIGS = [
         'tableColTooltip',
         'tableCellTooltip',
         'showTableHeader',
-        'tableFreeze'
+        'tableFreeze',
+        'tableHeaderSort'
       ],
       'title-selector-ant-v': [
         'show',
@@ -321,7 +325,8 @@ export const TYPE_CONFIGS = [
         'gaugeStartAngle',
         'gaugeEndAngle',
         'gaugeTickCount',
-        'gaugeAxisLine'
+        'gaugeAxisLine',
+        'gaugePercentLabel'
       ],
       'label-selector-ant-v': [
         'labelGauge'
@@ -831,7 +836,10 @@ export const TYPE_CONFIGS = [
         'show',
         'fontSize',
         'color',
-        'position-v'
+        'position-v',
+        'showTotal',
+        'totalColor',
+        'totalFontSize'
       ],
       'tooltip-selector-ant-v': [
         'show',
@@ -1080,7 +1088,8 @@ export const TYPE_CONFIGS = [
         'nameTextStyle',
         'splitLine',
         'axisForm',
-        'axisLabel'
+        'axisLabel',
+        'axisLabelLength'
       ],
       'title-selector-ant-v': [
         'show',
@@ -1113,7 +1122,6 @@ export const TYPE_CONFIGS = [
     icon: 'bar-time-range',
     properties: [
       'color-selector',
-
       'label-selector-ant-v',
       'tooltip-selector-ant-v',
       'x-axis-selector-ant-v',
@@ -1137,11 +1145,13 @@ export const TYPE_CONFIGS = [
         'show',
         'fontSize',
         'color',
-        'position-h'
+        'position-h',
+        'showGap'
       ],
       'tooltip-selector-ant-v': [
         'show',
-        'textStyle'
+        'textStyle',
+        'showGap'
       ],
       'x-axis-selector-ant-v': [
         'show',
@@ -1239,7 +1249,8 @@ export const TYPE_CONFIGS = [
         'nameTextStyle',
         'splitLine',
         'axisForm',
-        'axisLabel'
+        'axisLabel',
+        'axisLabelLength'
       ],
       'title-selector-ant-v': [
         'show',
@@ -1315,7 +1326,8 @@ export const TYPE_CONFIGS = [
         'nameTextStyle',
         'splitLine',
         'axisForm',
-        'axisLabel'
+        'axisLabel',
+        'axisLabelLength'
       ],
       'title-selector-ant-v': [
         'show',
@@ -1359,7 +1371,8 @@ export const TYPE_CONFIGS = [
         'value',
         'colorPanel',
         'customColor',
-        'alpha'
+        'alpha',
+        'topN'
       ],
       'size-selector-ant-v': [
         'pieOuterRadius'
@@ -1418,7 +1431,8 @@ export const TYPE_CONFIGS = [
         'value',
         'colorPanel',
         'customColor',
-        'alpha'
+        'alpha',
+        'topN'
       ],
       'size-selector-ant-v': [
         'pieInnerRadius',
@@ -1753,8 +1767,7 @@ export const TYPE_CONFIGS = [
       'label-selector-ant-v': [
         'show',
         'fontSize',
-        'color',
-        'position-v'
+        'color'
       ],
       'tooltip-selector-ant-v': [
         'show',
@@ -1811,7 +1824,9 @@ export const TYPE_CONFIGS = [
       'label-selector-ant-v': [
         'show',
         'fontSize',
-        'color'
+        'color',
+        'labelContent',
+        'reserveDecimalCount'
       ],
       'tooltip-selector-ant-v': [
         'show',
@@ -1984,7 +1999,9 @@ export const TYPE_CONFIGS = [
         'show',
         'fontSize',
         'color',
-        'position-h'
+        'position-h',
+        'conversion',
+        'conversionLabel'
       ],
       'tooltip-selector-ant-v': [
         'show',
@@ -2510,11 +2527,18 @@ export const TYPE_CONFIGS = [
         'mix'
       ],
       'label-selector': [
+        'mainLabel',
         'show',
         'fontSize',
         'color',
         'position-v',
-        'formatter'
+        'formatter',
+        'subLabel',
+        'subShow',
+        'subFontSize',
+        'subColor',
+        'sub-position-v',
+        'subFormatter'
       ],
       'tooltip-selector': [
         'show',
@@ -2938,7 +2962,8 @@ export const TYPE_CONFIGS = [
       'color-selector': [
         'value',
         'custom',
-        'alpha'
+        'alpha',
+        'topN'
       ],
       'size-selector': [
         'pieOuterRadius'
@@ -2996,7 +3021,8 @@ export const TYPE_CONFIGS = [
       'color-selector': [
         'value',
         'custom',
-        'alpha'
+        'alpha',
+        'topN'
       ],
       'size-selector': [
         'pieInnerRadius',
@@ -3513,9 +3539,16 @@ export function customColor(custom, res, colors) {
     let flag = false
     for (let j = 0; j < custom.length; j++) {
       const c = custom[j]
-      if (r.name === c.name) {
+      if (c.id && c.id === r.id) {
         flag = true
         result.push(c)
+        break
+      }
+      if (r.name === c.name) {
+        flag = true
+        c.id = r.id
+        result.push(c)
+        break
       }
     }
     if (!flag) {
@@ -3526,10 +3559,30 @@ export function customColor(custom, res, colors) {
 }
 
 export function getColors(chart, colors, reset) {
+  const ifAggregate = !!chart.aggregate
   // 自定义颜色，先按照没有设定的情况，并排好序，当做最终结果
   let seriesColors = []
   let series
-  if (chart.type.includes('stack')) {
+  if (!ifAggregate && chart.type === 'bar-time-range') {
+    if (chart.data && chart.data.data && chart.data.data.length > 0) {
+      // 只能处理field字段
+      const groups = []
+      for (let i = 0; i < chart.data.data.length; i++) {
+        const name = chart.data.data[i].field
+        if (groups.indexOf(name) < 0) {
+          groups.push(name)
+        }
+      }
+      for (let i = 0; i < groups.length; i++) {
+        const s = groups[i]
+        seriesColors.push({
+          name: s,
+          color: colors[i % colors.length],
+          isCustom: false
+        })
+      }
+    }
+  } else if (chart.type.includes('stack')) {
     if (chart.data) {
       const data = chart.data.data
       const stackData = []
@@ -3616,6 +3669,7 @@ export function getColors(chart, colors, reset) {
         const s = series[i]
         seriesColors.push({
           name: s.name,
+          id: s.id,
           color: colors[i % colors.length],
           isCustom: false
         })
@@ -3626,7 +3680,7 @@ export function getColors(chart, colors, reset) {
     if (chart.data) {
       const data = chart.data.data
       const s = []
-      data.forEach((cur) => {
+      data?.forEach((cur) => {
         if (s.indexOf(cur.category) < 0) {
           s.push(cur.category)
         }
@@ -3642,16 +3696,6 @@ export function getColors(chart, colors, reset) {
   } else {
     if (chart.data) {
       const data = chart.data.data
-      // data 的维度值，需要根据自定义顺序排序
-      // let customSortData
-      // if (Object.prototype.toString.call(chart.customSort) === '[object Array]') {
-      //   customSortData = JSON.parse(JSON.stringify(chart.customSort))
-      // } else {
-      //   customSortData = JSON.parse(chart.customSort)
-      // }
-      // if (customSortData && customSortData.length > 0) {
-      //   data = customSort(customSortData, data)
-      // }
       for (let i = 0; i < data.length; i++) {
         const s = data[i]
         seriesColors.push({
@@ -3755,6 +3799,7 @@ export function handleEmptyDataStrategy(strategy, chart, data, options) {
 function handleBreakLineMultiDimension(chart, data) {
   const dimensionInfoMap = new Map()
   const subDimensionSet = new Set()
+  const catQuotaMap = {}
   for (let i = 0; i < data.length; i++) {
     const item = data[i]
     const dimensionInfo = dimensionInfoMap.get(item.field)
@@ -3764,6 +3809,9 @@ function handleBreakLineMultiDimension(chart, data) {
       dimensionInfoMap.set(item.field, { set: new Set([item.category]), index: i })
     }
     subDimensionSet.add(item.category)
+    if (!catQuotaMap[item.category]) {
+      catQuotaMap[item.category] = item.quotaList
+    }
   }
   // Map 是按照插入顺序排序的，所以插入索引往后推
   let insertCount = 0
@@ -3775,7 +3823,8 @@ function handleBreakLineMultiDimension(chart, data) {
           data.splice(dimensionInfo.index + insertCount + subInsertIndex, 0, {
             field,
             value: null,
-            category: dimension
+            category: dimension,
+            quotaList: catQuotaMap[dimension]
           })
         }
         subInsertIndex++
@@ -3788,6 +3837,7 @@ function handleBreakLineMultiDimension(chart, data) {
 function handleSetZeroMultiDimension(chart, data) {
   const dimensionInfoMap = new Map()
   const subDimensionSet = new Set()
+  const catQuotaMap = {}
   for (let i = 0; i < data.length; i++) {
     const item = data[i]
     if (item.value === null) {
@@ -3800,6 +3850,9 @@ function handleSetZeroMultiDimension(chart, data) {
       dimensionInfoMap.set(item.field, { set: new Set([item.category]), index: i })
     }
     subDimensionSet.add(item.category)
+    if (!catQuotaMap[item.category]) {
+      catQuotaMap[item.category] = item.quotaList
+    }
   }
   let insertCount = 0
   dimensionInfoMap.forEach((dimensionInfo, field) => {
@@ -3810,7 +3863,8 @@ function handleSetZeroMultiDimension(chart, data) {
           data.splice(dimensionInfo.index + insertCount + subInsertIndex, 0, {
             field,
             value: 0,
-            category: dimension
+            category: dimension,
+            quotaList: catQuotaMap[dimension]
           })
         }
         subInsertIndex++
@@ -3889,4 +3943,60 @@ export function handleTableEmptyStrategy(tableData, chart) {
     }
   }
   return newData
+}
+
+export function parseJson(target) {
+  if (Object.prototype.toString.call(target) === '[object String]') {
+    return JSON.parse(target)
+  }
+  return JSON.parse(JSON.stringify(target))
+}
+
+export function adjustPosition(targetDom, parentDom, clickPosition, offset, initSize) {
+  const { clientHeight: targetHeight, clientWidth: targetWidth } = targetDom
+  const { clientHeight: parentHeight, clientWidth: parentWidth } = parentDom
+  const { x, y } = clickPosition
+  const { x: offsetX, y: offsetY } = offset
+  const result = {
+    x: offsetX ? x + offsetX : x,
+    y: offsetY ? y + offsetY : y
+  }
+  const width = targetWidth || initSize.width
+  const height = targetHeight || initSize.height
+  if (result.x + width > parentWidth) {
+    result.x = parentWidth - width
+  }
+  if (result.y + height > parentHeight) {
+    result.y = parentHeight - height
+  }
+  if (result.y - height < 0) {
+    result.y = height
+  }
+  return result
+}
+
+export function handleStackSort(chart, data) {
+  if (!data?.length) {
+    return
+  }
+  if (!chart.type.includes('stack') ||
+    chart.type.includes('group')) {
+    return
+  }
+  const { xaxis, yaxis, extStack } = chart
+  const xAxis = JSON.parse(xaxis)
+  const yAxis = JSON.parse(yaxis)
+  const stack = JSON.parse(extStack)
+  if (!(stack.length && xAxis.length && yAxis.length) ||
+    yAxis[0].sort === 'none' ||
+    !xAxis.every(i => i.sort === 'none')) {
+    return
+  }
+  const result = data.reduce((p, n, i) => {
+    p[n.field] = (p[n.field] || 0) + (n.value ?? 0)
+    return p
+  }, {})
+  data.sort((p, n) => {
+    return yAxis[0].sort === 'asc' ? result[p.field] - result[n.field] : result[n.field] - result[p.field]
+  })
 }

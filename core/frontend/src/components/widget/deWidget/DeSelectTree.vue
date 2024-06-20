@@ -275,7 +275,8 @@ export default {
       this.value = this.fillValueDerfault()
       this.data = []
       this.initOptions()
-      if (this.element.options.value) {
+      const existLastValidFilters = this.$store.state.lastValidFilters && this.$store.state.lastValidFilters[this.element.id]
+      if (this.element.options.value || existLastValidFilters) {
         this.value = this.fillValueDerfault()
         this.changeValue(this.value)
       }
@@ -491,6 +492,5 @@ export default {
       border-left: none;
     }
   }
-  
 }
 </style>

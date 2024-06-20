@@ -15,6 +15,7 @@
   >
 
     <el-button
+      v-if="!isRelation"
       slot="append"
       icon="el-icon-search"
       @click="search"
@@ -86,7 +87,8 @@ export default {
     }
   },
   created() {
-    if (this.element.options.value) {
+    const existLastValidFilters = this.$store.state.lastValidFilters && this.$store.state.lastValidFilters[this.element.id]
+    if (this.element.options.value || existLastValidFilters) {
       this.value = this.fillValueDerfault()
       this.search()
     }

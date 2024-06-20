@@ -1,6 +1,5 @@
 package io.dataease.service.panel;
 
-import cn.hutool.core.util.ArrayUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.google.gson.Gson;
@@ -11,6 +10,7 @@ import io.dataease.commons.constants.*;
 import io.dataease.commons.utils.*;
 import io.dataease.controller.request.authModel.VAuthModelRequest;
 import io.dataease.controller.request.chart.ChartExtRequest;
+import io.dataease.controller.request.dataset.DataSetExportRequest;
 import io.dataease.controller.request.dataset.DataSetTableRequest;
 import io.dataease.controller.request.panel.*;
 import io.dataease.dto.DatasourceDTO;
@@ -21,7 +21,7 @@ import io.dataease.dto.chart.ChartViewDTO;
 import io.dataease.dto.dataset.DataSetGroupDTO;
 import io.dataease.dto.dataset.DataSetTableDTO;
 import io.dataease.dto.dataset.DataSetTaskDTO;
-import io.dataease.dto.dataset.DataTableInfoDTO;
+import io.dataease.plugins.common.dto.dataset.DataTableInfoDTO;
 import io.dataease.dto.panel.PanelExport2App;
 import io.dataease.dto.panel.PanelGroupDTO;
 import io.dataease.dto.panel.PanelTemplateFileDTO;
@@ -33,12 +33,17 @@ import io.dataease.plugins.common.base.domain.*;
 import io.dataease.plugins.common.base.mapper.*;
 import io.dataease.plugins.common.constants.DeTypeConstants;
 import io.dataease.plugins.common.exception.DataEaseException;
+import io.dataease.plugins.common.request.chart.ChartExtFilterRequest;
+import io.dataease.plugins.common.request.permission.DatasetRowPermissionsTreeItem;
+import io.dataease.plugins.common.request.permission.DatasetRowPermissionsTreeObj;
+import io.dataease.plugins.common.util.HttpClientUtil;
 import io.dataease.service.chart.ChartViewService;
 import io.dataease.service.dataset.DataSetGroupService;
 import io.dataease.service.dataset.DataSetTableService;
 import io.dataease.service.staticResource.StaticResourceService;
 import io.dataease.service.sys.SysAuthService;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.hssf.usermodel.HSSFClientAnchor;
@@ -46,10 +51,10 @@ import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.pentaho.di.core.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -143,12 +148,18 @@ public class PanelGroupService {
     @Resource
     private DatasourceMapper datasourceMapper;
 
+    @Resource
+    private DatasetTableMapper datasetTableMapper;
+
+    @Value("${export.views.limit:100000}")
+    private Long limit;
+
     public List<PanelGroupDTO> tree(PanelGroupRequest panelGroupRequest) {
         String userId = String.valueOf(AuthUtils.getUser().getUserId());
         panelGroupRequest.setUserId(userId);
         panelGroupRequest.setIsAdmin(AuthUtils.getUser().getIsAdmin());
         List<PanelGroupDTO> panelGroupDTOList = extPanelGroupMapper.panelGroupList(panelGroupRequest);
-        return TreeUtils.mergeTree(panelGroupDTOList, "panel_list");
+        return TreeUtils.mergeTree(panelGroupDTOList, "0");
     }
 
     public List<PanelGroupDTO> defaultTree(PanelGroupRequest panelGroupRequest) {
@@ -653,6 +664,76 @@ public class PanelGroupService {
         CacheUtils.removeAll(AuthConstants.DEPT_PANEL_NAME);
     }
 
+    public DataSetExportRequest composeDatasetExportRequest(PanelViewDetailsRequest request) {
+        ChartExtRequest extRequest = request.getComponentFilterInfo();
+        List<ChartExtFilterRequest> filter = new ArrayList();
+        if (extRequest != null) {
+            if (CollectionUtils.isNotEmpty(extRequest.getFilter())) {
+                filter.addAll(extRequest.getFilter());
+            }
+            if (CollectionUtils.isNotEmpty(extRequest.getLinkageFilters())) {
+                filter.addAll(extRequest.getLinkageFilters());
+            }
+            if (CollectionUtils.isNotEmpty(extRequest.getOuterParamsFilters())) {
+                filter.addAll(extRequest.getOuterParamsFilters());
+            }
+        }
+        Gson gson = new Gson();
+        DatasetRowPermissionsTreeObj permissionsTreeObjFilter = new DatasetRowPermissionsTreeObj();
+        permissionsTreeObjFilter.setLogic("and");
+        List<DatasetRowPermissionsTreeItem> composePermission = new ArrayList<>();
+        permissionsTreeObjFilter.setItems(composePermission);
+        if (CollectionUtils.isNotEmpty(filter)) {
+            filter.forEach(filterInfo -> {
+                DatasetRowPermissionsTreeItem filterPermission = new DatasetRowPermissionsTreeItem();
+                List<String> values = filterInfo.getValue();
+                String operator = filterInfo.getOperator();
+                String dataSetFilterType = "logic";
+                String term = operator;
+                if ("eq".equals(operator) && values.size() > 1) {
+                    dataSetFilterType = "enum";
+                }
+                String fieldId = filterInfo.getFieldId();
+                filterPermission.setFieldId(fieldId);
+                filterPermission.setFilterType(dataSetFilterType);
+                filterPermission.setType("item");
+                if (dataSetFilterType.equals("enum")) {
+                    filterPermission.setEnumValue(values);
+                } else {
+                    filterPermission.setTerm(term);
+                    filterPermission.setValue(values.get(0));
+                }
+                composePermission.add(filterPermission);
+            });
+        }
+
+        ChartViewWithBLOBs chartInfo = chartViewMapper.selectByPrimaryKey(request.getViewId());
+        String customFilter = chartInfo.getCustomFilter();
+
+        DatasetTable datasetTable = datasetTableMapper.selectByPrimaryKey(chartInfo.getTableId());
+        DataSetExportRequest dataSetExportRequest = new DataSetExportRequest();
+        BeanUtils.copyBean(dataSetExportRequest, datasetTable);
+        DatasetRowPermissionsTreeObj permissionsTreeObjCustomsFilter = gson.fromJson(customFilter, DatasetRowPermissionsTreeObj.class);
+        if (CollectionUtils.isNotEmpty(composePermission)) {
+            if (StringUtils.isNotEmpty(permissionsTreeObjCustomsFilter.getLogic())) {
+                DatasetRowPermissionsTreeItem customFilterPermission = new DatasetRowPermissionsTreeItem();
+                customFilterPermission.setType("tree");
+                customFilterPermission.setSubTree(permissionsTreeObjCustomsFilter);
+                composePermission.add(customFilterPermission);
+            }
+            dataSetExportRequest.setExpressionTree(gson.toJson(permissionsTreeObjFilter));
+        } else if(StringUtils.isNotEmpty(permissionsTreeObjCustomsFilter.getLogic())){
+            dataSetExportRequest.setExpressionTree(customFilter);
+        }
+        dataSetExportRequest.setFilename(request.getViewName()+"-details");
+
+        return dataSetExportRequest;
+    }
+
+    public void exportDatasetDetails(PanelViewDetailsRequest request, HttpServletResponse response) throws Exception {
+        dataSetTableService.exportDataset(composeDatasetExportRequest(request), response);
+    }
+
 
     public void exportPanelViewDetails(PanelViewDetailsRequest request, HttpServletResponse response) throws IOException {
         OutputStream outputStream = response.getOutputStream();
@@ -662,11 +743,9 @@ public class PanelGroupService {
             List<Object[]> details = request.getDetails();
             Integer[] excelTypes = request.getExcelTypes();
             details.add(0, request.getHeader());
-
             Workbook wb = new SXSSFWorkbook();
             //明细sheet
             Sheet detailsSheet = wb.createSheet("数据");
-
 
             //给单元格设置样式
             CellStyle cellStyle = wb.createCellStyle();
@@ -681,11 +760,14 @@ public class PanelGroupService {
             cellStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
             //设置单元格填充样式(使用纯色背景颜色填充)
             cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-
+            if ("table-info".equals(request.getDownloadType())) {
+                exportTableDetails(request, response, wb, cellStyle, detailsSheet);
+                return;
+            }
 
             Boolean mergeHead = false;
             ViewDetailField[] detailFields = request.getDetailFields();
-            if (ArrayUtil.isNotEmpty(detailFields)) {
+            if (ArrayUtils.isNotEmpty(detailFields)) {
                 cellStyle.setBorderTop(BorderStyle.THIN);
                 cellStyle.setBorderRight(BorderStyle.THIN);
                 cellStyle.setBorderBottom(BorderStyle.THIN);
@@ -770,7 +852,7 @@ public class PanelGroupService {
                             } else if (cellValObj != null) {
                                 try {
                                     // with DataType
-                                    if ((excelTypes[j] == DeTypeConstants.DE_INT || excelTypes[j] == DeTypeConstants.DE_FLOAT) && StringUtils.isNotEmpty(cellValObj.toString())) {
+                                    if ((excelTypes[j].equals(DeTypeConstants.DE_INT) || excelTypes[j].equals(DeTypeConstants.DE_FLOAT)) && StringUtils.isNotEmpty(cellValObj.toString())) {
                                         cell.setCellValue(Double.valueOf(cellValObj.toString()));
                                     } else {
                                         cell.setCellValue(cellValObj.toString());
@@ -814,6 +896,46 @@ public class PanelGroupService {
             String pid = chartViewWithBLOBs.getSceneId();
             DeLogUtils.save(SysLogConstants.OPERATE_TYPE.EXPORT, SysLogConstants.SOURCE_TYPE.VIEW, viewId, pid, null, null);
         }
+    }
+
+    public void exportTableDetails(PanelViewDetailsRequest request, HttpServletResponse response, Workbook wb, CellStyle cellStyle, Sheet detailsSheet) throws IOException {
+        List<Object[]> details = request.getDetails();
+        Integer[] excelTypes = request.getExcelTypes();
+        if (CollectionUtils.isNotEmpty(details)) {
+            for (int i = 0; i < details.size(); i++) {
+                Row row = detailsSheet.createRow(i);
+                Object[] rowData = details.get(i);
+                if (rowData != null) {
+                    for (int j = 0; j < rowData.length; j++) {
+                        Cell cell = row.createCell(j);
+                        if (i == 0) {// 头部
+                            cell.setCellValue(String.valueOf(rowData[j]));
+                            cell.setCellStyle(cellStyle);
+                            //设置列的宽度
+                            detailsSheet.setColumnWidth(j, 255 * 20);
+                        } else {
+                            try {
+                                // with DataType
+                                if ((excelTypes[j].equals(DeTypeConstants.DE_INT) || excelTypes[j].equals(DeTypeConstants.DE_FLOAT)) && rowData[j] != null) {
+                                    cell.setCellValue(Double.valueOf(rowData[j].toString()));
+                                } else {
+                                    cell.setCellValue(String.valueOf(rowData[j]));
+                                }
+                            } catch (Exception e) {
+                                LogUtil.warn("export excel data transform error");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        OutputStream outputStream = response.getOutputStream();
+        response.setContentType("application/vnd.ms-excel");
+        //文件名称
+        response.setHeader("Content-disposition", "attachment;filename=" + request.getViewName() + ".xlsx");
+        wb.write(outputStream);
+        outputStream.flush();
+        outputStream.close();
     }
 
     public void updatePanelStatus(String panelId, PanelGroupBaseInfoRequest request) {
@@ -1036,24 +1158,28 @@ public class PanelGroupService {
         }.getType());
         //9.获取跳转信息
         List<PanelLinkJump> linkJumps = null;
-        if(StringUtils.isNotEmpty(appInfo.getLinkJumps())){
-            linkJumps = gson.fromJson(appInfo.getLinkJumps(), new TypeToken<List<PanelLinkJump>>() {}.getType());
+        if (StringUtils.isNotEmpty(appInfo.getLinkJumps())) {
+            linkJumps = gson.fromJson(appInfo.getLinkJumps(), new TypeToken<List<PanelLinkJump>>() {
+            }.getType());
         }
         //10.获取跳转关联信息
         List<PanelLinkJumpInfo> linkJumpInfos = null;
-        if(StringUtils.isNotEmpty(appInfo.getLinkJumpInfos())){
-            linkJumpInfos = gson.fromJson(appInfo.getLinkJumpInfos(), new TypeToken<List<PanelLinkJumpInfo>>() {}.getType());
+        if (StringUtils.isNotEmpty(appInfo.getLinkJumpInfos())) {
+            linkJumpInfos = gson.fromJson(appInfo.getLinkJumpInfos(), new TypeToken<List<PanelLinkJumpInfo>>() {
+            }.getType());
         }
         //11.获取联动信息
         List<PanelViewLinkage> linkages = null;
-        if(StringUtils.isNotEmpty(appInfo.getLinkages())){
-            linkages = gson.fromJson(appInfo.getLinkages(), new TypeToken<List<PanelViewLinkage>>() {}.getType());
+        if (StringUtils.isNotEmpty(appInfo.getLinkages())) {
+            linkages = gson.fromJson(appInfo.getLinkages(), new TypeToken<List<PanelViewLinkage>>() {
+            }.getType());
         }
 
         //12.获取联动关联信息
         List<PanelViewLinkageField> linkageFields = null;
-        if(StringUtils.isNotEmpty(appInfo.getLinkageFields())){
-            linkageFields = gson.fromJson(appInfo.getLinkageFields(), new TypeToken<List<PanelViewLinkageField>>() {}.getType());
+        if (StringUtils.isNotEmpty(appInfo.getLinkageFields())) {
+            linkageFields = gson.fromJson(appInfo.getLinkageFields(), new TypeToken<List<PanelViewLinkageField>>() {
+            }.getType());
         }
 
         Map<String, String> datasourceRealMap = panelAppTemplateService.applyDatasource(oldDatasourceInfo, request);
@@ -1078,13 +1204,13 @@ public class PanelGroupService {
 
         panelAppTemplateService.applyPanelView(panelViewsInfo, chartViewsRealMap, newPanelId);
 
-        Map<String,String> linkageIdMap = panelAppTemplateService.applyLinkages(linkages,chartViewsRealMap,newPanelId);
+        Map<String, String> linkageIdMap = panelAppTemplateService.applyLinkages(linkages, chartViewsRealMap, newPanelId);
 
-        panelAppTemplateService.applyLinkageFields(linkageFields,linkageIdMap,datasetFieldsRealMap);
+        panelAppTemplateService.applyLinkageFields(linkageFields, linkageIdMap, datasetFieldsRealMap);
 
-        Map<String,String> linkJumpIdMap = panelAppTemplateService.applyLinkJumps(linkJumps,chartViewsRealMap,newPanelId);
+        Map<String, String> linkJumpIdMap = panelAppTemplateService.applyLinkJumps(linkJumps, chartViewsRealMap, newPanelId);
 
-        panelAppTemplateService.applyLinkJumpInfos(linkJumpInfos,linkJumpIdMap,datasetFieldsRealMap);
+        panelAppTemplateService.applyLinkJumpInfos(linkJumpInfos, linkJumpIdMap, datasetFieldsRealMap);
 
         String newDatasourceId = datasourceRealMap.entrySet().stream().findFirst().get().getValue();
 
@@ -1158,30 +1284,61 @@ public class PanelGroupService {
 
     public void findExcelData(PanelViewDetailsRequest request) {
         ChartViewWithBLOBs viewInfo = chartViewService.get(request.getViewId());
+        request.setDownloadType(viewInfo.getType());
         if ("table-info".equals(viewInfo.getType())) {
             try {
-                List<String> excelHeaderKeys = request.getExcelHeaderKeys();
                 ChartExtRequest componentFilterInfo = request.getComponentFilterInfo();
-                componentFilterInfo.setGoPage(1l);
-                componentFilterInfo.setPageSize(1000000l);
+                componentFilterInfo.setGoPage(1L);
+                componentFilterInfo.setPageSize(limit);
                 componentFilterInfo.setExcelExportFlag(true);
                 componentFilterInfo.setProxy(request.getProxy());
                 componentFilterInfo.setUser(request.getUserId());
                 ChartViewDTO chartViewInfo = chartViewService.getData(request.getViewId(), componentFilterInfo);
-                List<Map> tableRow = (List) chartViewInfo.getData().get("tableRow");
-                List<Object[]> result = new ArrayList<>();
-                for (Map detailMap : tableRow) {
-                    List<Object> detailObj = new ArrayList<>();
-                    for (String key : excelHeaderKeys) {
-                        detailObj.add(detailMap.get(key));
-                    }
-                    result.add(detailObj.toArray());
-                }
-                request.setDetails(result);
+                List<Object[]> tableRow = (List) chartViewInfo.getData().get("sourceData");
+                request.setDetails(tableRow);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
 
+    }
+
+
+    public String getAbsPath(String id) {
+        ChartViewWithBLOBs chartViewWithBLOBs = chartViewMapper.selectByPrimaryKey(id);
+        if (chartViewWithBLOBs == null) {
+            return null;
+        }
+        if (chartViewWithBLOBs.getSceneId() == null) {
+            return chartViewWithBLOBs.getName();
+        }
+        List<PanelGroupWithBLOBs> parents = getParents(chartViewWithBLOBs.getSceneId());
+        StringBuilder stringBuilder = new StringBuilder();
+        parents.forEach(ele -> {
+            if (ObjectUtils.isNotEmpty(ele)) {
+                stringBuilder.append(ele.getName()).append("/");
+            }
+        });
+        stringBuilder.append(chartViewWithBLOBs.getName());
+        return stringBuilder.toString();
+    }
+
+    public List<PanelGroupWithBLOBs> getParents(String id) {
+        List<PanelGroupWithBLOBs> list = new ArrayList<>();
+        PanelGroupWithBLOBs panelGroupWithBLOBs = panelGroupMapper.selectByPrimaryKey(id);
+        list.add(panelGroupWithBLOBs);
+        getParent(list, panelGroupWithBLOBs);
+        Collections.reverse(list);
+        return list;
+    }
+
+    public void getParent(List<PanelGroupWithBLOBs> list, PanelGroupWithBLOBs panelGroupWithBLOBs) {
+        if (ObjectUtils.isNotEmpty(panelGroupWithBLOBs)) {
+            if (StringUtils.isNotEmpty(panelGroupWithBLOBs.getPid()) && !panelGroupWithBLOBs.getPid().equalsIgnoreCase("panel_list")) {
+                PanelGroupWithBLOBs d = panelGroupMapper.selectByPrimaryKey(panelGroupWithBLOBs.getPid());
+                list.add(d);
+                getParent(list, d);
+            }
+        }
     }
 }

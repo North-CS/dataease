@@ -27,7 +27,7 @@
       <el-tab-pane
         v-for="(item, index) in element.options.tabList"
         :key="item.name+index"
-        :lazy="!isEdit"
+        :lazy="!isEdit && terminal === 'pc'"
         :name="item.name"
       >
         <span slot="label">
@@ -74,7 +74,7 @@
         />
         <div
           v-if="item.content && item.content.type==='canvas' && (!isEdit || mobileLayoutStatus)"
-          style="width: 100%;height:100%"
+          style="width: 100%;height:100%;font-size: initial"
         >
           <Preview
             :ref="'canvasTabRef-'+item.name"
@@ -84,6 +84,8 @@
             :panel-info="panelInfo"
             :in-screen="inScreen"
             :show-position="showPosition"
+            :screen-shot="screenShot"
+            :user-id="userId"
           />
         </div>
 
@@ -131,7 +133,7 @@
         v-model="textarea"
         type="textarea"
         :rows="2"
-        maxlength="10"
+        maxlength="20"
         show-word-limit
         :placeholder="$t('dataset.input_content')"
       />
@@ -240,6 +242,10 @@ export default {
       required: false,
       default: true
     },
+    screenShot: {
+      type: Boolean,
+      default: false
+    },
     canvasId: {
       type: String,
       default: 'canvas-main'
@@ -276,6 +282,14 @@ export default {
       type: String,
       required: false,
       default: 'NotProvided'
+    },
+    terminal: {
+      type: String,
+      default: 'pc'
+    },
+    userId: {
+      type: String,
+      require: false
     }
   },
   data() {
@@ -506,13 +520,13 @@ export default {
       }
     },
     setTabLayout: _.debounce(function() {
-      this.headClassScroll = !!this.$refs?.deTabsConstom?.$refs?.tabsConstom?.$refs?.nav?.scrollable ? 'head-class-scroll' : ''
+      this.headClassScroll = this.$refs?.deTabsConstom?.$refs?.tabsConstom?.$refs?.nav?.scrollable ? 'head-class-scroll' : ''
     }, 100),
     calcTabLength() {
       this.$nextTick(() => {
         if (this.element.options.tabList.length > 1) {
           const containerDom = document.getElementById('tab-' + this.element.options.tabList[this.element.options.tabList.length - 1].name)
-          this.tabsAreaScroll = containerDom.parentNode.scrollWidth > containerDom.parentNode.parentNode.scrollWidth
+          this.tabsAreaScroll = containerDom.parentNode.scrollWidth >= containerDom.parentNode.parentNode.scrollWidth
         } else {
           this.tabsAreaScroll = false
         }

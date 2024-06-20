@@ -30,6 +30,7 @@ import io.dataease.plugins.datasource.query.QueryProvider;
 import io.dataease.plugins.datasource.query.Utils;
 import io.dataease.service.chart.ChartFilterTreeService;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -462,6 +463,7 @@ public class OracleQueryProvider extends QueryProvider {
 
         } else {
             if (pageInfo.getGoPage() != null && pageInfo.getPageSize() != null) {
+                System.out.println("SELECT * FROM (" + sqlFix(originalTableInfo("(" + sqlFix(table) + ")", xAxis, OrgFieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, fieldCustomFilter)) + ") DE_RESULT_TMP " + " WHERE DE_ROWNUM > " + (pageInfo.getGoPage() - 1) * pageInfo.getPageSize());
                 return "SELECT * FROM (" + sqlFix(originalTableInfo("(" + sqlFix(table) + ")", xAxis, OrgFieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, fieldCustomFilter)) + ") DE_RESULT_TMP " + " WHERE DE_ROWNUM > " + (pageInfo.getGoPage() - 1) * pageInfo.getPageSize();
             } else {
                 return "SELECT * FROM (" + sqlFix(originalTableInfo("(" + sqlFix(table) + ")", xAxis, OrgFieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view, fieldCustomFilter)) + ") DE_RESULT_TMP ";
@@ -475,16 +477,14 @@ public class OracleQueryProvider extends QueryProvider {
                 .tableAlias(String.format(OracleConstants.ALIAS_FIX, String.format(TABLE_ALIAS_PREFIX, 0)))
                 .build();
         setSchema(tableObj, ds);
+        boolean isPage = false;
         List<SQLObj> xFields = new ArrayList<>();
         List<SQLObj> xOrders = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(xAxis)) {
             for (int i = 0; i < xAxis.size(); i++) {
                 ChartViewFieldDTO x = xAxis.get(i);
                 if (x.getOriginName().equalsIgnoreCase("ROWNUM")) {
-                    xFields.add(SQLObj.builder()
-                            .fieldName(x.getOriginName())
-                            .fieldAlias("DE_ROWNUM")
-                            .build());
+                    isPage = true;
                     continue;
                 }
                 String originField;
@@ -539,19 +539,42 @@ public class OracleQueryProvider extends QueryProvider {
         ST st_sql = stg.getInstanceOf("previewSql");
         st_sql.add("isGroup", false);
         if (CollectionUtils.isNotEmpty(xFields)) st_sql.add("groups", xFields);
-        if (CollectionUtils.isNotEmpty(wheres)) st_sql.add("filters", wheres);
+        if (CollectionUtils.isNotEmpty(orders)) st_sql.add("orders", orders);
         if (ObjectUtils.isNotEmpty(tableObj)) st_sql.add("table", tableObj);
         String sql = st_sql.render();
 
         ST st = stg.getInstanceOf("previewSql");
         st.add("isGroup", false);
+        st.add("notUseAs", true);
         SQLObj tableSQL = SQLObj.builder()
                 .tableName(String.format(OracleConstants.BRACKETS, sql))
                 .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
                 .build();
-        if (CollectionUtils.isNotEmpty(orders)) st.add("orders", orders);
+        List<SQLObj> xFields2 = new ArrayList<>();
+        xFields2.add(SQLObj.builder()
+                .fieldName(tableSQL.getTableAlias() + ".*")
+                .build());
+        if (isPage) {
+            xFields2.add(SQLObj.builder()
+                    .fieldName("ROWNUM AS DE_ROWNUM")
+                    .fieldAlias("DE_ROWNUM")
+                    .build());
+        }
+
+        if (CollectionUtils.isNotEmpty(xFields)) st.add("groups", xFields2);
         if (ObjectUtils.isNotEmpty(tableSQL)) st.add("table", tableSQL);
-        return st.render();
+        sql = st.render();
+
+        ST st2 = stg.getInstanceOf("previewSql");
+        st2.add("isGroup", false);
+        SQLObj tableSQL2 = SQLObj.builder()
+                .tableName(String.format(OracleConstants.BRACKETS, sql))
+                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 2))
+                .build();
+        if (CollectionUtils.isNotEmpty(wheres)) st2.add("filters", wheres);
+        if (ObjectUtils.isNotEmpty(tableSQL)) st2.add("table", tableSQL2);
+
+        return st2.render();
     }
 
     @Override
@@ -826,11 +849,14 @@ public class OracleQueryProvider extends QueryProvider {
                 .build();
         setSchema(tableObj, ds);
         List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xFields2Tail = new ArrayList<>();
         List<SQLObj> xOrders = new ArrayList<>();
 
         List<SQLObj> yFields = new ArrayList<>(); // 要把两个时间字段放进y里面
         List<String> yWheres = new ArrayList<>();
         List<SQLObj> yOrders = new ArrayList<>();
+
+        boolean ifAggregate = BooleanUtils.isTrue(view.getAggregate());
 
         if (CollectionUtils.isNotEmpty(xAxis)) {
             for (int i = 0; i < xAxis.size(); i++) {
@@ -872,21 +898,29 @@ public class OracleQueryProvider extends QueryProvider {
                 }
                 String fieldAlias = String.format(OracleConstants.ALIAS_FIX, String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i));
 
-                if (i == baseXAxis.size()) {// 起止时间
-                    String fieldName = String.format(OracleConstants.AGG_FIELD, "min", originField);
-                    yFields.add(getXFields(x, fieldName, fieldAlias));
+                if (ifAggregate) {
+                    if (i == baseXAxis.size()) {// 起止时间
+                        String fieldName = String.format(OracleConstants.AGG_FIELD, "min", originField);
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
 
-                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
 
-                } else if (i == baseXAxis.size() + 1) {
-                    String fieldName = String.format(OracleConstants.AGG_FIELD, "max", originField);
+                    } else if (i == baseXAxis.size() + 1) {
+                        String fieldName = String.format(OracleConstants.AGG_FIELD, "max", originField);
 
-                    yFields.add(getXFields(x, fieldName, fieldAlias));
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
 
-                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
+                    } else {
+                        // 处理横轴字段
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
                 } else {
-                    // 处理横轴字段
-                    xFields.add(getXFields(x, originField, fieldAlias));
+                    if (i == baseXAxis.size() || i == baseXAxis.size() + 1) {// 起止时间
+                        xFields2Tail.add(getXFields(x, originField, fieldAlias));
+                    } else {
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
                 }
 
                 // 处理横轴排序
@@ -897,6 +931,9 @@ public class OracleQueryProvider extends QueryProvider {
                             .orderDirection(x.getSort())
                             .build());
                 }
+            }
+            if (!ifAggregate) { //把起止时间放到数组最后
+                xFields.addAll(xFields2Tail);
             }
         }
 
@@ -1197,10 +1234,14 @@ public class OracleQueryProvider extends QueryProvider {
                 whereValue = "''";
             } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
                 whereValue = "''";
-            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "in") || StringUtils.containsIgnoreCase(item.getTerm(), "not in")) {
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in") || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
                 whereValue = "('" + String.join("','", value.split(",")) + "')";
             } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
                 whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
             } else {
                 if (field.getDeType() == 1) {
                     whereValue = String.format(OracleConstants.TO_DATE, "'" + value + "'", StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat() : OracleConstants.DEFAULT_DATE_FORMAT);
@@ -1277,10 +1318,14 @@ public class OracleQueryProvider extends QueryProvider {
                 whereValue = "''";
             } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
                 whereValue = "''";
-            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "in") || StringUtils.containsIgnoreCase(item.getTerm(), "not in")) {
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in") || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
                 whereValue = "('" + String.join("','", value.split(",")) + "')";
             } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
                 whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
             } else {
                 if (field.getDeType() == 1) {
                     whereValue = String.format(OracleConstants.TO_DATE, "'" + value + "'", StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat() : OracleConstants.DEFAULT_DATE_FORMAT);
@@ -1323,6 +1368,8 @@ public class OracleQueryProvider extends QueryProvider {
             case "not in":
                 return " NOT IN ";
             case "like":
+            case "begin_with":
+            case "end_with":
                 return " LIKE ";
             case "not like":
                 return " NOT LIKE ";
@@ -1488,11 +1535,7 @@ public class OracleQueryProvider extends QueryProvider {
                         }
                     }
                     if (field.getDeExtractType() == 1) {
-                        if (!request.getOperator().equals("between")) {
-                            whereName = String.format(OracleConstants.TO_CHAR, originName, format);
-                        } else {
-                            whereName = originName;
-                        }
+                        whereName = originName;
                     }
 
                 } else if (field.getDeType() == 2 || field.getDeType() == 3) {
@@ -1521,10 +1564,15 @@ public class OracleQueryProvider extends QueryProvider {
             String whereValue = "";
 
             if (StringUtils.containsIgnoreCase(request.getOperator(), "in")) {
-                whereValue = "('" + StringUtils.join(value, "','") + "')";
+                // 过滤空数据
+                if (value.contains(SQLConstants.EMPTY_SIGN)) {
+                    whereValue = "('" + StringUtils.join(value, "','") + "', '')" + " or " + whereName + " is null ";
+                } else {
+                    whereValue = "('" + StringUtils.join(value, "','") + "')";
+                }
             } else if (StringUtils.containsIgnoreCase(request.getOperator(), "like")) {
                 String keyword = value.get(0).toUpperCase();
-                whereValue = "'%" + keyword + "%'";
+                whereValue = formatLikeValue(keyword);
                 whereName = "upper(" + whereName + ")";
             } else if (StringUtils.containsIgnoreCase(request.getOperator(), "between")) {
                 if (request.getDatasetTableField().getDeType() == 1) {
@@ -1538,7 +1586,12 @@ public class OracleQueryProvider extends QueryProvider {
                     whereValue = String.format(OracleConstants.WHERE_BETWEEN, value.get(0), value.get(1));
                 }
             } else {
-                whereValue = String.format(OracleConstants.WHERE_VALUE_VALUE, value.get(0));
+                // 过滤空数据
+                if (StringUtils.equals(value.get(0), SQLConstants.EMPTY_SIGN)) {
+                    whereValue = String.format(OracleConstants.WHERE_VALUE_VALUE, "") + " or " + whereName + " is null ";
+                } else {
+                    whereValue = String.format(OracleConstants.WHERE_VALUE_VALUE, value.get(0));
+                }
             }
             list.add(SQLObj.builder()
                     .whereField(whereName)
@@ -1546,7 +1599,7 @@ public class OracleQueryProvider extends QueryProvider {
                     .build());
         }
         List<String> strList = new ArrayList<>();
-        list.forEach(ele -> strList.add(ele.getWhereField() + " " + ele.getWhereTermAndValue()));
+        list.forEach(ele -> strList.add("(" + ele.getWhereField() + " " + ele.getWhereTermAndValue() + ")"));
         return CollectionUtils.isNotEmpty(list) ? "(" + String.join(" AND ", strList) + ")" : null;
     }
 
@@ -1574,8 +1627,12 @@ public class OracleQueryProvider extends QueryProvider {
         switch (dateStyle) {
             case "y":
                 return "YYYY";
+            case "y_Q":
+                return "YYYY" + split + "\"Q\"Q";
             case "y_M":
                 return "YYYY" + split + "MM";
+            case "y_W":
+                return "YYYY" + split + "\"W\"IW";
             case "y_M_d":
                 return "YYYY" + split + "MM" + split + "DD";
             case "H_m_s":

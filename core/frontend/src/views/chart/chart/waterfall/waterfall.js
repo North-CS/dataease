@@ -1,4 +1,5 @@
 import {
+  configPlotTooltipEvent,
   getLabel,
   getPadding,
   getTheme,
@@ -10,7 +11,7 @@ import {
 import { Waterfall } from '@antv/g2plot'
 import { formatterItem, valueFormatter } from '@/views/chart/chart/formatter'
 
-export function baseWaterfallOptionAntV(plot, container, chart, action) {
+export function baseWaterfallOptionAntV(container, chart, action) {
   // theme
   const theme = getTheme(chart)
   // attr
@@ -100,15 +101,11 @@ export function baseWaterfallOptionAntV(plot, container, chart, action) {
     }
   }
 
-  // 开始渲染
-  if (plot) {
-    plot.destroy()
-  }
-  plot = new Waterfall(container, options)
+  const plot = new Waterfall(container, options)
 
-  plot.off('interval:click')
   plot.on('interval:click', action)
-
+  // 处理 tooltip 被其他视图遮挡
+  configPlotTooltipEvent(chart, plot)
   return plot
 }
 

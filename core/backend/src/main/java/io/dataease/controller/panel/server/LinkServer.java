@@ -5,16 +5,20 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import io.dataease.auth.filter.F2CLinkFilter;
 import io.dataease.commons.constants.SysLogConstants;
 import io.dataease.commons.utils.DeLogUtils;
-import io.dataease.plugins.common.base.domain.PanelGroupWithBLOBs;
-import io.dataease.plugins.common.base.domain.PanelLink;
 import io.dataease.controller.panel.api.LinkApi;
 import io.dataease.controller.request.chart.ChartExtRequest;
 import io.dataease.controller.request.panel.link.*;
 import io.dataease.dto.panel.link.GenerateDto;
+import io.dataease.dto.panel.link.TicketDto;
 import io.dataease.dto.panel.link.ValidateDto;
+import io.dataease.plugins.common.base.domain.PanelGroupWithBLOBs;
+import io.dataease.plugins.common.base.domain.PanelLink;
+import io.dataease.plugins.common.base.domain.PanelLinkMapping;
+import io.dataease.plugins.common.base.domain.PanelLinkTicket;
 import io.dataease.service.chart.ChartViewService;
 import io.dataease.service.panel.PanelLinkService;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +29,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -63,21 +69,37 @@ public class LinkServer implements LinkApi {
     }
 
     @Override
+    public List<PanelLinkTicket> queryTicket(@PathVariable("resourceId") String resourceId) {
+        return panelLinkService.queryTicket(resourceId);
+    }
+
+    @Override
     public ValidateDto validate(@RequestBody LinkValidateRequest request) throws Exception {
         String link = request.getLink();
-        link = URLDecoder.decode(link, "UTF-8");
+        link = URLDecoder.decode(link, StandardCharsets.UTF_8);
         String json = panelLinkService.decryptParam(link);
-
+        String[] jsonArray = json.split(",");
+        String uuid = null;
+        int len = jsonArray.length;
+        if (len > 1) {
+            uuid = jsonArray[1];
+        }
         String user = request.getUser();
-        user = URLDecoder.decode(user, "UTF-8");
+        user = URLDecoder.decode(user, StandardCharsets.UTF_8);
         user = panelLinkService.decryptParam(user);
 
         ValidateDto dto = new ValidateDto();
         dto.setUserId(user);
-        String resourceId = json;
+        String resourceId = jsonArray[0];
         PanelLink one = panelLinkService.findOne(resourceId, Long.valueOf(user));
         dto.setResourceId(resourceId);
         if (ObjectUtils.isEmpty(one)) {
+            dto.setValid(false);
+            return dto;
+        }
+        PanelLinkMapping mapping = panelLinkService.getMapping(one);
+        String mappingUuid = mapping.getUuid();
+        if (!StringUtils.equals(uuid, mappingUuid)) {
             dto.setValid(false);
             return dto;
         }
@@ -85,6 +107,10 @@ public class LinkServer implements LinkApi {
         dto.setEnablePwd(one.getEnablePwd());
         dto.setPassPwd(panelLinkService.validateHeads(one));
         dto.setExpire(panelLinkService.isExpire(one));
+
+        String ticketText = request.getTicket();
+        TicketDto ticketDto = panelLinkService.validateTicket(ticketText, mapping);
+        dto.setTicket(ticketDto);
         return dto;
     }
 
@@ -94,8 +120,8 @@ public class LinkServer implements LinkApi {
     }
 
     @Override
-    public Object resourceDetail(@PathVariable String resourceId,@PathVariable String userId) {
-        return panelLinkService.resourceInfo(resourceId,userId);
+    public Object resourceDetail(@PathVariable String resourceId, @PathVariable String userId) {
+        return panelLinkService.resourceInfo(resourceId, userId);
     }
 
     @Override
@@ -125,8 +151,23 @@ public class LinkServer implements LinkApi {
             operateType = SysLogConstants.OPERATE_TYPE.MB_VIEW;
         }
         if (ObjectUtils.isEmpty(userId)) return;
-        PanelGroupWithBLOBs panelGroupWithBLOBs = panelLinkService.resourceInfo(panelId,String.valueOf(userId));
+        PanelGroupWithBLOBs panelGroupWithBLOBs = panelLinkService.resourceInfo(panelId, String.valueOf(userId));
         String pid = panelGroupWithBLOBs.getPid();
         DeLogUtils.save(operateType, SysLogConstants.SOURCE_TYPE.LINK, panelId, pid, userId, SysLogConstants.SOURCE_TYPE.USER);
+    }
+
+    @Override
+    public String saveTicket(TicketCreator creator) {
+        return panelLinkService.saveTicket(creator);
+    }
+
+    @Override
+    public void deleteTicket(TicketDelRequest request) {
+        panelLinkService.deleteTicket(request);
+    }
+
+    @Override
+    public void switchRequire(TicketSwitchRequest request) {
+        panelLinkService.switchRequire(request);
     }
 }

@@ -29,6 +29,7 @@ public class AuthUtils {
     private static final String[] defaultPanelPermissions = { "panel_list" };
     private static final String[] defaultDataSetPermissions = { "0" };
     private static final String[] defaultLinkPermissions = { "0" };
+    private static final String[] defaultDataFillingPermissions = { "0" };
 
     private static final ThreadLocal<CurrentUserDto> USER_INFO = new ThreadLocal<CurrentUserDto>();
 
@@ -51,6 +52,10 @@ public class AuthUtils {
             return USER_INFO.get();
         CurrentUserDto userDto = (CurrentUserDto) SecurityUtils.getSubject().getPrincipal();
         return userDto;
+    }
+
+    public static void setUser(CurrentUserDto user) {
+        USER_INFO.set(user);
     }
 
     public static void setProxyUser(Long userId) {
@@ -136,6 +141,18 @@ public class AuthUtils {
             result.addAll(deptSet);
             Arrays.stream(defaultPanelPermissions).forEach(item -> {
                 result.add(new AuthItem(item, ResourceAuthLevel.PANEL_LEVEL_MANAGE.getLevel()));
+            });
+            return result;
+        } else if (StringUtils.equals(DePermissionType.DATA_FILL.name().toLowerCase(), type)) {
+            Set<AuthItem> userSet = extAuthService.dataFillingIdByUser(userId).stream().collect(Collectors.toSet());
+            Set<AuthItem> roleSet = roles.stream().map(role -> extAuthService.dataFillingIdByRole(role.getId()))
+                    .flatMap(Collection::stream).collect(Collectors.toSet());
+            Set<AuthItem> deptSet = extAuthService.dataFillingIdByDept(deptId).stream().collect(Collectors.toSet());
+            result.addAll(userSet);
+            result.addAll(roleSet);
+            result.addAll(deptSet);
+            Arrays.stream(defaultDataFillingPermissions).forEach(item -> {
+                result.add(new AuthItem(item, ResourceAuthLevel.DATA_FILLING_LEVEL_MANAGE.getLevel()));
             });
             return result;
         }

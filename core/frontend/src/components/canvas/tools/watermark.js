@@ -1,6 +1,6 @@
 // 动态创建水印元素的封装函数
 
-export function watermark(settings, domId) {
+export function watermark(settings, domId, watermarkDomId = 'de-watermark-server') {
   const watermarkDom = document.getElementById(domId)
   // 默认设置
   const defaultSettings = {
@@ -43,11 +43,9 @@ export function watermark(settings, domId) {
     defaultSettings.watermark_cols = parseInt((page_width - defaultSettings.watermark_x + defaultSettings.watermark_x_space) / (defaultSettings.watermark_width + defaultSettings.watermark_x_space))
     defaultSettings.watermark_x_space = parseInt((page_width - defaultSettings.watermark_x - defaultSettings.watermark_width * defaultSettings.watermark_cols) / (defaultSettings.watermark_cols - 1))
   }
-  // 如果将水印行数设置为0，或水印行数设置过大，超过页面最大长度，则重新计算水印行数和水印y轴间隔
-  if (defaultSettings.watermark_rows === 0 || (parseInt(defaultSettings.watermark_y + defaultSettings.watermark_height * defaultSettings.watermark_rows + defaultSettings.watermark_y_space * (defaultSettings.watermark_rows - 1)) > page_height)) {
-    defaultSettings.watermark_rows = parseInt((defaultSettings.watermark_y_space + page_height - defaultSettings.watermark_y) / (defaultSettings.watermark_height + defaultSettings.watermark_y_space))
-    defaultSettings.watermark_y_space = parseInt(((page_height - defaultSettings.watermark_y) - defaultSettings.watermark_height * defaultSettings.watermark_rows) / (defaultSettings.watermark_rows - 1))
-  }
+  // 重新计算水印行数
+  defaultSettings.watermark_rows = parseInt((defaultSettings.watermark_y_space + page_height - defaultSettings.watermark_y) / (defaultSettings.watermark_height + defaultSettings.watermark_y_space))
+  defaultSettings.watermark_y_space = parseInt(((page_height - defaultSettings.watermark_y) - defaultSettings.watermark_height * defaultSettings.watermark_rows) / (defaultSettings.watermark_rows - 1))
   defaultSettings.watermark_rows = defaultSettings.watermark_rows < 2 ? 2 : defaultSettings.watermark_rows
   defaultSettings.watermark_cols = defaultSettings.watermark_cols < 2 ? 2 : defaultSettings.watermark_cols
   let x
@@ -85,7 +83,7 @@ export function watermark(settings, domId) {
       oTemp.appendChild(mask_div)
     }
   }
-  oTemp.setAttribute('id', 'de-watermark-server')
+  oTemp.setAttribute('id', watermarkDomId)
   watermarkDom.appendChild(oTemp)
 }
 
@@ -109,9 +107,9 @@ export function getNow() {
   return time
 }
 
-export function activeWatermark(watermarkForm, userLoginInfo, domId, canvasId, watermarkOpen) {
+export function activeWatermark(watermarkForm, userLoginInfo, domId, canvasId, watermarkOpen, watermarkDomId = 'de-watermark-server') {
   // 清理历史水印
-  const historyWatermarkDom = document.getElementById('de-watermark-server')
+  const historyWatermarkDom = document.getElementById(watermarkDomId)
   if (historyWatermarkDom) {
     historyWatermarkDom.remove()
   }
@@ -148,7 +146,7 @@ export function activeWatermark(watermarkForm, userLoginInfo, domId, canvasId, w
     watermark_y_space: watermarkForm.watermark_y_space,
     watermark_fontsize: watermarkForm.watermark_fontsize + 'px'
   }
-  watermark(settings, domId)
+  watermark(settings, domId, watermarkDomId)
 }
 
 export default { watermark, getNow, activeWatermark }

@@ -82,10 +82,15 @@ public class DmDsProvider extends DefaultJdbcProvider {
         if (isDefaultClassLoader(customDriver)) {
             driverClassName = defaultDriver;
             jdbcClassLoader = extendedJdbcClassLoader;
-            for (DataSourceType value : SpringContextUtil.getApplicationContext().getBeansOfType(DataSourceType.class).values()) {
-                if(value.getType().equalsIgnoreCase(datasourceRequest.getDatasource().getType())){
-                    surpportVersions = value.getSurpportVersions();
+            DeDriver driver = deDriverMapper.selectByPrimaryKey("default-" + datasourceRequest.getDatasource().getType());
+            if (driver == null) {
+                for (DataSourceType value : SpringContextUtil.getApplicationContext().getBeansOfType(DataSourceType.class).values()) {
+                    if (value.getType().equalsIgnoreCase(datasourceRequest.getDatasource().getType())) {
+                        surpportVersions = value.getSurpportVersions();
+                    }
                 }
+            } else {
+                surpportVersions = driver.getSurpportVersions();
             }
         } else {
             if (deDriver == null) {
@@ -107,10 +112,11 @@ public class DmDsProvider extends DefaultJdbcProvider {
         } finally {
             Thread.currentThread().setContextClassLoader(classLoader);
         }
-        if(StringUtils.isNotEmpty(surpportVersions) && surpportVersions.split(",").length > 0){
-            if(! Arrays.asList(surpportVersions.split(",")).contains(String.valueOf(conn.getMetaData().getDatabaseMajorVersion()))){
+        if (StringUtils.isNotEmpty(surpportVersions) && surpportVersions.split(",").length > 0) {
+            if (!Arrays.asList(surpportVersions.split(",")).contains(String.valueOf(conn.getMetaData().getDatabaseMajorVersion()))) {
+                conn.close();
                 DataEaseException.throwException("当前驱动不支持此版本!");
-            };
+            }
         }
         return conn;
     }
@@ -185,6 +191,7 @@ public class DmDsProvider extends DefaultJdbcProvider {
         }
         tableField.setRemarks(remarks);
         String dbType = resultSet.getString("TYPE_NAME").toUpperCase();
+        tableField.setType(resultSet.getInt("DATA_TYPE"));
         tableField.setFieldType(dbType);
         if (dbType.equalsIgnoreCase("LONG")) {
             tableField.setFieldSize(65533);

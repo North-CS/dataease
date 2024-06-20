@@ -23,8 +23,14 @@ public class Datasource implements Serializable {
     private String createBy;
     @ApiModelProperty("状态")
     private String status;
+    @ApiModelProperty("版本")
+    private String version;
     @ApiModelProperty(value = "配置详情", required = true)
     private String configuration;
+
+    private Boolean enableDataFill;
+
+    private Boolean enableDataFillCreateTable;
 
     private static final long serialVersionUID = 1L;
 }

@@ -218,6 +218,7 @@
           >
             <el-input
               v-model="driverForm.name"
+              :disabled="disabledEdit(driverForm.id)"
               :placeholder="$t('fu.search_bar.please_input')"
             />
           </el-form-item>
@@ -379,6 +380,7 @@ export default {
       dialogTitle: '',
       editDriver: false,
       driverForm: {
+        id: '',
         name: '',
         desc: '',
         type: ''
@@ -456,6 +458,13 @@ export default {
     },
     handleClick() {
       document.querySelector(`.${this.tabActive}`).scrollIntoView()
+    },
+    disabledEdit(id) {
+      if (id !== '' && id.indexOf('default') !== -1) {
+        return true
+      } else {
+        return false
+      }
     },
     createDriveOrDs() {
       if (this.showView === 'Driver') {
@@ -830,6 +839,7 @@ export default {
       this.$refs['driverForm'].resetFields()
       this.editDriver = false
       this.driverForm = {
+        id: '',
         name: '',
         desc: '',
         type: ''

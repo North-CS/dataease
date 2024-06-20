@@ -20,10 +20,11 @@
       <el-checkbox
         v-model="selectAll"
         v-customStyle="customStyle"
+        class="is-tree-select"
         :indeterminate="isIndeterminate"
         @change="selectAllChange"
       >
-        <span :style="{ color: `${isConfig ? '#1F2329' : customStyle.wordColor} !important`}">{{ $t('dataset.check_all') }}</span>
+        <span :style="{ color: `${isConfig ? '#1F2329' : customStyle.wordColor}`}">{{ $t('dataset.check_all') }}</span>
       </el-checkbox>
     </p>
     <el-option

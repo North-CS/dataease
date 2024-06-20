@@ -86,10 +86,22 @@
 
       <el-form-item
         :label="$t('system_parameter_setting.ds_sync_log_retention_time')"
-        prop="logTimeOut"
+        prop="dsSyncLogTimeOut"
       >
         <el-input
           v-model="formInline.dsSyncLogTimeOut"
+          :placeholder="$t('system_parameter_setting.empty_msg')"
+        ><template
+          slot="append"
+        >{{ $t('components.day') }}</template></el-input>
+      </el-form-item>
+
+      <el-form-item
+        :label="$t('system_parameter_setting.export_file_retention_time')"
+        prop="exportFileTimeOut"
+      >
+        <el-input
+          v-model="formInline.exportFileTimeOut"
           :placeholder="$t('system_parameter_setting.empty_msg')"
         ><template
           slot="append"
@@ -291,12 +303,19 @@ export default {
         ],
         logTimeOut: [
           {
+            pattern: /^(?:[1-9]|[1-9]\d{1,2}|[1-3]\d{3}|4000)$/,
+            message: this.$t('system_parameter_setting.log_live_time_error'),
+            trigger: 'blur'
+          }
+        ],
+        dsSyncLogTimeOut: [
+          {
             pattern: '^([1-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-5][0-9]|36[0-5])$',
             message: this.$t('system_parameter_setting.msg_error'),
             trigger: 'blur'
           }
         ],
-        dsSyncLogTimeOut: [
+        exportFileTimeOut: [
           {
             pattern: '^([1-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-5][0-9]|36[0-5])$',
             message: this.$t('system_parameter_setting.msg_error'),
@@ -388,6 +407,7 @@ export default {
           this.originLoginType = this.formInline.loginType
         }
         this.formInline.open = (this.formInline.open && this.formInline.open === 'true')
+        this.formInline.openModifyPwd = (this.formInline.openModifyPwd && this.formInline.openModifyPwd === 'true')
         this.formInline.lockedEmail = this.formInline?.lockedEmail === 'true'
         this.formInline.scanCreateUser = (this.formInline.scanCreateUser && this.formInline.scanCreateUser === 'true')
 
@@ -426,6 +446,12 @@ export default {
         {
           paramKey: 'basic.dsSyncLogTimeOut',
           paramValue: this.formInline.dsSyncLogTimeOut,
+          type: 'text',
+          sort: 2
+        },
+        {
+          paramKey: 'basic.exportFileTimeOut',
+          paramValue: this.formInline.exportFileTimeOut,
           type: 'text',
           sort: 2
         },
@@ -501,6 +527,18 @@ export default {
           paramValue: this.formInline.multiLogin,
           type: 'text',
           sort: 3
+        },
+        {
+          paramKey: 'loginlimit.openModifyPwd',
+          paramValue: this.formInline.openModifyPwd,
+          type: 'text',
+          sort: 5
+        },
+        {
+          paramKey: 'loginlimit.pwdCycle',
+          paramValue: this.formInline.pwdCycle,
+          type: 'text',
+          sort: 6
         }
       ]
 

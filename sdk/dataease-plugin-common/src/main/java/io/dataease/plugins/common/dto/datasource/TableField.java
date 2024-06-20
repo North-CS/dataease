@@ -11,5 +11,10 @@ public class TableField {
     private String fieldType;
     private int fieldSize;
     private int accuracy;
+    private boolean notNull;
+    private boolean primaryKey;
+
+    //java.sql.Types
+    private Integer type;
 
 }

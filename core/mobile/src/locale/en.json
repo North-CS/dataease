@@ -37,14 +37,21 @@
     "home": {
         "tab1": "My Favorites",
         "tab2": "Recent",
-        "tab3": "Share With Me"
+        "tab3": "Share With Me",
+        "empty_tips_1": "No favorite dashboards yet!",
+        "empty_tips_2": "No browsing history yet!",
+        "empty_tips_3": "No dashboards shared with me yet!"
     },
     "dir": {
         "searchHistory": "Search History",
         "clearConfirm": "Are You Sure To Clean All History ?",
         "noHistory": "There Are No Any History",
         "contentPrefix": "The Content Is ",
-        "contentSuffix": "Will Be Marked As History When You Confirm"
+        "contentSuffix": "Will Be Marked As History When You Confirm",
+        "create-time-desc": "Sort by time desc",
+        "create-time-asc": "Sort by time asc",
+        "create-name-desc": "Sort by name desc",
+        "create-name-asc": "Sort by name asc"
     },
     "me": {
         "moreInfo": "More",

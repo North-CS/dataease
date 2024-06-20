@@ -110,6 +110,13 @@ public class ChartViewController {
     }
 
     @DePermission(type = DePermissionType.PANEL, level = ResourceAuthLevel.PANEL_LEVEL_MANAGE, paramIndex = 1)
+    @ApiOperation("复制")
+    @PostMapping("chartCopyWithId/{id}/{panelId}/{newId}")
+    public String chartCopyWithId(@PathVariable String id, @PathVariable String panelId, @PathVariable String newId) {
+        return chartViewService.chartCopy(id, newId,panelId);
+    }
+
+    @DePermission(type = DePermissionType.PANEL, level = ResourceAuthLevel.PANEL_LEVEL_MANAGE, paramIndex = 1)
     @ApiOperation("批量复制")
     @PostMapping("chartBatchCopy/{panelId}")
     public Map<String, String> chartBatchCopy(@RequestBody ChartCopyBatchRequest request, @PathVariable String panelId) {
@@ -170,6 +177,14 @@ public class ChartViewController {
     public List<String> getFieldData(@PathVariable String id, @PathVariable String panelId, @PathVariable String fieldId, @PathVariable String fieldType,
                                      @RequestBody ChartExtRequest requestList) throws Exception {
         return chartViewService.getFieldData(id, requestList, false, fieldId, fieldType);
+    }
+
+    @ApiIgnore
+    @ApiOperation("获取下钻字段值")
+    @PostMapping("/getDrillFieldData/{id}/{panelId}/{fieldId}")
+    public List<String> getDrillFieldData(@PathVariable String id, @PathVariable String panelId, @PathVariable String fieldId,
+                                           @RequestBody ChartExtRequest requestList) throws Exception {
+        return chartViewService.getDrillFieldData(id, requestList, false, fieldId);
     }
 
     @ApiIgnore

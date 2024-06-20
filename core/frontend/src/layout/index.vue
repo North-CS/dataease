@@ -6,6 +6,8 @@
     class="app-wrapper"
   >
     <licbar />
+    <pwd-exp-tips />
+
     <topbar
       v-if="!fullHeightFlag"
       :show-tips="showTips"
@@ -13,7 +15,7 @@
 
     <de-container :style="mainStyle">
       <de-aside-container
-        v-if="!sidebar.hide"
+        v-if="showSideBar"
         :is-collapse-width="sideWidth"
         type="system"
         class="le-aside-container"
@@ -57,15 +59,13 @@
 </template>
 
 <script>
-import { Sidebar, AppMain, Topbar, Licbar } from './components'
+import { Sidebar, AppMain, Topbar, Licbar, PwdExpTips } from './components'
 import ResizeMixin from './mixin/ResizeHandler'
 import DeMainContainer from '@/components/dataease/DeMainContainer'
 import DeContainer from '@/components/dataease/DeContainer'
 import DeAsideContainer from '@/components/dataease/DeAsideContainer'
 import bus from '@/utils/bus'
 import { showMultiLoginMsg } from '@/utils/index'
-
-import { needModifyPwd, removePwdTips } from '@/api/user'
 
 export default {
   name: 'Layout',
@@ -76,7 +76,8 @@ export default {
     Licbar,
     DeMainContainer,
     DeContainer,
-    DeAsideContainer
+    DeAsideContainer,
+    PwdExpTips
   },
   mixins: [ResizeMixin],
   data() {
@@ -101,7 +102,11 @@ export default {
       return this.$store.state.settings.showSettings
     },
     fullHeightFlag() {
-      return this.$route.path.indexOf('panel') > -1 && (this.componentName === 'PanelEdit' || this.componentName === 'ChartEdit')
+      const path = this.$route.path
+      return (path.indexOf('panel') > -1 && (this.componentName === 'PanelEdit' || this.componentName === 'ChartEdit')) || (path.indexOf('/data-filling/create') > -1)
+    },
+    showSideBar() {
+      return !this.sidebar.hide && this.$route.path.indexOf('data-filling') === -1
     },
     mainStyle() {
       if (this.fullHeightFlag) {
@@ -154,20 +159,13 @@ export default {
       bus.$emit('sys-logout')
     },
     panelSwitchComponent(c) {
+      console.log(c)
       this.componentName = c.name
     },
     handleClickOutside() {
       this.$store.dispatch('app/closeSideBar', { withoutAnimation: false })
-    },
-    doNotNoti() {
-      this.buttonDisable = true
-      removePwdTips().then(res => {
-        this.showTips = false
-        this.buttonDisable = false
-      }).catch(e => {
-        this.buttonDisable = false
-      })
     }
+
   }
 }
 </script>
@@ -241,8 +239,8 @@ export default {
   .full-height {
     height: 100vh !important;
     ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+      width: 7px;
+      height: 7px;
     }
 
   }

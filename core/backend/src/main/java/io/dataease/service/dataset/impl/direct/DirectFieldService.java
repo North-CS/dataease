@@ -1,14 +1,12 @@
 package io.dataease.service.dataset.impl.direct;
 
-import cn.hutool.core.collection.CollectionUtil;
-import cn.hutool.core.util.ArrayUtil;
 import com.google.gson.Gson;
 import io.dataease.commons.model.BaseTreeNode;
 import io.dataease.commons.utils.BeanUtils;
 import io.dataease.commons.utils.LogUtil;
 import io.dataease.commons.utils.TreeUtils;
 import io.dataease.dto.dataset.DataSetTableUnionDTO;
-import io.dataease.dto.dataset.DataTableInfoDTO;
+import io.dataease.plugins.common.dto.dataset.DataTableInfoDTO;
 import io.dataease.dto.dataset.DeSortDTO;
 import io.dataease.i18n.Translator;
 import io.dataease.plugins.common.base.domain.DatasetTable;
@@ -23,11 +21,12 @@ import io.dataease.plugins.common.request.permission.DataSetRowPermissionsTreeDT
 import io.dataease.plugins.datasource.provider.Provider;
 import io.dataease.plugins.datasource.query.QueryProvider;
 import io.dataease.plugins.xpack.auth.dto.request.ColumnPermissionItem;
-import io.dataease.provider.ProviderFactory;
+import io.dataease.plugins.datasource.provider.ProviderFactory;
 import io.dataease.service.dataset.*;
 import io.dataease.service.datasource.DatasourceService;
 import io.dataease.service.engine.EngineService;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -81,15 +80,14 @@ public class DirectFieldService implements DataSetFieldService {
 
     @Override
     public List<Object> chineseSort(List<Object> list, DeSortDTO sortDTO) throws Exception {
-        if (ObjectUtils.isEmpty(sortDTO) || CollectionUtil.isEmpty(list)) return list;
+        if (ObjectUtils.isEmpty(sortDTO) || CollectionUtils.isEmpty(list)) return list;
         String sort = sortDTO.getSort();
         if (!StringUtils.equals(sort, "chinese")) {
             return list;
         }
         String id = sortDTO.getId();
         String sortStr = StringUtils.equalsIgnoreCase("chineseDesc", id) ? "desc" : "asc";
-
-        return CollectionUtil.sort(list, (v1, v2) -> {
+        list.sort((v1, v2) -> {
             Collator instance = Collator.getInstance(Locale.CHINESE);
             if (ObjectUtils.isEmpty(v1) || ObjectUtils.isEmpty(v2)) return 0;
             if (StringUtils.equals("desc", sortStr)) {
@@ -97,6 +95,7 @@ public class DirectFieldService implements DataSetFieldService {
             }
             return instance.compare(v1, v2);
         });
+        return list;
     }
 
 
@@ -225,12 +224,21 @@ public class DirectFieldService implements DataSetFieldService {
         }
         Set<String> pkSet = new HashSet<>();
         if (CollectionUtils.isNotEmpty(rows) && existExtSortField && originSize > 0) {
-            rows = rows.stream().map(row -> ArrayUtil.sub(row, 0, originSize)).collect(Collectors.toList());
+            rows = rows.stream().map(row -> ArrayUtils.subarray(row, 0, originSize)).collect(Collectors.toList());
         }
+        rows = rows.stream().filter(row -> {
+            int length = row.length;
+            boolean allEmpty = true;
+            for (String s : row) {
+                if (StringUtils.isNotBlank(s)) {
+                    allEmpty = false;
+                }
+            }
+            return !allEmpty;
+        }).collect(Collectors.toList());
         List<BaseTreeNode> treeNodes = rows.stream().map(row -> buildTreeNode(row, pkSet)).flatMap(Collection::stream).collect(Collectors.toList());
         List tree = TreeUtils.mergeDuplicateTree(treeNodes, TreeUtils.DEFAULT_ROOT);
         return tree;
-
     }
 
     private List<BaseTreeNode> buildTreeNode(String[] row, Set<String> pkSet) {
@@ -240,12 +248,12 @@ public class DirectFieldService implements DataSetFieldService {
             String text = row[i];
 
             parentPkList.add(text);
-            String val = parentPkList.stream().collect(Collectors.joining(TreeUtils.SEPARATOR));
+            String val = String.join(TreeUtils.SEPARATOR, parentPkList);
             String parentVal = i == 0 ? TreeUtils.DEFAULT_ROOT : row[i - 1];
-            String pk = parentPkList.stream().collect(Collectors.joining(TreeUtils.SEPARATOR));
+            String pk = String.join(TreeUtils.SEPARATOR, parentPkList);
             if (pkSet.contains(pk)) continue;
             pkSet.add(pk);
-            BaseTreeNode node = new BaseTreeNode(val, parentVal, text, pk + TreeUtils.SEPARATOR + i);
+            BaseTreeNode node = new BaseTreeNode(val, parentVal, StringUtils.isNotBlank(text) ? text.trim() : text, pk + TreeUtils.SEPARATOR + i);
             nodes.add(node);
         }
         return nodes;

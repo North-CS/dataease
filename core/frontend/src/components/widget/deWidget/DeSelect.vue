@@ -2,11 +2,12 @@
   <component
     :is="mode"
     v-if="element.options!== null && element.options.attrs!==null && show "
+    :id="element.id"
     ref="deSelect"
     v-model="value"
     :class-id="'visual-' + element.id + '-' + inDraw + '-' + inScreen"
     :collapse-tags="showNumber"
-    :clearable="!element.options.attrs.multiple && (inDraw || !selectFirst)"
+    :clearable="(inDraw || !selectFirst)"
     :multiple="element.options.attrs.multiple"
     :placeholder="showRequiredTips ? $t('panel.required_tips') : ($t(element.options.attrs.placeholder) + placeholderSuffix)"
     :popper-append-to-body="inScreen"
@@ -17,11 +18,12 @@
     :key-word="keyWord"
     popper-class="coustom-de-select"
     :class="{'disabled-close': !inDraw && selectFirst && element.options.attrs.multiple, 'show-required-tips': showRequiredTips}"
-    :list="data"
+    :list="(element.options.attrs.showEmpty ? [{ text: '空数据', id: '_empty_$'}, ...data.filter(ele => ele.id !== '_empty_$')] : data)"
     :flag="flag"
     :is-config="isConfig"
     :custom-style="customStyle"
-    @resetKeyWords="filterMethod"
+    :radio-style="element.style"
+    @resetKeyWords="resetKeyWords"
     @change="changeValue"
     @focus="setOptionWidth"
     @blur="onBlur"
@@ -47,6 +49,7 @@
 
 <script>
 import ElVisualSelect from '@/components/elVisualSelect'
+import DeRadio from './DeRadio.vue'
 import { linkMultFieldValues, multFieldValues } from '@/api/dataset/dataset'
 import bus from '@/utils/bus'
 import { isSameVueObj, mergeCustomSortOption } from '@/utils'
@@ -54,8 +57,9 @@ import { getLinkToken, getToken } from '@/utils/auth'
 import customInput from '@/components/widget/deWidget/customInput'
 import { textSelectWidget } from '@/components/widget/deWidget/serviceNameFn.js'
 import { uuid } from 'vue-uuid'
+import _ from 'lodash'
 export default {
-  components: { ElVisualSelect },
+  components: { ElVisualSelect, DeRadio },
   mixins: [customInput],
   props: {
     canvasId: {
@@ -89,6 +93,7 @@ export default {
   data() {
     return {
       showNumber: false,
+      resetKeyWordsVal: '',
       selectOptionWidth: 0,
       show: true,
       value: null,
@@ -96,7 +101,6 @@ export default {
       onFocus: false,
       keyWord: '',
       separator: ',',
-      timeMachine: null,
       changeIndex: 0,
       flag: uuid.v1(),
       hasDestroy: false
@@ -105,6 +109,9 @@ export default {
   computed: {
     mode() {
       let result = 'el-select'
+      if (this.element.style.showMode && this.element.style.showMode === 'radio' && !this.element.options.attrs.multiple && !this.isConfig && this.element.options.attrs.required) {
+        return 'DeRadio'
+      }
       if (this.element.options && this.element.options.attrs && this.element.options.attrs.visual) {
         result = 'el-visual-select'
       }
@@ -313,29 +320,23 @@ export default {
       this.$refs.deSelect && this.$refs.deSelect.resetSelectAll && this.$refs.deSelect.resetSelectAll()
     },
 
-    searchWithKey(index) {
-      this.timeMachine = setTimeout(() => {
-        if (index === this.changeIndex) {
-          this.refreshOptions()
-        }
-        this.destroyTimeMachine()
-      }, 1500)
-    },
-    destroyTimeMachine() {
-      this.timeMachine && clearTimeout(this.timeMachine)
-      this.timeMachine = null
+    searchWithKey: _.debounce(function() {
+      this.refreshOptions()
+    }, 1000),
+    resetKeyWords() {
+      this.resetKeyWordsVal = this.value
+      this.keyWord = ''
+      this.searchWithKey()
     },
     filterMethod(key) {
-      if (key === this.keyWord) {
+      if (!key && !this.keyWord) {
+        this.keyWord = key
         return
       }
       this.keyWord = key
-      this.destroyTimeMachine()
-      this.changeIndex++
-      this.searchWithKey(this.changeIndex)
+      this.searchWithKey()
     },
     refreshOptions() {
-      // this.data = []
       let method = multFieldValues
       const token = this.$store.getters.token || getToken()
       const linkToken = this.$store.getters.linkToken || getLinkToken()
@@ -370,7 +371,7 @@ export default {
           this.firstChange(this.value)
           return
         }
-        if (this.value.toString() !== eleVal && this.defaultValueStr === eleVal) {
+        if (this.value?.toString() !== eleVal && this.defaultValueStr === eleVal) {
           this.value = this.fillValueDerfault()
           this.changeValue(this.value)
         }
@@ -387,7 +388,8 @@ export default {
     },
     initLoad() {
       this.initOptions(this.fillFirstSelected)
-      if (this.element.options.value && !this.selectFirst) {
+      const existLastValidFilters = this.$store.state.lastValidFilters && this.$store.state.lastValidFilters[this.element.id]
+      if ((this.element.options.value || existLastValidFilters) && !this.selectFirst) {
         this.value = this.fillValueDerfault()
         this.changeValue(this.value)
       }
@@ -554,12 +556,33 @@ export default {
       if (this.isCustomSortWidget && this.element.options.attrs?.sort?.sort === 'custom') {
         tempData = mergeCustomSortOption(this.element.options.attrs.sort.list, tempData)
       }
+
+      if (Array.isArray(this.resetKeyWordsVal) && this.resetKeyWordsVal.length) {
+        tempData = [...new Set([...this.resetKeyWordsVal, ...tempData])]
+      } else if (!Array.isArray(this.resetKeyWordsVal) && this.resetKeyWordsVal) {
+        tempData = [...new Set([this.resetKeyWordsVal, ...tempData])]
+      }
+      this.filterInvalidValue(tempData)
       return tempData.map(item => {
         return {
           id: item,
           text: item
         }
       })
+    },
+    filterInvalidValue(data) {
+      if (this.value === null || !!this.keyWord) {
+        return
+      }
+      if (!data.length) {
+        this.value = null
+        return
+      }
+      if (this.element.options.attrs.multiple) {
+        this.value = this.value.filter(item => data.includes(item))
+      } else {
+        this.value = data.includes(this.value) ? this.value : null
+      }
     },
     setOptionWidth(event) {
       this.onFocus = true

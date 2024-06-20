@@ -120,7 +120,9 @@
                   {{ uiInfo['ui.demo.tips'].paramValue }}
                 </div>
               </div>
-              <div class="login-msg">
+              <div
+                class="login-msg"
+              >
                 {{ msg }}
               </div>
             </el-form>
@@ -128,7 +130,10 @@
               v-show="codeShow"
               class="code"
             >
-              <el-row class="code-contaniner">
+              <el-row
+                class="code-contaniner"
+                :class="isPad && 'is-pad'"
+              >
                 <plugin-com
                   v-if="codeShow && loginTypes.includes(4) && codeIndex === 4"
                   ref="WecomQr"
@@ -184,7 +189,6 @@
             />
           </el-col>
         </el-row>
-
       </div>
       <plugin-com
         v-if="loginTypes.includes(2) && loginForm.loginType === 2"
@@ -227,6 +231,7 @@ export default {
         username: '',
         password: ''
       },
+      isPad: false,
       loginRules: {
         username: [{ required: true, trigger: 'blur', message: this.$t('commons.input_id') }],
         password: [{ required: true, trigger: 'blur', message: this.$t('commons.input_pwd') }]
@@ -357,7 +362,7 @@ export default {
   },
 
   mounted() {
-    // this.loading = false
+    this.isPad = /iPad/.test(navigator.userAgent)
   },
 
   created() {
@@ -714,6 +719,10 @@ export default {
   }
   .code-contaniner {
     height: 410px;
+    &.is-pad {
+      height: 365px;
+      overflow: hidden;
+    }
   }
 }
 .login-third-item {

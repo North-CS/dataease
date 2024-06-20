@@ -1,6 +1,5 @@
 package io.dataease.service.datasource;
 
-import cn.hutool.core.collection.CollectionUtil;
 import com.google.gson.Gson;
 import io.dataease.commons.constants.SysLogConstants;
 import io.dataease.commons.utils.BeanUtils;
@@ -13,10 +12,12 @@ import io.dataease.i18n.Translator;
 import io.dataease.plugins.common.base.domain.*;
 import io.dataease.plugins.common.base.mapper.DeDriverDetailsMapper;
 import io.dataease.plugins.common.base.mapper.DeDriverMapper;
+import io.dataease.plugins.common.dto.datasource.DataSourceType;
 import io.dataease.plugins.datasource.entity.JdbcConfiguration;
 import io.dataease.plugins.datasource.provider.DefaultJdbcProvider;
 import io.dataease.plugins.datasource.provider.ExtendedJdbcClassLoader;
-import io.dataease.provider.ProviderFactory;
+import io.dataease.plugins.datasource.provider.ProviderFactory;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +28,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
-import java.net.URL;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 
 @Transactional(rollbackFor = Exception.class)
 @Service
@@ -47,18 +48,52 @@ public class DriverService {
 
     public List<DriverDTO> list() throws Exception {
         List<DriverDTO> driverDTOS = new ArrayList<>();
-        deDriverMapper.selectByExampleWithBLOBs(null).forEach(deDriver -> {
+        Collection<DataSourceType> dataSourceTypes = datasourceService.types();
+        List<String> dsTypes = datasourceService.types().stream().map(DataSourceType::getType).collect(Collectors.toList());
+        List<DeDriver> deDrivers = deDriverMapper.selectByExampleWithBLOBs(null);
+        List<String> driverTypes = deDrivers.stream().filter(deDriver -> deDriver.getId().contains("default")).map(DeDriver::getType).collect(Collectors.toList());
+        deDrivers.forEach(deDriver -> {
             DriverDTO driverDTO = new DriverDTO();
             BeanUtils.copyBean(driverDTO, deDriver);
-            datasourceService.types().forEach(dataSourceType -> {
+            dataSourceTypes.forEach(dataSourceType -> {
                 if (dataSourceType.getType().equalsIgnoreCase(deDriver.getType())) {
                     driverDTO.setTypeDesc(dataSourceType.getName());
                 }
-
             });
             driverDTOS.add(driverDTO);
         });
+        for (String dsType : dsTypes) {
+            if(!driverTypes.contains(dsType)){
+                DriverDTO driverDTO = new DriverDTO();
+                driverDTO.setId("default-" + dsType);
+                driverDTO.setName("default");
+                driverDTO.setType(dsType);
+                dataSourceTypes.forEach(dataSourceType -> {
+                    if (dataSourceType.getType().equalsIgnoreCase(dsType)) {
+                        driverDTO.setTypeDesc(dataSourceType.getName());
+                        driverDTO.setSurpportVersions(dataSourceType.getSurpportVersions());
+                    }
+                });
+                driverDTOS.add(driverDTO);
+            }
+        }
         return driverDTOS;
+    }
+
+    public DeDriver getDefaultDeDriver(String type){
+        DeDriver deDriver = deDriverMapper.selectByPrimaryKey("default-" + type);
+        if(deDriver == null){
+            deDriver = new DeDriver();
+            deDriver.setId("default-" + type);
+            deDriver.setName("default");
+            deDriver.setType(type);
+            for (DataSourceType dataSourceType : datasourceService.types()) {
+                if (dataSourceType.getType().equalsIgnoreCase(type)) {
+                    deDriver.setSurpportVersions(dataSourceType.getSurpportVersions());
+                }
+            }
+        }
+        return deDriver;
     }
 
     public void delete(DeDriver deDriver) {
@@ -81,7 +116,7 @@ public class DriverService {
         }
         DeDriverExample example = new DeDriverExample();
         example.createCriteria().andNameEqualTo(deDriver.getName());
-        if(CollectionUtil.isNotEmpty(deDriverMapper.selectByExampleWithBLOBs(example))){
+        if(CollectionUtils.isNotEmpty(deDriverMapper.selectByExampleWithBLOBs(example))){
             throw new RuntimeException(Translator.get("I18N_DRIVER_REPEAT_NAME"));
         }
         deDriver.setCreateTime(System.currentTimeMillis());
@@ -91,10 +126,35 @@ public class DriverService {
     }
 
     public DeDriver update(DeDriver deDriver) {
-        deDriverMapper.updateByPrimaryKeyWithBLOBs(deDriver);
+        if(StringUtils.isNotEmpty(deDriver.getId()) && deDriver.getId().contains("default")){
+            if(deDriverMapper.selectByPrimaryKey(deDriver.getId()) != null){
+                deDriverMapper.updateByPrimaryKeyWithBLOBs(deDriver);
+            }else {
+                deDriver.setCreateTime(System.currentTimeMillis());
+                deDriverMapper.insert(deDriver);
+            }
+        }else {
+            deDriverMapper.updateByPrimaryKeyWithBLOBs(deDriver);
+        }
+
         return deDriver;
     }
 
+    public DeDriver get(String id) {
+        DeDriver result =  deDriverMapper.selectByPrimaryKey(id);
+        if(result == null && id.startsWith("default-")){
+            result = new DeDriver();
+            result.setId(id);
+            result.setName("default");
+            result.setType(id.split("default-")[1]);
+            for (DataSourceType type : datasourceService.types()) {
+                if (type.getType().equalsIgnoreCase(id.split("default-")[1])) {
+                    result.setSurpportVersions(type.getSurpportVersions());
+                }
+            }
+        }
+        return result;
+    }
 
     public List<DeDriverDetails> listDriverDetails(String driverId) {
         DeDriverDetailsExample example = new DeDriverDetailsExample();
@@ -147,7 +207,7 @@ public class DriverService {
 
         DeDriverDetailsExample deDriverDetailsExample = new DeDriverDetailsExample();
         deDriverDetailsExample.createCriteria().andDeDriverIdEqualTo(driverId).andFileNameEqualTo(filename);
-        if(CollectionUtil.isNotEmpty(deDriverDetailsMapper.selectByExample(deDriverDetailsExample))){
+        if(CollectionUtils.isNotEmpty(deDriverDetailsMapper.selectByExample(deDriverDetailsExample))){
             throw new Exception("A file with the same name already exists：" + filename);
         }
 

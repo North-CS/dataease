@@ -10,6 +10,10 @@
 
 <hr/>
 
+
+注：DataEase v1.18.20 将于 2024 年 6 月份发布，这将是 V1 版本的最后一个功能版本，后续仅针对安全漏洞进行修复。
+
+
 ## 什么是 DataEase？
 
 DataEase 是开源的数据可视化分析工具，帮助用户快速分析数据并洞察业务趋势，从而实现业务的改进与优化。DataEase 支持丰富的数据源连接，能够通过拖拉拽方式快速制作图表，并可以方便的与他人分享。
@@ -81,7 +85,7 @@ curl -sSL https://dataease.oss-cn-hangzhou.aliyuncs.com/quick_start.sh | bash
 
 **学习资料**
 
--   [在线文档](https://dataease.io/docs/)
+-   [在线文档](https://dataease.io/docs/v1)
 -   [社区论坛](https://bbs.fit2cloud.com/c/de/6)
 
 ## DataEase v1 的技术栈

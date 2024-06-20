@@ -14,6 +14,10 @@ class DeWebsocket {
       {
         topic: '/web-seize-topic',
         event: 'web-seize-topic-call'
+      },
+      {
+        topic: '/task-export-topic',
+        event: 'task-export-topic-call'
       }
     ]
     this.timer = null
@@ -52,6 +56,7 @@ class DeWebsocket {
     if (!this.isLoginStatus()) {
       return
     }
+    console.log(this.ws_url)
     const socket = new SockJS(this.ws_url + '?userId=' + store.state.user.user.userId)
     /* const socket = new SockJS('http://localhost:8081' + this.ws_url) */
 

@@ -10,7 +10,7 @@
         :src="element.frameLinks.src"
         scrolling="auto"
         frameborder="0"
-        class="main-frame"
+        class="main-frame main-de-iframe "
         @load="loaded"
         @error="onError"
       />
@@ -103,9 +103,18 @@ export default {
   mounted() {
     bus.$on('frameLinksChange-' + this.element.id, this.frameLinksChange)
     eventBus.$on('startMoveIn', this.frameLinksChange)
+    window.addEventListener('click', function(event) {
+      const iframes = document.getElementsByClassName('main-de-iframe')
+      if (iframes) {
+        iframes.forEach(function(iframe) {
+          iframe.contentWindow.postMessage('closeFilterComponent', '*')
+        })
+      }
+    })
   },
   beforeDestroy() {
     bus.$off('frameLinksChange-' + this.element.id, this.frameLinksChange)
+    eventBus.$off('startMoveIn', this.frameLinksChange)
   },
   methods: {
     frameLinksChange() {

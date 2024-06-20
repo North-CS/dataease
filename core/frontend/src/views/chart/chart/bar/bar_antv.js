@@ -10,12 +10,15 @@ import {
   getSlider,
   getAnalyse,
   setGradientColor,
-  getMeta
+  getMeta,
+  configPlotTooltipEvent,
+  configAxisLabelLengthLimit
 } from '@/views/chart/chart/common/common_antv'
-import { antVCustomColor, handleEmptyDataStrategy } from '@/views/chart/chart/util'
-import _ from 'lodash'
+import { antVCustomColor, getColors, handleEmptyDataStrategy, hexColorToRGBA, handleStackSort } from '@/views/chart/chart/util'
+import { cloneDeep, find, groupBy, each } from 'lodash-es'
+import { formatterItem, valueFormatter } from '@/views/chart/chart/formatter'
 
-export function baseBarOptionAntV(plot, container, chart, action, isGroup, isStack) {
+export function baseBarOptionAntV(container, chart, action, isGroup, isStack) {
   // theme
   const theme = getTheme(chart)
   // attr
@@ -26,7 +29,7 @@ export function baseBarOptionAntV(plot, container, chart, action, isGroup, isSta
   const xAxis = getXAxis(chart)
   const yAxis = getYAxis(chart)
   // data
-  const data = _.cloneDeep(chart.data.data)
+  const data = cloneDeep(chart.data.data)
   // config
   const slider = getSlider(chart)
   const analyse = getAnalyse(chart)
@@ -112,6 +115,49 @@ export function baseBarOptionAntV(plot, container, chart, action, isGroup, isSta
   } else {
     delete options.groupField
   }
+  // forecast
+  if (chart.data?.forecastData?.length) {
+    const { forecastData } = chart.data
+    const templateData = data?.[data.length - 1]
+    forecastData.forEach(item => {
+      data.push({
+        ...templateData,
+        field: item.dimension,
+        name: item.dimension,
+        value: item.quota,
+        forecast: true
+      })
+    })
+    analyse.push({
+      type: 'region',
+      start: xScale => {
+        const ratio = xScale.ticks ? 1 / xScale.ticks.length : 1
+        const x = xScale.scale(forecastData[0].dimension) - ratio / 2
+        return [`${x * 100}%`, '0%']
+      },
+      end: (xScale) => {
+        const ratio = xScale.ticks ? 1 / xScale.ticks.length : 1
+        const x = xScale.scale(forecastData[forecastData.length - 1].dimension) + ratio / 2
+        return [`${x * 100}%`, '100%']
+      }
+    })
+  }
+  // total label
+  if (chart.type === 'bar-stack' && customAttr.label.showTotal) {
+    const yAxis = JSON.parse(chart.yaxis)
+    const formatterCfg = yAxis?.[0]?.formatterCfg ?? formatterItem
+    each(groupBy(data, 'field'), (values, key) => {
+      const total = values.reduce((a, b) => a + b.value, 0)
+      const value = valueFormatter(total, formatterCfg)
+      analyse.push({
+        type: 'text',
+        position: [key, total],
+        content: `${value}`,
+        style: { textAlign: 'center', fontSize: customAttr.label.totalFontSize, fill: customAttr.label.totalColor },
+        offsetY: -(parseInt(customAttr.label.totalFontSize) / 2)
+      })
+    })
+  }
   // 目前只有百分比堆叠柱状图需要这个属性，先直接在这边判断而不作为参数传过来
   options.isPercent = chart.type === 'percentage-bar-stack'
   // custom color
@@ -129,20 +175,19 @@ export function baseBarOptionAntV(plot, container, chart, action, isGroup, isSta
     }
     handleEmptyDataStrategy(emptyDataStrategy, chart, data, options)
   }
+  // 处理堆叠排序
+  handleStackSort(chart, data)
 
   // 开始渲染
-  if (plot) {
-    plot.destroy()
-  }
-  plot = new Column(container, options)
+  const plot = new Column(container, options)
 
-  plot.off('interval:click')
   plot.on('interval:click', action)
-
+  // 处理 tooltip 被其他视图遮挡
+  configPlotTooltipEvent(chart, plot)
   return plot
 }
 
-export function hBaseBarOptionAntV(plot, container, chart, action, isGroup, isStack) {
+export function hBaseBarOptionAntV(container, chart, action, isGroup, isStack) {
   // theme
   const theme = getTheme(chart)
   // attr
@@ -153,7 +198,7 @@ export function hBaseBarOptionAntV(plot, container, chart, action, isGroup, isSt
   const xAxis = getXAxis(chart)
   const yAxis = getYAxis(chart)
   // data
-  const data = _.cloneDeep(chart.data.data)
+  const data = cloneDeep(chart.data.data)
   // config
   const slider = getSlider(chart)
   const analyse = getAnalyse(chart)
@@ -241,6 +286,8 @@ export function hBaseBarOptionAntV(plot, container, chart, action, isGroup, isSt
       return setGradientColor(ele, customAttr.color.gradient)
     })
   }
+  // 处理堆叠排序
+  handleStackSort(chart, data)
   // 处理空值
   if (chart.senior) {
     let emptyDataStrategy = JSON.parse(chart.senior)?.functionCfg?.emptyDataStrategy
@@ -250,30 +297,37 @@ export function hBaseBarOptionAntV(plot, container, chart, action, isGroup, isSt
     handleEmptyDataStrategy(emptyDataStrategy, chart, data, options)
   }
 
-  // 开始渲染
-  if (plot) {
-    plot.destroy()
-  }
-  plot = new Bar(container, options)
+  const plot = new Bar(container, options)
 
-  plot.off('interval:click')
   plot.on('interval:click', action)
-
+  // 处理 tooltip 被其他视图遮挡
+  configPlotTooltipEvent(chart, plot)
+  // 处理纵轴标签长度限制
+  configAxisLabelLengthLimit(chart, plot)
   return plot
 }
 
-export function timeRangeBarOptionAntV(plot, container, chart, action) {
+export function timeRangeBarOptionAntV(container, chart, action) {
+  const ifAggregate = !!chart.aggregate
+
   // theme
   const theme = getTheme(chart)
   // attr
   const label = getLabel(chart)
+  if (label && !ifAggregate) {
+    label.layout = [
+      { type: 'interval-hide-overlap' },
+      { type: 'limit-in-plot', cfg: { action: 'hide' }}
+    ]
+  }
+
   const tooltip = getTooltip(chart)
   // style
   const legend = getLegend(chart)
   const yAxis = getXAxis(chart)
   const xAxis = getYAxis(chart)
   // data
-  const data = _.cloneDeep(chart.data.data)
+  const data = cloneDeep(chart.data.data)
 
   const isDate = !!chart.data.isDate
 
@@ -286,13 +340,18 @@ export function timeRangeBarOptionAntV(plot, container, chart, action) {
   // config
   const slider = getSlider(chart)
   const analyse = getAnalyse(chart)
+
+  data.forEach(d => {
+    d.tempId = (Math.random() * 10000000).toString()
+  })
+
   // options
   const options = {
     theme: theme,
     data: data,
     xField: 'values',
     yField: 'field',
-    seriesField: 'category',
+    colorFiled: 'category',
     appendPadding: getPadding(chart),
     label: label,
     tooltip: tooltip,
@@ -339,19 +398,36 @@ export function timeRangeBarOptionAntV(plot, container, chart, action) {
     ]
   }
 
+  if (ifAggregate) {
+    options.seriesField = 'category'
+    delete options.isGroup
+    delete options.isStack
+  } else {
+    options.isGroup = true
+    options.isStack = true
+  }
+
   if (isDate) {
     options.meta = {
       values: {
         type: 'time',
         min: minTime,
-        max: maxTime
+        max: maxTime,
+        mask: 'YYYY-MM-DD HH:mm:ss'
+      },
+      tempId: {
+        key: true
       }
     }
   } else {
     options.meta = {
       values: {
         min: minNumber,
-        max: maxNumber
+        max: maxNumber,
+        mask: 'YYYY-MM-DD HH:mm:ss'
+      },
+      tempId: {
+        key: true
       }
     }
   }
@@ -370,17 +446,39 @@ export function timeRangeBarOptionAntV(plot, container, chart, action) {
     }
   }
 
-  delete options.isGroup
-  delete options.isStack
-
   options.isPercent = chart.type.includes('percentage')
   // custom color
-  options.color = antVCustomColor(chart)
-  if (customAttr.color.gradient) {
-    options.color = options.color.map((ele) => {
-      return setGradientColor(ele, customAttr.color.gradient)
-    })
+  if (ifAggregate) {
+    options.color = antVCustomColor(chart)
+    if (customAttr.color.gradient) {
+      options.color = options.color.map((ele) => {
+        return setGradientColor(ele, customAttr.color.gradient)
+      })
+    }
+  } else {
+    if (chart.customAttr) {
+      // color
+      if (customAttr.color) {
+        const c = JSON.parse(JSON.stringify(customAttr.color))
+        const customColors = getColors(chart, c.colors, false)
+        options.color = function(obj) {
+          const colorObj = find(customColors, (o) => {
+            return o.name === obj.field
+          })
+          if (colorObj === undefined) {
+            return undefined
+          }
+          const color = hexColorToRGBA(colorObj.color, c.alpha)
+          if (customAttr.color.gradient) {
+            return setGradientColor(color, customAttr.color.gradient)
+          } else {
+            return color
+          }
+        }
+      }
+    }
   }
+
   // 处理空值
   if (chart.senior) {
     let emptyDataStrategy = JSON.parse(chart.senior)?.functionCfg?.emptyDataStrategy
@@ -390,19 +488,16 @@ export function timeRangeBarOptionAntV(plot, container, chart, action) {
     handleEmptyDataStrategy(emptyDataStrategy, chart, data, options)
   }
 
-  // 开始渲染
-  if (plot) {
-    plot.destroy()
-  }
-  plot = new Bar(container, options)
+  const plot = new Bar(container, options)
 
   plot.off('interval:click')
   plot.on('interval:click', action)
-
+  // 处理 tooltip 被其他视图遮挡
+  configPlotTooltipEvent(chart, plot)
   return plot
 }
 
-export function baseBidirectionalBarOptionAntV(plot, container, chart, action, isGroup, isStack) {
+export function baseBidirectionalBarOptionAntV(container, chart, action, isGroup, isStack) {
   // theme
   const theme = getTheme(chart)
   // attr
@@ -415,7 +510,7 @@ export function baseBidirectionalBarOptionAntV(plot, container, chart, action, i
   // 处理横轴标题方向不对
   yAxis?.title && (yAxis.title.autoRotate = false)
   // data
-  const data = _.cloneDeep(chart.data.data)
+  const data = cloneDeep(chart.data.data)
   // options
   const options = {
     theme: theme,
@@ -485,14 +580,10 @@ export function baseBidirectionalBarOptionAntV(plot, container, chart, action, i
   if (meta) {
     options.meta = meta
   }
-  // 开始渲染
-  if (plot) {
-    plot.destroy()
-  }
-  plot = new BidirectionalBar(container, options)
+  const plot = new BidirectionalBar(container, options)
 
-  plot.off('interval:click')
   plot.on('interval:click', action)
-
+  // 处理 tooltip 被其他视图遮挡
+  configPlotTooltipEvent(chart, plot)
   return plot
 }

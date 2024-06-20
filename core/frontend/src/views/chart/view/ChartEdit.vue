@@ -37,9 +37,12 @@
         />
       </el-popover>
       <span
-        class="title-text view-title-name"
-        style="line-height: 40px;"
-      >{{ view.name }}</span>
+        class="title-text view-title-name-update"
+      >
+        <chart-title-update
+          :chart-info="view"
+        />
+      </span>
       <span style="float: right;line-height: 40px;">
         <el-button
           round
@@ -1180,8 +1183,11 @@
                             :item="item"
                             :dimension-data="dimension"
                             :quota-data="quota"
+                            :chart="chart"
                             @onDimensionItemChange="drillItemChange"
                             @onDimensionItemRemove="drillItemRemove"
+                            @onNameEdit="showRename"
+                            @onCustomSort="item => onCustomSort(item, 'drillFields')"
                           />
                         </transition-group>
                       </draggable>
@@ -1191,6 +1197,39 @@
                       >
                         <span class="drag-placeholder-style-span">{{ $t('chart.placeholder_field') }}</span>
                       </div>
+                    </el-row>
+                    <el-row
+                      v-if="view.type === 'bar-time-range'"
+                      class="padding-lr"
+                    >
+                      <span>
+                        {{ $t('chart.chart_bar_time2') }}
+                      </span>
+                      <span>
+                        <el-tooltip
+                          class="item"
+                          effect="dark"
+                          placement="bottom"
+                        >
+                          <div slot="content">
+                            {{ $t('chart.chart_bar_time_tip') }}
+                          </div>
+                          <i
+                            class="el-icon-info"
+                            style="cursor: pointer;color: #606266;"
+                          />
+                        </el-tooltip>
+                      </span>
+                      <span
+                        class="padding-lr"
+                      >
+                        <el-checkbox
+                          v-model="view.aggregate"
+                          class="el-input-refresh-loading"
+                          @change="aggregateChange"
+                        />
+                        {{ $t('chart.aggregate') }}
+                      </span>
                     </el-row>
                   </div>
                 </el-row>
@@ -1309,6 +1348,30 @@
                       class="attr-selector"
                       :chart="chart"
                       @onThresholdChange="onThresholdChange"
+                    />
+                  </el-collapse-item>
+                  <el-collapse-item
+                    v-if="showTrendLineCfg"
+                    name="trend-line"
+                    :title="$t('chart.trend_line')"
+                  >
+                    <trend-line
+                      class="attr-selector"
+                      :chart="chart"
+                      :quota-data="view.yaxis"
+                      @onTrendLineChange="onTrendLineChange"
+                    />
+                  </el-collapse-item>
+                  <el-collapse-item
+                    v-if="showDataForecastCfg"
+                    name="data-forecast"
+                    title="数据预测"
+                  >
+                    <data-forecast
+                      class="attr-selector"
+                      :chart="chart"
+                      :quota-data="view.yaxis"
+                      @onForecastChange="onForecastChange"
                     />
                   </el-collapse-item>
                 </el-collapse>
@@ -1885,9 +1948,13 @@ import CalcChartFieldEdit from '@/views/chart/view/CalcChartFieldEdit'
 import { equalsAny, includesAny } from '@/utils/StringUtils'
 import PositionAdjust from '@/views/chart/view/PositionAdjust'
 import MarkMapDataEditor from '@/views/chart/components/map/MarkMapDataEditor'
+import TrendLine from '@/views/chart/components/senior/TrendLine'
+import ChartTitleUpdate from './ChartTitleUpdate'
+import DataForecast from '@/views/chart/components/senior/DataForecast'
 export default {
   name: 'ChartEdit',
   components: {
+    DataForecast,
     PositionAdjust,
     ScrollCfg,
     CalcChartFieldEdit,
@@ -1922,7 +1989,9 @@ export default {
     DrillPath,
     PluginCom,
     MapMapping,
-    MarkMapDataEditor
+    MarkMapDataEditor,
+    TrendLine,
+    ChartTitleUpdate
   },
   provide() {
     return {
@@ -1988,6 +2057,7 @@ export default {
         senior: {
           functionCfg: DEFAULT_FUNCTION_CFG,
           assistLine: [],
+          trendLine: [],
           threshold: DEFAULT_THRESHOLD
         },
         customFilter: {},
@@ -2064,7 +2134,7 @@ export default {
   },
   computed: {
     filedList() {
-      return [...this.dimension, ...this.quota].filter(ele => ele.id !== 'count')
+      return [...this.dimension, ...this.quota].filter(ele => ele.id !== 'count' && !ele.chartId)
     },
     obj() {
       return {
@@ -2119,7 +2189,7 @@ export default {
         equalsAny(this.view.type, 'map', 'text')
     },
     showScrollCfg() {
-      return equalsAny(this.view.type, 'table-normal', 'table-info')
+      return equalsAny(this.view.type, 'table-normal', 'table-info', 'table-pivot')
     },
     showAnalyseCfg() {
       if (this.view.type === 'bidirectional-bar' || this.view.type === 'bar-time-range') {
@@ -2133,6 +2203,12 @@ export default {
     showAssistLineCfg() {
       return includesAny(this.view.type, 'bar', 'line', 'area', 'mix') || this.view.type === 'scatter'
     },
+    showTrendLineCfg() {
+      return this.view.render === 'antv' && equalsAny(this.view.type, 'line')
+    },
+    showDataForecastCfg() {
+      return this.view.render === 'antv' && equalsAny(this.view.type, 'line', 'bar')
+    },
     showThresholdCfg() {
       if (this.view.type === 'bidirectional-bar') {
         return false
@@ -2145,8 +2221,7 @@ export default {
       return this.view.type &&
         !(this.view.type.includes('table') && this.view.render === 'echarts') &&
         !includesAny(this.view.type, 'text', 'gauge') &&
-        !equalsAny(this.view.type, 'liquid', 'bidirectional-bar',
-          'word-cloud', 'table-pivot', 'label', 'richTextView', 'flow-map')
+        !equalsAny(this.view.type, 'liquid', 'bidirectional-bar', 'table-pivot', 'label', 'richTextView', 'flow-map')
     },
     isPlugin() {
       const plugins = localStorage.getItem('plugin-views') && JSON.parse(localStorage.getItem('plugin-views')) || []
@@ -2291,6 +2366,7 @@ export default {
     bus.$off('plugins-calc-style', this.calcStyle)
     bus.$off('plugin-chart-click', this.chartClick)
     bus.$off('set-dynamic-area-code', this.setDynamicAreaCode)
+    bus.$off('set-table-column-width', this.onTableFieldWidthChange)
   },
   activated() {
   },
@@ -2381,6 +2457,8 @@ export default {
       bus.$on('plugins-calc-style', this.calcStyle)
       bus.$on('plugin-chart-click', this.chartClick)
       bus.$on('set-dynamic-area-code', this.setDynamicAreaCode)
+      bus.$on('set-table-column-width', this.onTableFieldWidthChange)
+      bus.$on('show-custom-sort', this.customSort)
     },
     initTableData(id, optType) {
       if (id != null) {
@@ -2515,6 +2593,9 @@ export default {
               }
             }
           }
+        }
+        if (view.type === 'table-info' && ele.groupType === 'q') {
+          ele.compareCalc = compareItem
         }
       })
       if (equalsAny(view.type, 'table-pivot', 'bar-group', 'bar-group-stack', 'flow-map', 'race-bar') ||
@@ -2655,6 +2736,14 @@ export default {
         view.type === 'table-pivot') {
         view.drillFields = []
       }
+      view.drillFields.forEach(ele => {
+        if (!ele.dateStyle || ele.dateStyle === '') {
+          ele.dateStyle = 'y_M_d'
+        }
+        if (!ele.datePattern || ele.datePattern === '') {
+          ele.datePattern = 'date_sub'
+        }
+      })
       this.chart = JSON.parse(JSON.stringify(view))
       this.view = JSON.parse(JSON.stringify(view))
       // stringify json param
@@ -2863,6 +2952,10 @@ export default {
       this.moveId = e.draggedContext.element.id
       return true
     },
+    customSort(args) {
+      const { item, axis } = JSON.parse(JSON.stringify(args))
+      this.onCustomSort(item, axis)
+    },
     onCustomSort(item, axis) {
       this.customSortFieldType = axis
       this.customSortField = this.view[axis][item.index]
@@ -2930,7 +3023,10 @@ export default {
       this.view.customAttr.size = val
       this.calcData()
     },
-
+    onTableFieldWidthChange(val) {
+      this.view.customAttr.size.tableFieldWidth = val
+      this.calcData()
+    },
     onTextChange(val) {
       this.view.customStyle.text = val
       this.view.title = val.title
@@ -2995,12 +3091,18 @@ export default {
       this.view.senior.assistLine = val
       this.calcData()
     },
-
+    onTrendLineChange(val) {
+      this.view.senior.trendLine = val
+      this.calcData()
+    },
+    onForecastChange(val) {
+      this.view.senior.forecastCfg = val
+      this.calcData()
+    },
     onThresholdChange(val) {
       this.view.senior.threshold = val
       this.calcData()
     },
-
     onScrollChange(val) {
       this.view.senior.scrollCfg = val
       this.calcStyle()
@@ -3101,6 +3203,8 @@ export default {
             this.view.xaxisExt[this.itemForm.index].name = this.itemForm.name
           } else if (this.itemForm.renameType === 'extStack') {
             this.view.extStack[this.itemForm.index].name = this.itemForm.name
+          } else if (this.itemForm.renameType === 'drill') {
+            this.view.drillFields[this.itemForm.index].name = this.itemForm.name
           }
           this.calcData(true)
           this.closeRename()
@@ -3401,6 +3505,9 @@ export default {
     drillItemChange(item) {
       this.calcData(true)
     },
+    aggregateChange() {
+      this.calcData(true)
+    },
     drillItemRemove(item) {
       this.view.drillFields.splice(item.index, 1)
       this.calcData(true)
@@ -3514,8 +3621,18 @@ export default {
         aCode = this.currentAcreaNode.code
       }
       const currentNode = this.findEntityByCode(aCode || this.view.customAttr.areaCode, this.places)
+      let mappingName = null
+      if (this.chart.senior) {
+        const senior = JSON.parse(this.chart.senior)
+        if (senior?.mapMapping[currentNode.code]) {
+          const mapping = senior.mapMapping[currentNode.code]
+          if (mapping[name]) {
+            mappingName = mapping[name]
+          }
+        }
+      }
       if (currentNode && currentNode.children && currentNode.children.length > 0) {
-        const nextNode = currentNode.children.find(item => item.name === name)
+        const nextNode = currentNode.children.find(item => item.name === name || (mappingName && item.name === mappingName))
         if (!nextNode || !nextNode.code) return null
         this.currentAcreaNode = nextNode
         const current = this.$refs.dynamicChart
@@ -3616,6 +3733,9 @@ export default {
       } else if (type === 'label-normal') {
         this.view.senior.functionCfg.emptyDataStrategy = 'breakLine'
       }
+      if (type === 'table-pivot') {
+        this.view.customAttr.size.tableColumnMode = 'custom'
+      }
       // reset custom colors
       this.view.customAttr.color.seriesColors = []
     },
@@ -3628,7 +3748,9 @@ export default {
       this.showValueFormatter = false
     },
     saveValueFormatter() {
-      const ele = this.valueFormatterItem.formatterCfg.decimalCount
+      const formatterItem = JSON.parse(JSON.stringify(this.valueFormatterItem))
+      const formatterCfg = formatterItem.formatterCfg
+      const ele = formatterCfg.decimalCount
       if (ele === undefined || ele.toString().indexOf('.') > -1 || parseInt(ele).toString() === 'NaN' || parseInt(ele) < 0 || parseInt(ele) > 10) {
         this.$message({
           message: this.$t('chart.formatter_decimal_count_error'),
@@ -3638,14 +3760,14 @@ export default {
         return
       }
       // 更新指标
-      if (this.valueFormatterItem.formatterType === 'quota' && this.chart.type !== 'bar-time-range') {
-        this.view.yaxis[this.valueFormatterItem.index].formatterCfg = this.valueFormatterItem.formatterCfg
-      } else if (this.valueFormatterItem.formatterType === 'quotaExt') {
-        this.view.yaxisExt[this.valueFormatterItem.index].formatterCfg = this.valueFormatterItem.formatterCfg
-      } else if (this.valueFormatterItem.formatterType === 'dimension') {
-        this.view.xaxis[this.valueFormatterItem.index].formatterCfg = this.valueFormatterItem.formatterCfg
+      if (formatterItem.formatterType === 'quota' && this.chart.type !== 'bar-time-range') {
+        this.view.yaxis[formatterItem.index].formatterCfg = formatterCfg
+      } else if (formatterItem.formatterType === 'quotaExt') {
+        this.view.yaxisExt[formatterItem.index].formatterCfg = formatterCfg
+      } else if (formatterItem.formatterType === 'dimension') {
+        this.view.xaxis[formatterItem.index].formatterCfg = formatterCfg
       } else if (this.chart.type === 'bar-time-range') {
-        this.view.xaxisExt[this.valueFormatterItem.index].formatterCfg = this.valueFormatterItem.formatterCfg
+        this.view.xaxisExt[formatterItem.index].formatterCfg = formatterCfg
       }
       this.calcData(true)
       this.closeValueFormatter()
@@ -4129,13 +4251,11 @@ span {
   margin-left: 4px;
 }
 
-.view-title-name {
+.view-title-name-update {
   display: -moz-inline-box;
   display: inline-block;
-  width: 130px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+  width: 170px;
+  height: 40px;
   margin-left: 45px;
 }
 

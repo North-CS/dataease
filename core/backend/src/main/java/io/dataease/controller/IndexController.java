@@ -71,6 +71,10 @@ public class IndexController {
             if (StringUtils.isNotEmpty(fromLink)) {
                 url = url + "&fromLink=" + fromLink;
             }
+            String ticket = request.getParameter("ticket");
+            if (StringUtils.isNotEmpty(ticket)) {
+                url = url + "&ticket=" + ticket;
+            }
             response.sendRedirect(url);
         } catch (IOException e) {
             LogUtil.error(e.getMessage());
@@ -81,6 +85,9 @@ public class IndexController {
     @GetMapping("/tempMobileLink/{id}/{token}")
     public void tempMobileLink(@PathVariable("id") String id, @PathVariable("token") String token) {
         String url = "/#preview/" + id;
+        if (StringUtils.isNotBlank(contextPath)) {
+            url = contextPath + url;
+        }
         HttpServletResponse response = ServletUtils.response();
         Cookie cookie = new Cookie("Authorization", token);
         cookie.setPath("/");

@@ -93,7 +93,6 @@
 <script>
 import { mapState } from 'vuex'
 import DeEditor from '@/components/canvas/components/editor/DeEditor'
-import elementResizeDetectorMaker from 'element-resize-detector'
 import bus from '@/utils/bus'
 import { deepCopy, imgUrlTrans } from '@/components/canvas/utils/utils'
 import { uuid } from 'vue-uuid'
@@ -241,6 +240,7 @@ export default {
   created() {
   },
   mounted() {
+    this.restore()
     this.resizeObserver = new ResizeObserver(() => {
       this.resizerTimer && clearTimeout(this.resizerTimer)
       this.resizerTimer = setTimeout(() => {
@@ -447,7 +447,7 @@ export default {
           icon: '',
           hyperlinks: HYPERLINKS,
           mobileStyle: BASE_MOBILE_STYLE,
-          propValue: imgUrlTrans(fileUrl),
+          propValue: fileUrl,
           commonBackground: deepCopy(COMMON_BACKGROUND),
           style: {
             ...PIC_STYLE

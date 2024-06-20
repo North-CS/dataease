@@ -114,6 +114,7 @@
         name="dataPreview"
       >
         <tab-data-preview
+          v-loading="tableLoading"
           :param="param"
           :table="table"
           :fields="fields"
@@ -258,6 +259,8 @@ import { pluginLoaded } from '@/api/user'
 import PluginCom from '@/views/system/plugin/PluginCom'
 import UpdateRecords from './UpdateRecords'
 import rowAuth from './components/rowAuth.vue'
+import { Button } from 'element-ui'
+import bus from '@/utils/bus'
 
 export default {
   name: 'ViewTable',
@@ -286,6 +289,7 @@ export default {
       table: {
         name: ''
       },
+      tableLoading: false,
       fields: [],
       exportDatasetLoading: false,
       filedList: [],
@@ -376,6 +380,7 @@ export default {
         post('/dataset/table/getWithPermission/' + id, null)
           .then((response) => {
             this.table = response.data
+            this.$cancelRequest('/dataset/table/getPreviewData/**')
             this.initPreviewData(this.page)
           })
           .catch((res) => {
@@ -386,11 +391,12 @@ export default {
 
     initPreviewData(page) {
       if (this.table.id) {
+        this.tableLoading = true
         this.table.row = this.tableViewRowForm.row
         post(
           '/dataset/table/getPreviewData/' + page.page + '/' + page.pageSize,
           this.table,
-          true,
+          false,
           30000
         )
           .then((response) => {
@@ -408,6 +414,7 @@ export default {
               this.previewDataSuccess = false
             }
             this.lastRequestComplete = true
+            this.tableLoading = false
           })
           .catch((response) => {
             this.lastRequestComplete = true
@@ -419,6 +426,10 @@ export default {
               show: 0
             }
             this.previewDataSuccess = false
+            if (this.$currentHttpRequestList.some((item, key) => {
+              return key.indexOf('dataset/table/getPreviewData') > -1
+            })) return
+            this.tableLoading = false
           })
       }
     },
@@ -480,6 +491,39 @@ export default {
     closeExport() {
       this.showExport = false
     },
+    openMessageLoading(cb) {
+      const h = this.$createElement
+      const iconClass = `el-icon-loading`
+      const customClass = `de-message-loading de-message-export`
+      this.$message({
+        message: h('p', null, [
+          this.$t('data_export.exporting'),
+          h(
+            Button,
+            {
+              props: {
+                type: 'text',
+                size: 'mini'
+              },
+              class: 'btn-text',
+              on: {
+                click: () => {
+                  cb()
+                }
+              }
+            },
+            this.$t('data_export.export_center')
+          ),
+          this.$t('data_export.export_info')
+        ]),
+        iconClass,
+        showClose: true,
+        customClass
+      })
+    },
+    callbackExport() {
+      bus.$emit('data-export-center')
+    },
     exportDatasetRequest() {
       this.$refs['exportForm'].validate((valid) => {
         if (valid) {
@@ -498,16 +542,10 @@ export default {
             this.table.expressionTree = JSON.stringify({ items, logic })
             this.exportDatasetLoading = true
             exportDataset(this.table).then((res) => {
-              const blob = new Blob([res], { type: 'application/vnd.ms-excel' })
-              const link = document.createElement('a')
-              link.style.display = 'none'
-              link.href = URL.createObjectURL(blob)
-              link.download = this.exportForm.name + '.xlsx' // 下载的文件名
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
+              this.openMessageLoading(this.callbackExport)
             }).finally(() => {
               this.exportDatasetLoading = false
+              this.showExport = false
             })
           }
         } else {

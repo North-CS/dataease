@@ -71,6 +71,7 @@
         :screen-shot="screenShot"
         :canvas-style-data="canvasStyleData"
         :show-position="showPosition"
+        :user-id="userId"
         @fill-chart-2-parent="setChartData"
       />
     </div>
@@ -79,7 +80,6 @@
 
 <script>
 import { getStyle } from '@/components/canvas/utils/style'
-import runAnimation from '@/components/canvas/utils/runAnimation'
 import { mixins } from '@/components/canvas/utils/events'
 import { mapState } from 'vuex'
 import DeOutWidget from '@/components/dataease/DeOutWidget'
@@ -149,6 +149,10 @@ export default {
     isRelation: {
       type: Boolean,
       default: false
+    },
+    userId: {
+      type: String,
+      require: false
     }
   },
   data() {
@@ -231,9 +235,6 @@ export default {
       'componentGap',
       'panelViewDetailsInfo'
     ])
-  },
-  mounted() {
-    runAnimation(this.$el, this.config.animations)
   },
   methods: {
     triggerFilterLoaded(p) {
@@ -327,7 +328,13 @@ export default {
     elementMouseDown(e) {
       // // private 设置当前组件数据及状态
       this.$store.commit('setClickComponentStatus', true)
-      if (this.config.component !== 'v-text' && this.config.component !== 'rect-shape' && this.config.component !== 'de-input-search' && this.config.component !== 'de-select-grid' && this.config.component !== 'de-number-range' && this.config.component !== 'de-date') {
+      if (this.config.component !== 'v-text' &&
+        this.config.component !== 'rect-shape' &&
+        this.config.component !== 'de-input-search' &&
+        this.config.component !== 'de-select-grid' &&
+        this.config.component !== 'de-number-range' &&
+        this.config.component !== 'de-date' &&
+        (this.config.component === 'user-view' && !['label', 'text'].includes(this.config.propValue?.innerType))) {
         e.preventDefault()
       }
       // 阻止冒泡事件

@@ -116,6 +116,7 @@ export const customAttrTrans = {
     'tableItemFontSize',
     'tableTitleHeight',
     'tableItemHeight',
+    'tableColumnWidth',
     'dimensionFontSize',
     'quotaFontSize',
     'spaceSplit', // 间隔
@@ -124,7 +125,8 @@ export const customAttrTrans = {
     'quotaSuffixFontSize'
   ],
   'label': [
-    'fontSize'
+    'fontSize',
+    'subFontSize'
   ],
   'tooltip': {
     'textStyle': ['fontSize']

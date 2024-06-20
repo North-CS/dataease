@@ -15,7 +15,7 @@
           <el-checkbox
             v-model="labelForm.show"
             @change="changeLabelAttr('show')"
-          >{{ $t('chart.show') }}</el-checkbox>
+          />
         </el-form-item>
         <div v-show="labelForm.show">
           <el-form-item
@@ -139,7 +139,82 @@
               >{{ option.name }}</el-radio>
             </el-radio-group>
           </el-form-item>
+          <el-form-item
+            v-show="showProperty('showGap')"
+            :label="$t('chart.show_gap')"
+            class="form-item"
+          >
+            <el-checkbox
+              v-model="labelForm.showGap"
+              @change="changeLabelAttr('showGap')"
+            />
+          </el-form-item>
         </div>
+        <el-divider v-show="showProperty('showTotal')"/>
+        <el-form-item
+          v-show="showProperty('showTotal')"
+          :label="$t('chart.show_summary')"
+          class="form-item"
+        >
+          <el-checkbox
+            v-model="labelForm.showTotal"
+            @change="changeLabelAttr('showTotal')"
+          />
+        </el-form-item>
+        <div v-show="labelForm.showTotal">
+          <el-form-item
+            v-show="showProperty('totalFontSize')"
+            :label="$t('chart.text_fontsize')"
+            class="form-item"
+          >
+            <el-select
+              v-model="labelForm.totalFontSize"
+              :placeholder="$t('chart.text_fontsize')"
+              size="mini"
+              @change="changeLabelAttr('totalFontSize')"
+            >
+              <el-option
+                v-for="option in fontSize"
+                :key="option.value"
+                :label="option.name"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item
+            v-show="showProperty('totalColor')"
+            :label="$t('chart.text_color')"
+            class="form-item"
+          >
+            <el-color-picker
+              v-model="labelForm.totalColor"
+              class="color-picker-style"
+              :predefine="predefineColors"
+              @change="changeLabelAttr('totalColor')"
+            />
+          </el-form-item>
+        </div>
+        <el-form-item
+          v-show="showProperty('conversion')"
+          :label="$t('chart.show_conversion')"
+          class="form-item"
+        >
+          <el-checkbox
+            v-model="labelForm.showConversion"
+            @change="changeLabelAttr('showConversion')"
+          />
+        </el-form-item>
+        <el-form-item
+          v-show="labelForm.showConversion && showProperty('conversionLabel')"
+          :label="$t('chart.conversion_label')"
+          class="form-item"
+        >
+          <el-input
+            v-model="labelForm.conversionLabel"
+            :maxlength="20"
+            @change="changeLabelAttr('conversionLabel')"
+          />
+        </el-form-item>
       </el-form>
 
       <el-form
@@ -319,13 +394,6 @@ export default {
   },
   computed: {
     labelContentOptions() {
-      if (this.chart.type.includes('pie')) {
-        return [
-          { name: this.$t('chart.dimension'), value: 'dimension' },
-          { name: this.$t('chart.quota'), value: 'quota' },
-          { name: this.$t('chart.proportion'), value: 'proportion' }
-        ]
-      }
       if (this.chart.type.includes('bar')) {
         return [
           { name: this.$t('chart.chart_group'), value: 'group' },
@@ -333,7 +401,11 @@ export default {
           { name: this.$t('chart.quota'), value: 'quota' }
         ]
       }
-      return []
+      return [
+        { name: this.$t('chart.dimension'), value: 'dimension' },
+        { name: this.$t('chart.quota'), value: 'quota' },
+        { name: this.$t('chart.proportion'), value: 'proportion' }
+      ]
     }
   },
   watch: {
@@ -376,12 +448,14 @@ export default {
           if (!this.labelForm.labelContent) {
             this.labelForm.labelContent = ['quota']
           }
+          this.labelForm.totalFontSize = this.labelForm.totalFontSize ?? DEFAULT_LABEL.totalFontSize
+          this.labelForm.totalColor = this.labelForm.totalColor ?? DEFAULT_LABEL.totalColor
         }
       }
     },
     init() {
       const arr = []
-      for (let i = 10; i <= 40; i = i + 2) {
+      for (let i = 6; i <= 40; i = i + 2) {
         arr.push({
           name: i + '',
           value: i + ''
@@ -464,4 +538,7 @@ export default {
     cursor: pointer;
     z-index: 1003;
   }
+.el-divider--horizontal {
+  margin: 10px 0
+}
 </style>

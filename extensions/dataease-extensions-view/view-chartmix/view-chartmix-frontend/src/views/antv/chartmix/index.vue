@@ -32,7 +32,6 @@
 </template>
 
 <script>
-import {Mix} from '@antv/g2plot'
 import {uuid, hexColorToRGBA, setGradientColor} from '../../../utils/chartmix'
 import ViewTrackBar from '../../../components/views/ViewTrackBar'
 import {getRemark} from "../../../components/views/utils";
@@ -40,11 +39,11 @@ import {
   DEFAULT_XAXIS_STYLE,
   DEFAULT_YAXIS_STYLE,
   transAxisPosition,
-  getLineDash, DEFAULT_COLOR_CASE, formatterItem, DEFAULT_YAXIS_EXT_STYLE
+  getLineDash, DEFAULT_COLOR_CASE, formatterItem, DEFAULT_YAXIS_EXT_STYLE,
+  DEFAULT_LABEL
 } from '../../../utils/map';
 import ChartTitleUpdate from '../../../components/views/ChartTitleUpdate';
 import {map, filter, join, flatten, cloneDeep} from 'lodash-es';
-import {clear} from 'size-sensor'
 import {valueFormatter} from '../../../utils/formatter'
 
 export default {
@@ -176,7 +175,7 @@ export default {
     }
   },
   created() {
-    !this.$chartmix && (this.$chartmix = Mix)
+    !this.$chartmix && (this.$chartmix = this.$Mix)
   },
   mounted() {
     this.preDraw()
@@ -281,7 +280,9 @@ export default {
       let colors = undefined;
       let alpha = DEFAULT_COLOR_CASE.alpha;
       let labelSetting = undefined;
-      let labelPosition = 'middle';
+      let labelPosition = DEFAULT_LABEL.position;
+      let subLabelSetting = undefined;
+      let subLabelPosition = DEFAULT_LABEL.subPosition;
       if (this.chart.customAttr) {
         customAttr = JSON.parse(this.chart.customAttr);
         if (customAttr) {
@@ -298,6 +299,14 @@ export default {
               },
             } : false
             labelPosition = customAttr.label.position;
+
+            subLabelSetting = customAttr.label.subShow ? {
+              style: {
+                fill: customAttr.label.subColor,
+                fontSize: parseInt(customAttr.label.subFontSize),
+              },
+            } : false
+            subLabelPosition = customAttr.label.subPosition;
           }
         }
       }
@@ -350,7 +359,7 @@ export default {
         }
       ) : [];
 
-      const yExtData = [this.getYExtData(flatten(yExtChartData), labelSetting, labelPosition, yaxisExtList, colors, gradient, alpha, xAxis, yAxisExt, yaxisCount)];
+      const yExtData = [this.getYExtData(flatten(yExtChartData), subLabelSetting, subLabelPosition, yaxisExtList, colors, gradient, alpha, xAxis, yAxisExt, yaxisCount)];
 
       const params = {
         tooltip: false,
@@ -366,7 +375,7 @@ export default {
 
         if (customAttr.tooltip) {
           params.tooltip = customAttr.tooltip.show ? {
-            showTitle: false,
+            showTitle: true,
             showMarkers: false,
             shared: true,
             // 内置：node 不显示 tooltip，edge 显示 tooltip
@@ -748,6 +757,7 @@ export default {
           meta: {
             key: {
               sync: true,
+              type: 'cat'
             },
           },
           color: color,
@@ -806,6 +816,7 @@ export default {
           meta: {
             key: {
               sync: true,
+              type: 'cat'
             },
           },
           color: color,
@@ -1153,7 +1164,7 @@ export default {
     beforeDestroy() {
       if (this.myChart.container) {
         if (typeof this.myChart.container.getAttribute === 'function') {
-          clear(this.myChart.container)
+          this.$G2SizeSensorClear(this.myChart.container)
         }
       }
       if (this.myChart) {

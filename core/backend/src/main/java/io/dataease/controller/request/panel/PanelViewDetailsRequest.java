@@ -42,4 +42,8 @@ public class PanelViewDetailsRequest {
 
     private Long userId;
 
+    private String downloadType;
+
+    private String viewType;
+
 }

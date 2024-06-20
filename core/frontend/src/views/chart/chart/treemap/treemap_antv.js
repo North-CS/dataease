@@ -1,7 +1,15 @@
-import { getLabel, getLegend, getPadding, getTheme, getTooltip } from '@/views/chart/chart/common/common_antv'
+import {
+  configPlotTooltipEvent,
+  getLegend,
+  getPadding,
+  getTheme,
+  getTooltip
+} from '@/views/chart/chart/common/common_antv'
 import { Treemap } from '@antv/g2plot'
+import { formatterItem, valueFormatter } from '@/views/chart/chart/formatter'
+import { parseJson } from '@/views/chart/chart/util'
 
-export function baseTreemapOptionAntV(plot, container, chart, action) {
+export function baseTreemapOptionAntV(container, chart, action) {
   // theme
   const theme = getTheme(chart)
   // attr
@@ -43,14 +51,42 @@ export function baseTreemapOptionAntV(plot, container, chart, action) {
       }
     ]
   }
-  // 开始渲染
-  if (plot) {
-    plot.destroy()
-  }
-  plot = new Treemap(container, options)
+  const plot = new Treemap(container, options)
 
-  plot.off('polygon:click')
   plot.on('polygon:click', action)
-
+  // 处理 tooltip 被其他视图遮挡
+  configPlotTooltipEvent(chart, plot)
   return plot
+}
+
+function getLabel(chart) {
+  const { label: labelAttr } = JSON.parse(chart.customAttr)
+  if (!labelAttr?.show) {
+    return false
+  }
+  const yAxis = parseJson(chart.yaxis)
+  const labelFormatter = yAxis?.[0].formatterCfg ?? formatterItem
+  return {
+    style: {
+      fill: labelAttr.color,
+      fontSize: labelAttr.fontSize
+    },
+    formatter: function(param) {
+      const labelContent = labelAttr.labelContent ?? ['quota']
+      const contentItems = []
+      if (labelContent.includes('dimension')) {
+        contentItems.push(param.field)
+      }
+      if (labelContent.includes('quota')) {
+        contentItems.push(valueFormatter(param.value, labelFormatter))
+      }
+      if (labelContent.includes('proportion')) {
+        const percentage = `${(((param.value / param.parent.value) * 10000) / 100).toFixed(
+          labelAttr.reserveDecimalCount
+        )}%`
+        contentItems.push(percentage)
+      }
+      return contentItems.join('\n')
+    }
+  }
 }

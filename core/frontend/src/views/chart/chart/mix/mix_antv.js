@@ -1,4 +1,5 @@
 import {
+  configPlotTooltipEvent,
   getLabel,
   getLegend,
   getPadding,
@@ -11,7 +12,7 @@ import {
 import { Mix } from '@antv/g2plot'
 import { hexColorToRGBA } from '@/views/chart/chart/util'
 
-export function baseMixOptionAntV(plot, container, chart, action) {
+export function baseMixOptionAntV(container, chart, action) {
   // theme
   const theme = getTheme(chart)
   // attr
@@ -97,17 +98,12 @@ export function baseMixOptionAntV(plot, container, chart, action) {
     tooltip: { shared: true }
   }
 
-  // 开始渲染
-  if (plot) {
-    plot.destroy()
-  }
-  plot = new Mix(container, options)
+  const plot = new Mix(container, options)
 
-  plot.off('point:click')
   plot.on('point:click', action)
-  plot.off('interval:click')
   plot.on('interval:click', action)
-
+  // 处理 tooltip 被其他视图遮挡
+  configPlotTooltipEvent(chart, plot)
   return plot
 }
 

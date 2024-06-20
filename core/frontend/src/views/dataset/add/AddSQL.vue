@@ -6,20 +6,21 @@
   >
     <div class="sql-editer">
       <el-row>
-        <el-col :span="12">
+        <el-col :span="16">
           <el-select
             v-model="dataSource"
             filterable
             style="width: 215px"
             :placeholder="$t('dataset.pls_slc_data_source')"
             size="small"
-            @change="changeDatasource()"
+            @change="changeDatasource(true)"
           >
             <el-option
               v-for="item in options"
               :key="item.id"
               :label="item.name"
               :value="item.id"
+              :disabled="item.calculationMode === 'DIRECT' && !!param.tableId"
             />
           </el-select>
           <el-select
@@ -60,10 +61,34 @@
               value="sync_latter"
             />
           </el-select>
+          <el-checkbox
+            v-if="mode === '1' && engineMode !== 'simple'"
+            v-model="param.setKey"
+            style="margin-left: 12px"
+          >{{ $t('dataset.set_key') }}</el-checkbox>
+
+          <el-select
+            v-if="mode === '1' && engineMode !== 'simple'"
+            v-model="param.keys"
+            size="small"
+            style="margin-left: 12px;width: 315px"
+            multiple
+            filterable
+            :disabled="!param.setKey"
+            :placeholder="$t('dataset.selecet_key')"
+          >
+            <el-option
+              v-for="field in fields"
+              :key="field.fieldName"
+              :label="field.fieldName"
+              :value="field.fieldName"
+            />
+          </el-select>
+
         </el-col>
         <el-col
           style="text-align: right"
-          :span="12"
+          :span="8"
         >
           <el-button
             type="text"
@@ -878,20 +903,22 @@ export default {
         this.kettleRunning = res.data
       })
     },
-    changeDatasource() {
+    changeDatasource(val) {
       this.keywords = ''
-      for (let i = 0; i < this.options.length; i++) {
-        if (this.options[i].id === this.dataSource) {
-          this.selectedDatasource = this.options[i]
-          this.mode = '0'
-          if (
-            this.engineMode === 'simple' ||
-            !this.kettleRunning ||
-            this.selectedDatasource.calculationMode === 'DIRECT'
-          ) {
-            this.disabledSync = true
-          } else {
-            this.disabledSync = false
+      if (!(this.param.tableId && val)) {
+        for (let i = 0; i < this.options.length; i++) {
+          if (this.options[i].id === this.dataSource) {
+            this.selectedDatasource = this.options[i]
+            this.mode = '0'
+            if (
+              this.engineMode === 'simple' ||
+              !this.kettleRunning ||
+              this.selectedDatasource.calculationMode === 'DIRECT'
+            ) {
+              this.disabledSync = true
+            } else {
+              this.disabledSync = false
+            }
           }
         }
       }
@@ -942,6 +969,10 @@ export default {
             this.sql = JSON.parse(
               table.info.replace(/\n/g, '\\n').replace(/\r/g, '\\r')
             ).sql
+          }
+          if (JSON.parse(table.info).hasOwnProperty('setKey')) {
+            this.$set(this.param, 'setKey', JSON.parse(table.info).setKey)
+            this.param.keys = JSON.parse(table.info).keys
           }
           this.variables = JSON.parse(table.sqlVariableDetails)
         }).finally(() => {
@@ -1048,7 +1079,9 @@ export default {
         sqlVariableDetails: JSON.stringify(this.variables),
         info: JSON.stringify({
           sql: Base64.encode(this.sql.trim()),
-          isBase64Encryption: true
+          isBase64Encryption: true,
+          setKey: this.param.setKey,
+          keys: this.param.keys
         })
       }
       post('/dataset/table/update', table)

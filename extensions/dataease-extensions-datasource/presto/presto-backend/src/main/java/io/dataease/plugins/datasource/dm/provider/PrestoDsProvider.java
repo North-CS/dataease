@@ -54,10 +54,15 @@ public class PrestoDsProvider extends DefaultJdbcProvider {
             ExtendedJdbcClassLoader classLoader;
             if(isDefaultClassLoader(customDriver)){
                 classLoader = extendedJdbcClassLoader;
-                for (DataSourceType value : SpringContextUtil.getApplicationContext().getBeansOfType(DataSourceType.class).values()) {
-                    if(value.getType().equalsIgnoreCase(datasourceRequest.getDatasource().getType())){
-                        surpportVersions = value.getSurpportVersions();
+                DeDriver driver = deDriverMapper.selectByPrimaryKey("default-" + datasourceRequest.getDatasource().getType());
+                if (driver == null) {
+                    for (DataSourceType value : SpringContextUtil.getApplicationContext().getBeansOfType(DataSourceType.class).values()) {
+                        if (value.getType().equalsIgnoreCase(datasourceRequest.getDatasource().getType())) {
+                            surpportVersions = value.getSurpportVersions();
+                        }
                     }
+                } else {
+                    surpportVersions = driver.getSurpportVersions();
                 }
             }else {
                 deDriver = deDriverMapper.selectByPrimaryKey(customDriver);
@@ -111,6 +116,7 @@ public class PrestoDsProvider extends DefaultJdbcProvider {
 
         if(StringUtils.isNotEmpty(surpportVersions) && surpportVersions.split(",").length > 0){
             if(! Arrays.asList(surpportVersions.split(",")).contains(String.valueOf(conn.getMetaData().getDatabaseProductVersion().split("-")[0]))){
+                conn.close();
                 DataEaseException.throwException("当前驱动不支持此版本!");
             };
         }
