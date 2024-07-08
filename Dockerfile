@@ -10,9 +10,9 @@ ADD core/drivers/* /opt/dataease/drivers/
 
 ADD plugins/default/ /opt/dataease/plugins/default/
 
-ADD core/backend/target/backend-$IMAGE_TAG.jar /opt/apps
+ADD core/backend/target/backend-1.18.22.jar /opt/apps
 
-ENV JAVA_APP_JAR=/opt/apps/backend-$IMAGE_TAG.jar
+ENV JAVA_APP_JAR=/opt/apps/backend-1.18.22.jar
 ENV AB_OFF=true
 ENV JAVA_OPTIONS=-Dfile.encoding=utf-8
 ENV RUNNING_PORT=8081

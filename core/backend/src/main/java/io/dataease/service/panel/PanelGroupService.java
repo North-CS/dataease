@@ -1285,7 +1285,7 @@ public class PanelGroupService {
     public void findExcelData(PanelViewDetailsRequest request) {
         ChartViewWithBLOBs viewInfo = chartViewService.get(request.getViewId());
         request.setDownloadType(viewInfo.getType());
-        if ("table-info".equals(viewInfo.getType())) {
+        if ("table-info".equals(viewInfo.getType()) || "table-normal".equals(viewInfo.getType()) || "table-pivot".equals(viewInfo.getType())) {
             try {
                 ChartExtRequest componentFilterInfo = request.getComponentFilterInfo();
                 componentFilterInfo.setGoPage(1L);
@@ -1293,7 +1293,7 @@ public class PanelGroupService {
                 componentFilterInfo.setExcelExportFlag(true);
                 componentFilterInfo.setProxy(request.getProxy());
                 componentFilterInfo.setUser(request.getUserId());
-                ChartViewDTO chartViewInfo = chartViewService.getData(request.getViewId(), componentFilterInfo);
+                ChartViewDTO chartViewInfo = chartViewService.getExportData(request.getViewId(), componentFilterInfo);
                 List<Object[]> tableRow = (List) chartViewInfo.getData().get("sourceData");
                 request.setDetails(tableRow);
             } catch (Exception e) {
@@ -1302,7 +1302,6 @@ public class PanelGroupService {
         }
 
     }
-
 
     public String getAbsPath(String id) {
         ChartViewWithBLOBs chartViewWithBLOBs = chartViewMapper.selectByPrimaryKey(id);
