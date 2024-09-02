@@ -674,13 +674,13 @@ export default {
     },
     filterText(val) {
       this.searchPids = []
-      this.$refs.default_panel_tree.filter(val)
-      this.$refs.panel_list_tree.filter(val)
+      this.$refs.default_panel_tree?.filter(val)
+      this.$refs.panel_list_tree?.filter(val)
     },
     searchType(val) {
       this.searchPids = []
-      this.$refs.default_panel_tree.filter(this.filterText)
-      this.$refs.panel_list_tree.filter(this.filterText)
+      this.$refs.default_panel_tree?.filter(this.filterText)
+      this.$refs.panel_list_tree?.filter(this.filterText)
     }
   },
   beforeDestroy() {
@@ -1041,7 +1041,7 @@ export default {
           this.activeDefaultNodeAndClickOnly(this.defaultData[0].id)
         }
       }
-      const currentKey = this.$refs.default_panel_tree.getCurrentKey()
+      const currentKey = this.$refs.default_panel_tree?.getCurrentKey()
       defaultTree(requestInfo, false).then((res) => {
         localStorage.setItem('panel-default-tree', JSON.stringify(res.data))
         if (!userCache) {
@@ -1052,12 +1052,12 @@ export default {
         }
         if (this.filterText) {
           this.$nextTick(() => {
-            this.$refs.default_panel_tree.filter(this.filterText)
+            this.$refs.default_panel_tree?.filter(this.filterText)
           })
         }
         if (currentKey) {
           this.$nextTick(() => {
-            this.$refs.default_panel_tree.setCurrentKey(currentKey)
+            this.$refs.default_panel_tree?.setCurrentKey(currentKey)
           })
         }
       })
@@ -1065,9 +1065,9 @@ export default {
 
     nodeClick(data, node) {
       if (data.panelType === 'self') {
-        this.$refs.default_panel_tree.setCurrentKey(null)
+        this.$refs.default_panel_tree?.setCurrentKey(null)
       } else {
-        this.$refs.panel_list_tree.setCurrentKey(null)
+        this.$refs.panel_list_tree?.setCurrentKey(null)
       }
       this.lastActiveNode = node
       this.lastActiveNodeData = data
@@ -1156,9 +1156,9 @@ export default {
         const _this = this
         _this.$nextTick(() => {
           // 延迟设置CurrentKey
-          _this.$refs.panel_list_tree.setCurrentKey(panelInfo.id)
+          _this.$refs.panel_list_tree?.setCurrentKey(panelInfo.id)
           // 去除default_tree 的影响
-          _this.$refs.default_panel_tree.setCurrentKey(null)
+          _this.$refs.default_panel_tree?.setCurrentKey(null)
           _this.$nextTick(() => {
             document.querySelector('.is-current').firstChild.click()
             // 如果是仪表板列表的仪表板 直接进入编辑界面
@@ -1175,9 +1175,9 @@ export default {
         const _this = this
         _this.$nextTick(() => {
           // 延迟设置CurrentKey
-          _this.$refs.panel_list_tree.setCurrentKey(panelInfo.id)
+          _this.$refs.panel_list_tree?.setCurrentKey(panelInfo.id)
           // 去除default_tree 的影响
-          _this.$refs.default_panel_tree.setCurrentKey(null)
+          _this.$refs.default_panel_tree?.setCurrentKey(null)
           if (panelInfo.parents) {
             _this.expandedArray = panelInfo.parents
           }
@@ -1192,9 +1192,9 @@ export default {
       if (panelId) {
         const _this = this
         _this.$nextTick(() => {
-          _this.$refs.panel_list_tree.setCurrentKey(null)
+          _this.$refs.panel_list_tree?.setCurrentKey(null)
           // 延迟设置CurrentKey
-          _this.$refs.default_panel_tree.setCurrentKey(panelId)
+          _this.$refs.default_panel_tree?.setCurrentKey(panelId)
           _this.$nextTick(() => {
             document.querySelector('.is-current').firstChild.click()
           })

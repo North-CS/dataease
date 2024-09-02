@@ -15,4 +15,6 @@ public class MultFieldValuesRequest {
 
     private String keyword;
 
+    private Boolean firstField;
+
 }

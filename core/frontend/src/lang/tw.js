@@ -2513,6 +2513,7 @@ export default {
     show_empty: '選項包含空數據',
     binding_parameters: '參數',
     multiple_choice: '多選',
+    first_field: '首字段值',
     show_time: '顯示時間',
     single_choice: '單選',
     field: '字段',

@@ -2514,6 +2514,7 @@ export default {
     show_empty: '选项包含空数据',
     binding_parameters: '参数',
     multiple_choice: '多选',
+    first_field: '首字段值',
     show_time: '显示时间',
     single_choice: '单选',
     field: '字段',

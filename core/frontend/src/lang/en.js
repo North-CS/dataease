@@ -2520,6 +2520,7 @@ export default {
     custom_scope: 'Target',
     show_empty: 'Option contains empty data',
     multiple_choice: 'Multiple choice',
+    first_field: 'First field value',
     show_time: 'Show time',
     single_choice: 'Single choice',
     field: 'Field',

@@ -11,6 +11,10 @@
           v-model="attrs.multiple"
           @change="multipleChange"
         >{{ $t('panel.multiple_choice') }}</el-checkbox>
+<!--        <el-checkbox-->
+<!--          v-if="widget.showSwitch"-->
+<!--          v-model="attrs.firstField"-->
+<!--        >{{ $t('panel.first_field') }}</el-checkbox>-->
         <span
           v-if="widget.isSortWidget && widget.isSortWidget()"
         >
@@ -149,6 +153,12 @@
                 {{ $t('panel.more') }}
               </div>
             </template>
+            <div class="check-item">
+              <el-checkbox
+                v-if="widget.showSwitch"
+                v-model="attrs.firstField"
+              >{{ $t('panel.first_field') }}</el-checkbox>
+            </div>
             <div class="check-item">
               <el-tooltip
                 v-model="visibleShowEmpty"

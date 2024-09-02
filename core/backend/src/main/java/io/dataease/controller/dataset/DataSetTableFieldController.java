@@ -233,7 +233,12 @@ public class DataSetTableFieldController {
     @PostMapping("multFieldValues")
     public List<Object> multFieldValues(@RequestBody MultFieldValuesRequest multFieldValuesRequest) throws Exception {
         List<Object> results = new ArrayList<>();
+        int i = 0;
         for (String fieldId : multFieldValuesRequest.getFieldIds()) {
+            i++;
+            if (multFieldValuesRequest.getFirstField() != null && multFieldValuesRequest.getFirstField() && i > 1) {
+                break;
+            }
             List<Object> fieldValues = dataSetFieldService.fieldValues(fieldId, multFieldValuesRequest.getSort(), multFieldValuesRequest.getUserId(), true, false, multFieldValuesRequest.getKeyword());
             if (CollectionUtils.isNotEmpty(fieldValues)) {
                 results.addAll(fieldValues);

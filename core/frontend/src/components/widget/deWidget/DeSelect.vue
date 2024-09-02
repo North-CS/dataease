@@ -187,7 +187,7 @@ export default {
       if (!token && linkToken) {
         method = linkMultFieldValues
       }
-      const param = { fieldIds: this.element.options.attrs.fieldId.split(this.separator), sort: this.element.options.attrs.sort }
+      const param = { fieldIds: this.element.options.attrs.fieldId.split(this.separator), sort: this.element.options.attrs.sort, firstField: this.element.options.attrs.firstField ? this.element.options.attrs.firstField : false }
       if (this.panelInfo.proxy) {
         param.userId = this.panelInfo.proxy
       }
@@ -201,7 +201,30 @@ export default {
         bus.$emit('valid-values-change', true)
       }).catch(e => {
         bus.$emit('valid-values-change', false)
-      }) || (this.element.options.value = '')
+      }) || (this.element.options.value = '');
+    },
+    'element.options.attrs.firstField': function() {
+      let method = multFieldValues
+      const token = this.$store.getters.token || getToken()
+      const linkToken = this.$store.getters.linkToken || getLinkToken()
+      if (!token && linkToken) {
+        method = linkMultFieldValues
+      }
+      const param = { fieldIds: this.element.options.attrs.fieldId.split(this.separator), sort: this.element.options.attrs.sort, firstField: this.element.options.attrs.firstField ? this.element.options.attrs.firstField : false }
+      if (this.panelInfo.proxy) {
+        param.userId = this.panelInfo.proxy
+      }
+      this.element.options.attrs.fieldId &&
+      this.element.options.attrs.fieldId.length > 0 &&
+      method(param).then(res => {
+        this.data = this.optionData(res.data)
+
+        this.clearDefault(this.data)
+        this.fillFirstValue()
+        bus.$emit('valid-values-change', true)
+      }).catch(e => {
+        bus.$emit('valid-values-change', false)
+      }) || (this.element.options.value = '');
     },
     'selectFirst': function(value, old) {
       if (value === old) return
@@ -242,7 +265,7 @@ export default {
         this.show = true
         return
       }
-      const param = { fieldIds: this.element.options.attrs.fieldId.split(this.separator), sort: this.element.options.attrs.sort }
+      const param = { fieldIds: this.element.options.attrs.fieldId.split(this.separator), sort: this.element.options.attrs.sort, firstField: this.element.options.attrs.firstField ? this.element.options.attrs.firstField : false }
       if (this.panelInfo.proxy) {
         param.userId = this.panelInfo.proxy
       }
@@ -346,7 +369,7 @@ export default {
       if (!this.element.options.attrs.fieldId) {
         return
       }
-      const param = { fieldIds: this.element.options.attrs.fieldId.split(this.separator), sort: this.element.options.attrs.sort, keyword: this.keyWord }
+      const param = { fieldIds: this.element.options.attrs.fieldId.split(this.separator), sort: this.element.options.attrs.sort, keyword: this.keyWord, firstField: this.element.options.attrs.firstField ? this.element.options.attrs.firstField : false }
       if (this.panelInfo.proxy) {
         param.userId = this.panelInfo.proxy
       }
@@ -422,7 +445,8 @@ export default {
         }
         method({
           fieldIds: this.element.options.attrs.fieldId.split(this.separator),
-          sort: this.element.options.attrs.sort
+          sort: this.element.options.attrs.sort,
+          firstField: this.element.options.attrs.firstField ? this.element.options.attrs.firstField : false
         }).then(res => {
           this.data = this.optionData(res.data)
           bus.$emit('valid-values-change', true)
