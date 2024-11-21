@@ -2,8 +2,8 @@
 name: Bug 提交
 about: 提交产品缺陷帮助我们更好的改进
 title: "[Bug]"
-labels: 类型:bug
-assignees: BBchicken-9527, zrfit
+labels: 状态:待处理
+assignees: BBchicken-9527, Shenguobin0102
 
 ---
 

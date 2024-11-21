@@ -1,0 +1,68 @@
+server:
+  port: 8100
+  max-http-request-header-size: 500KB
+  tomcat:
+    connection-timeout: 70000
+spring:
+  profiles:
+    active: '@profiles.active@'
+  application:
+    name: core-backend
+  messages:
+    encoding: UTF-8
+  main:
+    allow-circular-references: true
+  cache:
+    type: jcache
+    jcache:
+      config: classpath:ehcache/ehcache.xml
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: 123456
+      database: 0
+  jackson:
+    parser:
+      allow-numeric-leading-zeros: true
+management:
+  health:
+    redis:
+      enabled: false
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+logging:
+  file:
+    path: /opt/dataease2.0/logs/dataease
+# sql日志生产环境注释掉
+#mybatis-plus:
+#  configuration:
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+quartz:
+  enabled: true
+  scheduler-name: deSyncJob
+
+dataease:
+  version: '@project.version@'
+  xpack-front-distributed: true
+  origin-list: http://localhost:8080
+  apisix-api:
+    domain: http://127.0.0.1:9180
+    key: edd1c9f034335f136f87ad84b625c8f1
+
+# springdoc-openapi项目配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    #operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+# knife4j的增强配置，不需要增强可以不配
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    enable-swagger-models: false

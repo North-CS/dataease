@@ -1,12 +1,11 @@
 [default.extend-words]
-Rela = "Rela"
-eles = "eles"
-delink = "delink"
-testng = "testng"
-ba = "ba"
-referer = "referer"
-keynode = "keynode"
-
+ser = "ser"
+Referer = "Referer"
+Encryp = "Encryp"
+OT = "OT"
+Wheres = "Wheres"
+ws = "ws"
+guid = "guid"
+yoy = "yoy"
 [files]
-extend-exclude = ["public/", "amap-wx/", "m-icon/", "uni-card/", "uni-col/", "uni-link/", "uni-list/", "uni-list-item/", "uni-row/", "migration/", "mapFiles/", "frontend/src/views/chart/components/table/TableNormal.vue"]
-
+extend-exclude = ["mapFiles/**"]
