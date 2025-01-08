@@ -1164,7 +1164,7 @@ export default {
         const _this = this
         _this.$nextTick(() => {
           // 延迟设置CurrentKey
-          _this.$refs.panel_list_tree.setCurrentKey(panelInfo.id)
+          _this.$refs.panel_list_tree?.setCurrentKey(panelInfo.id)
           // 去除default_tree 的影响
           _this.$refs.default_panel_tree?.setCurrentKey(null)
           _this.$nextTick(() => {
