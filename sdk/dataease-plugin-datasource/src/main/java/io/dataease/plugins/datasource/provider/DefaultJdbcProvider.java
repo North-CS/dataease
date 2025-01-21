@@ -14,6 +14,8 @@ import io.dataease.plugins.common.request.datasource.DatasourceRequest;
 import io.dataease.plugins.datasource.entity.JdbcConfiguration;
 import io.dataease.plugins.datasource.entity.Status;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
@@ -33,6 +35,8 @@ public abstract class DefaultJdbcProvider extends Provider {
     static private final String CUSTOM_PATH = "/opt/dataease/custom-drivers/";
 
     abstract public boolean isUseDatasourcePool();
+
+    private static final Logger logger = LoggerFactory.getLogger(DefaultJdbcProvider.class);
 
     @PostConstruct
     public void init() throws Exception {
@@ -319,13 +323,17 @@ public abstract class DefaultJdbcProvider extends Provider {
     @Override
     public Connection getConnectionFromPool(DatasourceRequest datasourceRequest) throws Exception {
         if (!isUseDatasourcePool()) {
+            logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>> 没有使用资源池！");
             return getConnection(datasourceRequest);
         }
         if (datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.mongo.name()) ||
                 datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.impala.name())
                 || datasourceRequest.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.hive.name())) {
+            logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>> getConnection！");
             return getConnection(datasourceRequest);
         }
+
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>> jdbcConnection 获取链接！");
         DruidDataSource dataSource = jdbcConnection.get(datasourceRequest.getDatasource().getId());
         if (dataSource == null) {
             handleDatasource(datasourceRequest, "add");
@@ -349,6 +357,10 @@ public abstract class DefaultJdbcProvider extends Provider {
             WallFilter wallFilter = new WallFilter();
             wallFilter.setDbType(DatasourceTypes.mysql.name());
             druidDataSource.setProxyFilters(Arrays.asList(new Filter[]{wallFilter}));
+        }
+        if (datasourceRequest.getDatasource().getType().equals(DatasourceTypes.hive.name())) {
+            logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> addToPool hive: select 1");
+            druidDataSource.setValidationQuery("select 1 from system.dual");
         }
         druidDataSource.init();
         jdbcConnection.put(datasourceRequest.getDatasource().getId(), druidDataSource);

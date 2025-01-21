@@ -23,6 +23,8 @@ import io.dataease.plugins.datasource.provider.ExtendedJdbcClassLoader;
 import io.dataease.plugins.datasource.provider.ProviderFactory;
 import io.dataease.plugins.datasource.query.QueryProvider;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -34,6 +36,7 @@ import java.util.*;
 @Service("jdbc")
 public class JdbcProvider extends DefaultJdbcProvider {
 
+    private static final Logger logger = LoggerFactory.getLogger(DefaultJdbcProvider.class);
 
     @Resource
     private DeDriverMapper deDriverMapper;
@@ -67,6 +70,7 @@ public class JdbcProvider extends DefaultJdbcProvider {
     public void exec(DatasourceRequest datasourceRequest) throws Exception {
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), JdbcConfiguration.class);
         int queryTimeout = jdbcConfiguration.getQueryTimeout() > 0 ? jdbcConfiguration.getQueryTimeout() : 0;
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> exec queryTimeout:" + queryTimeout);
         try (Connection connection = getConnectionFromPool(datasourceRequest); Statement stat = getStatement(connection, queryTimeout)) {
             Boolean result = stat.execute(datasourceRequest.getQuery());
         } catch (SQLException e) {
@@ -277,7 +281,8 @@ public class JdbcProvider extends DefaultJdbcProvider {
     public List<TableField> fetchResultField(DatasourceRequest datasourceRequest) throws Exception {
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), JdbcConfiguration.class);
         int queryTimeout = jdbcConfiguration.getQueryTimeout() > 0 ? jdbcConfiguration.getQueryTimeout() : 0;
-        try (Connection connection = getConnectionFromPool(datasourceRequest); Statement stat = connection.createStatement(); ResultSet rs = stat.executeQuery(datasourceRequest.getQuery())) {
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> fetchResultField queryTimeout:" + queryTimeout);
+        try (Connection connection = getConnectionFromPool(datasourceRequest); Statement stat = getStatement(connection, queryTimeout); ResultSet rs = stat.executeQuery(datasourceRequest.getQuery())) {
             return fetchResultField(rs, datasourceRequest);
         } catch (SQLException e) {
             DataEaseException.throwException(e);
@@ -296,7 +301,8 @@ public class JdbcProvider extends DefaultJdbcProvider {
         List<TableField> fieldList;
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), JdbcConfiguration.class);
         int queryTimeout = jdbcConfiguration.getQueryTimeout() > 0 ? jdbcConfiguration.getQueryTimeout() : 0;
-        try (Connection connection = getConnectionFromPool(datasourceRequest); Statement stat = connection.createStatement(); ResultSet rs = stat.executeQuery(datasourceRequest.getQuery())) {
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> fetchResultAndField queryTimeout:" + queryTimeout);
+        try (Connection connection = getConnectionFromPool(datasourceRequest); Statement stat = getStatement(connection, queryTimeout); ResultSet rs = stat.executeQuery(datasourceRequest.getQuery())) {
             fieldList = fetchResultField(rs, datasourceRequest);
             result.put("fieldList", fieldList);
             dataList = getDataResult(rs, datasourceRequest);
@@ -402,6 +408,7 @@ public class JdbcProvider extends DefaultJdbcProvider {
         List<String[]> list = new LinkedList<>();
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(dsr.getDatasource().getConfiguration(), JdbcConfiguration.class);
         int queryTimeout = jdbcConfiguration.getQueryTimeout() > 0 ? jdbcConfiguration.getQueryTimeout() : 0;
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> getData queryTimeout:" + queryTimeout);
         try (Connection connection = getConnectionFromPool(dsr); Statement stat = getStatement(connection, queryTimeout); ResultSet rs = stat.executeQuery(dsr.getQuery())) {
             list = getDataResult(rs, dsr);
             if (dsr.isPageable() && (dsr.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.sqlServer.name()) || dsr.getDatasource().getType().equalsIgnoreCase(DatasourceTypes.db2.name()))) {
@@ -410,8 +417,10 @@ public class JdbcProvider extends DefaultJdbcProvider {
             }
 
         } catch (SQLException e) {
+            e.printStackTrace();
             DataEaseException.throwException("SQL ERROR" + e.getMessage());
         } catch (Exception e) {
+            e.printStackTrace();
             DataEaseException.throwException("Data source connection exception: " + e.getMessage());
         }
         return list;
@@ -423,6 +432,7 @@ public class JdbcProvider extends DefaultJdbcProvider {
         String queryStr = getTablesSql(datasourceRequest);
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), JdbcConfiguration.class);
         int queryTimeout = jdbcConfiguration.getQueryTimeout() > 0 ? jdbcConfiguration.getQueryTimeout() : 0;
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> checkDsStatus queryTimeout:" + queryTimeout);
         try (Connection con = getConnection(datasourceRequest); Statement statement = getStatement(con, queryTimeout); ResultSet resultSet = statement.executeQuery(queryStr)) {
             status.setVersion(String.valueOf(con.getMetaData().getDatabaseMajorVersion()));
         } catch (Exception e) {
@@ -438,6 +448,7 @@ public class JdbcProvider extends DefaultJdbcProvider {
         String queryStr = getTablesSql(datasourceRequest);
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), JdbcConfiguration.class);
         int queryTimeout = jdbcConfiguration.getQueryTimeout() > 0 ? jdbcConfiguration.getQueryTimeout() : 0;
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> checkStatus queryTimeout:" + queryTimeout);
         try (Connection con = getConnection(datasourceRequest); Statement statement = getStatement(con, queryTimeout); ResultSet resultSet = statement.executeQuery(queryStr)) {
         } catch (Exception e) {
             e.printStackTrace();
@@ -449,6 +460,7 @@ public class JdbcProvider extends DefaultJdbcProvider {
 
     @Override
     public Connection getConnection(DatasourceRequest datasourceRequest) throws Exception {
+        logger.info(">>>>>>>>>>>>>>>>>>>>>>>>getConnection start!!!");
         String username = null;
         String password = null;
         String defaultDriver = null;
@@ -522,12 +534,14 @@ public class JdbcProvider extends DefaultJdbcProvider {
                 jdbcurl = redshiftConfiguration.getJdbc();
                 break;
             case hive:
+                logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>hive getConnection!!!");
                 HiveConfiguration hiveConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), HiveConfiguration.class);
                 defaultDriver = hiveConfiguration.getDriver();
                 customDriver = hiveConfiguration.getCustomDriver();
                 jdbcurl = hiveConfiguration.getJdbc();
 
                 if (StringUtils.isNotEmpty(hiveConfiguration.getAuthMethod()) && hiveConfiguration.getAuthMethod().equalsIgnoreCase("kerberos")) {
+                    logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>hive kerberos!!!");
                     System.setProperty("java.security.krb5.conf", "/opt/dataease/conf/krb5.conf");
                     ExtendedJdbcClassLoader classLoader;
                     if (isDefaultClassLoader(customDriver)) {
@@ -547,6 +561,7 @@ public class JdbcProvider extends DefaultJdbcProvider {
                     setConfiguration.invoke(null, obj);
                     loginUserFromKeytab.invoke(null, hiveConfiguration.getUsername(), "/opt/dataease/conf/" + hiveConfiguration.getPassword());
                 } else {
+                    logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>hive not kerberos!!!");
                     username = hiveConfiguration.getUsername();
                     password = hiveConfiguration.getPassword();
                 }
@@ -688,6 +703,7 @@ public class JdbcProvider extends DefaultJdbcProvider {
                 dataSource.setPassword(hiveConfiguration.getPassword());
                 dataSource.setDriverClassName(hiveConfiguration.getDriver());
                 dataSource.setUrl(hiveConfiguration.getJdbc());
+                dataSource.setValidationQuery("select 1");
                 jdbcConfiguration = hiveConfiguration;
                 break;
             case impala:
