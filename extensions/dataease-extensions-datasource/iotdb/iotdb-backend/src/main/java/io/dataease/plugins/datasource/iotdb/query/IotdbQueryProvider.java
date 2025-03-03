@@ -1,0 +1,1941 @@
+package io.dataease.plugins.datasource.iotdb.query;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import io.dataease.plugins.common.base.domain.ChartViewWithBLOBs;
+import io.dataease.plugins.common.base.domain.DatasetTableField;
+import io.dataease.plugins.common.base.domain.DatasetTableFieldExample;
+import io.dataease.plugins.common.base.domain.Datasource;
+import io.dataease.plugins.common.base.mapper.DatasetTableFieldMapper;
+import io.dataease.plugins.common.constants.DeTypeConstants;
+import io.dataease.plugins.common.constants.datasource.SQLConstants;
+import io.dataease.plugins.common.constants.datasource.SqlServerSQLConstants;
+import io.dataease.plugins.common.dto.chart.ChartCustomFilterItemDTO;
+import io.dataease.plugins.common.dto.chart.ChartFieldCustomFilterDTO;
+import io.dataease.plugins.common.dto.chart.ChartViewFieldDTO;
+import io.dataease.plugins.common.dto.datasource.DeSortField;
+import io.dataease.plugins.common.dto.sqlObj.SQLObj;
+import io.dataease.plugins.common.exception.DataEaseException;
+import io.dataease.plugins.common.request.chart.ChartExtFilterRequest;
+import io.dataease.plugins.common.request.chart.filter.FilterTreeItem;
+import io.dataease.plugins.common.request.chart.filter.FilterTreeObj;
+import io.dataease.plugins.common.request.permission.DataSetRowPermissionsTreeDTO;
+import io.dataease.plugins.common.request.permission.DatasetRowPermissionsTreeItem;
+import io.dataease.plugins.datasource.entity.Dateformat;
+import io.dataease.plugins.datasource.entity.JdbcConfiguration;
+import io.dataease.plugins.datasource.entity.PageInfo;
+import io.dataease.plugins.datasource.iotdb.provider.IotdbConfig;
+import io.dataease.plugins.datasource.query.QueryProvider;
+import io.dataease.plugins.datasource.query.Utils;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.stringtemplate.v4.ST;
+import org.stringtemplate.v4.STGroup;
+import org.stringtemplate.v4.STGroupFile;
+
+import javax.annotation.Resource;
+import java.text.MessageFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+@Component()
+public class IotdbQueryProvider extends QueryProvider {
+    @Resource
+    private DatasetTableFieldMapper datasetTableFieldMapper;
+    private static final Gson json = new Gson();
+    @Value("${dataease.plugin.dir:/opt/dataease/plugins/}")
+    private String pluginDir="/opt/dataease/plugins/";
+
+    @Override
+    public Integer transFieldType(String field) {
+        field = field.toUpperCase();
+        switch (field) {
+            case "DATE":
+            case "TIME":
+            case "TIMESTAMT":
+            case "TIMESTAMPTZ":
+                return DeTypeConstants.DE_TIME;// 时间
+            case "INT32":
+            case "INT64":
+                return DeTypeConstants.DE_INT;
+            case "FLOAT":
+            case "DOUBLE":
+                    return DeTypeConstants.DE_FLOAT;// 浮点
+            case "BOOLEAN":
+                return DeTypeConstants.DE_BOOL;// 整型
+            default:
+                return DeTypeConstants.DE_STRING;
+        }
+    }
+
+    @Override
+    public String createSQLPreview(String sql, String orderBy) {
+        if(sql.contains(" limit ") || sql.contains(" LIMIT ")){
+            sql += " LIMIT 1000 offset 0";
+        }
+        return sql;
+    }
+
+    @Override
+    public String createQuerySQL(String table, List<DatasetTableField> fields, boolean isGroup, Datasource ds,
+                                 FilterTreeObj fieldCustomFilter,
+                                 List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+        return createQuerySQL(table, fields, isGroup, ds, fieldCustomFilter, rowPermissionsTree, null, null, null);
+    }
+
+    @Override
+    public String createQuerySQL(String table, List<DatasetTableField> fields, boolean isGroup, Datasource ds,
+                                 FilterTreeObj fieldCustomFilter,
+                                 List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                 List<DeSortField> sortFields, Long limit, String keyword) {
+        if(table.toLowerCase().trim().startsWith("select")) return table;
+        SQLObj tableObj = SQLObj.builder()
+                .tableName(table)
+                .build();
+
+        setSchema(tableObj, ds);
+        List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> groups = new ArrayList<>();
+        boolean hasTime = false;
+        if (CollectionUtils.isNotEmpty(fields)) {
+            for (int i = 0; i < fields.size(); i++) {
+                DatasetTableField f = fields.get(i);
+                if(f.getOriginName().equals("Time")) {
+                    hasTime = true;
+                    continue;
+                }// skip Time 字段
+                String originField;
+                if (ObjectUtils.isNotEmpty(f.getExtField()) && f.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(f.getOriginName(), tableObj);
+                } else {
+                    originField = f.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
+                String fieldName = "";
+                // 处理横轴字段
+                if (StringUtils.equals(originField, "Time")) {
+                    fieldName = transTimeGroup(null, "");
+                } else if (f.getDeExtractType() == DeTypeConstants.DE_TIME) {
+                    if (f.getDeType() == DeTypeConstants.DE_INT || f.getDeType() == DeTypeConstants.DE_FLOAT) {
+                        fieldName = String.format(IotdbConstants.UNIX_TIMESTAMP, originField);
+                    } else {
+                        fieldName = originField;
+                    }
+                } else if (f.getDeExtractType() == DeTypeConstants.DE_STRING) {
+                    if (f.getDeType() == DeTypeConstants.DE_INT) {
+                        fieldName = String.format(IotdbConstants.CAST, originField,
+                                IotdbConstants.DEFAULT_INT_FORMAT);
+                    } else if (f.getDeType() == DeTypeConstants.DE_FLOAT) {
+                        fieldName = String.format(IotdbConstants.CAST, originField,
+                                IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                    } else if (f.getDeType() == DeTypeConstants.DE_TIME) {
+                        fieldName = String.format(IotdbConstants.STR_TO_DATE, originField,
+                                StringUtils.isNotEmpty(f.getDateFormat()) ? f.getDateFormat()
+                                        : IotdbConstants.DEFAULT_DATE_FORMAT);
+                    } else {
+                        fieldName = originField;
+                    }
+                } else {
+                    if (f.getDeType() == DeTypeConstants.DE_TIME) {
+                        String cast = String.format(IotdbConstants.CAST, originField, "bigint");
+                        fieldName = String.format(IotdbConstants.FROM_UNIXTIME, cast);
+                    } else if (f.getDeType() == DeTypeConstants.DE_INT) {
+                        fieldName = String.format(IotdbConstants.CAST, originField,
+                                IotdbConstants.DEFAULT_INT_FORMAT);
+                    } else {
+                        fieldName = originField;
+                    }
+                }
+                xFields.add(SQLObj.builder()
+                        .fieldOriginName(originField)
+                        .fieldName(fieldName)
+                        .fieldAlias(fieldAlias)
+                        .build());
+//                groups.add(SQLObj.builder()
+//                        .fieldOriginName(originField)
+//                        .fieldName(fieldName)
+//                        .fieldAlias(fieldAlias)
+//                        .build());
+            }
+        }
+//        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+        STGroup stg =  new STGroupFile(pluginDir + IotdbConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("previewSql");
+        st_sql.add("isGroup", isGroup);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("groups", xFields);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        List<String> wheres = new ArrayList<>();
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        if (StringUtils.isNotBlank(keyword)) {
+            String keyWhere = "(" + transKeywordFilterList(tableObj, xFields, keyword) + ")";
+            wheres.add(keyWhere);
+        }
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+
+        List<SQLObj> xOrders = new ArrayList<>();
+        if (CollectionUtils.isNotEmpty(sortFields)) {
+            int step = fields.size();
+            for (int i = step; i < (step + sortFields.size()); i++) {
+                DeSortField deSortField = sortFields.get(i - step);
+                SQLObj order = buildSortField(deSortField, tableObj, i);
+                xOrders.add(order);
+            }
+        }
+        if (ObjectUtils.isNotEmpty(xOrders)) {
+            st_sql.add("orders", xOrders);
+        }
+        if (ObjectUtils.isNotEmpty(limit)) {
+            ChartViewWithBLOBs view = new ChartViewWithBLOBs();
+            view.setResultMode("custom");
+            view.setResultCount(Integer.parseInt(limit.toString()));
+            return sqlLimit(st_sql.render(), view);
+        }
+        return st_sql.render();
+    }
+
+    private SQLObj buildSortField(DeSortField f, SQLObj tableObj, int index) {
+        String originField;
+        if (ObjectUtils.isNotEmpty(f.getExtField()) && f.getExtField() == 2) {
+            // 解析origin name中有关联的字段生成sql表达式
+            originField = calcFieldRegex(f.getOriginName(), tableObj);
+        } else {
+            originField = f.getOriginName().replace(tableObj.getTableName()+".","");
+        }
+        String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, index);
+        String fieldName = "";
+        // 处理横轴字段
+        if (f.getDeExtractType() == DeTypeConstants.DE_TIME) {
+            if (f.getDeType() == DeTypeConstants.DE_INT || f.getDeType() == DeTypeConstants.DE_FLOAT) {
+                fieldName = String.format(IotdbConstants.UNIX_TIMESTAMP, originField);
+            } else {
+                fieldName = originField;
+            }
+        } else if (f.getDeExtractType() == DeTypeConstants.DE_STRING) {
+            if (f.getDeType() == DeTypeConstants.DE_INT) {
+                fieldName = String.format(IotdbConstants.CAST, originField, IotdbConstants.DEFAULT_INT_FORMAT);
+            } else if (f.getDeType() == DeTypeConstants.DE_FLOAT) {
+                fieldName = String.format(IotdbConstants.CAST, originField, IotdbConstants.DEFAULT_FLOAT_FORMAT);
+            } else if (f.getDeType() == DeTypeConstants.DE_TIME) {
+                fieldName = String.format(IotdbConstants.STR_TO_DATE, originField,
+                        StringUtils.isNotEmpty(f.getDateFormat()) ? f.getDateFormat()
+                                : IotdbConstants.DEFAULT_DATE_FORMAT);
+            } else {
+                fieldName = originField;
+            }
+        } else {
+            if (f.getDeType() == DeTypeConstants.DE_TIME) {
+                String cast = String.format(IotdbConstants.CAST, originField, "bigint");
+                fieldName = String.format(IotdbConstants.FROM_UNIXTIME, cast);
+            } else if (f.getDeType() == DeTypeConstants.DE_INT) {
+                fieldName = String.format(IotdbConstants.CAST, originField, IotdbConstants.DEFAULT_INT_FORMAT);
+            } else {
+                fieldName = originField;
+            }
+        }
+        SQLObj result = SQLObj.builder().orderField(originField).orderAlias(originField)
+                .orderDirection(f.getOrderDirection()).build();
+        return result;
+    }
+
+    @Override
+    public String createQuerySQLAsTmp(String sql, List<DatasetTableField> fields, boolean isGroup,
+                                      FilterTreeObj fieldCustomFilter,
+                                      List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                      List<DeSortField> sortFields,
+                                      Long limit,
+                                      String keyword) {
+        return createQuerySQL(sql, fields, isGroup, null, fieldCustomFilter, rowPermissionsTree,
+                sortFields, limit, keyword);
+    }
+
+    @Override
+    public String createQuerySQLAsTmp(String sql, List<DatasetTableField> fields, boolean isGroup,
+                                      FilterTreeObj fieldCustomFilter,
+                                      List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+        return createQuerySQL(sql, fields, isGroup, null, fieldCustomFilter, rowPermissionsTree);
+    }
+
+    @Override
+    public String createQueryTableWithPage(String table, List<DatasetTableField> fields, Integer page, Integer pageSize,
+                                           Integer realSize, boolean isGroup, Datasource ds,
+                                           FilterTreeObj fieldCustomFilter,
+                                           List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+        String sql = createQuerySQL(table, fields, isGroup, ds, fieldCustomFilter, rowPermissionsTree) + " LIMIT " + realSize
+                + " offset " + (page - 1) * pageSize;
+        return sql;
+    }
+
+    @Override
+    public String createQuerySQLWithPage(String sql, List<DatasetTableField> fields, Integer page, Integer pageSize,
+                                         Integer realSize, boolean isGroup,
+                                         FilterTreeObj fieldCustomFilter,
+                                         List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+        if(!sql.toLowerCase().contains(" limit ")){
+            return sql + " LIMIT " + realSize + " offset " + (page - 1) * pageSize;
+        }
+        return sql;
+    }
+
+    @Override
+    public String createQueryTableWithLimit(String table, List<DatasetTableField> fields, Integer limit,
+                                            boolean isGroup, Datasource ds,
+                                            FilterTreeObj fieldCustomFilter,
+                                            List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+        return createQuerySQL(table, fields, isGroup, ds, fieldCustomFilter, rowPermissionsTree) + " LIMIT " + limit
+                + " offset 0";
+    }
+
+    @Override
+    public String createQuerySqlWithLimit(String sql, List<DatasetTableField> fields, Integer limit, boolean isGroup,
+                                          FilterTreeObj fieldCustomFilter,
+                                          List<DataSetRowPermissionsTreeDTO> rowPermissionsTree) {
+        if (!sql.toLowerCase().contains(" limit ")){
+            return sql + " LIMIT " + limit + " offset 0";
+        }
+        return sql;
+    }
+
+    @Override
+    public String getSQL(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
+                         FilterTreeObj fieldCustomFilter,
+                         List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                         List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+        if(table.toLowerCase().trim().startsWith("select")) return table;
+        SQLObj tableObj = SQLObj.builder()
+                .tableName(table)
+                .build();
+        setSchema(tableObj, ds);
+        List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> groupFields = new ArrayList<>();
+        List<SQLObj> xOrders = new ArrayList<>();
+
+        // 用于标识维度字段中是否包含time字段
+        Boolean containTimeFlag = false;
+        if (CollectionUtils.isNotEmpty(xAxis)) {
+            for (int i = 0; i < xAxis.size(); i++) {
+                ChartViewFieldDTO x = xAxis.get(i);
+                String originField;
+                if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(x.getOriginName(), tableObj);
+                } else {
+                    originField = x.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
+                groupFields.add(getXFields(x, originField, fieldAlias));
+                if (originField.equals("Time")) {
+                    containTimeFlag = true;
+                } else {
+                    // 处理横轴字段
+                    xFields.add(getXFields(x, originField, fieldAlias));
+                }
+                // 处理横轴排序
+                if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                    if (originField.equals("Time")) {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    } else {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    }
+                }
+            }
+        }
+        List<SQLObj> yFields = new ArrayList<>();
+        List<String> yWheres = new ArrayList<>();
+        List<SQLObj> yOrders = new ArrayList<>();
+        if (CollectionUtils.isNotEmpty(yAxis)) {
+            for (int i = 0; i < yAxis.size(); i++) {
+                ChartViewFieldDTO y = yAxis.get(i);
+                String originField;
+                if (ObjectUtils.isNotEmpty(y.getExtField()) && y.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(y.getOriginName(), tableObj);
+                } else {
+                    originField = y.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                if(originField.equals("Time")) {
+                    continue;
+                }
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_Y_PREFIX, i);
+                // 处理纵轴字段
+                yFields.add(getYFields(y, originField, fieldAlias, containTimeFlag));
+                // 处理纵轴过滤
+                String yw = getYWheres(y, originField, fieldAlias);
+                if (StringUtils.isNotEmpty(yw)) {
+                    yWheres.add(yw);
+                }
+                // 处理纵轴排序
+                if (StringUtils.isNotEmpty(y.getSort()) && Utils.joinSort(y.getSort())) {
+                    yOrders.add(SQLObj.builder()
+                            .orderField(originField)
+                            .orderAlias(originField)
+                            .orderDirection(y.getSort())
+                            .build());
+                }
+            }
+        }
+        // 处理视图中字段过滤
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // 处理仪表板字段过滤
+        String extWheres = transExtFilterList(tableObj, extFilterRequestList);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        // 构建sql所有参数
+        List<SQLObj> fields = new ArrayList<>();
+        fields.addAll(xFields);
+        fields.addAll(yFields);
+        List<String> wheres = new ArrayList<>();
+        if (yWheres != null)
+            wheres.addAll(yWheres);
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (extWheres != null)
+            wheres.add(extWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        List<SQLObj> groups = new ArrayList<>();
+        groups.addAll(groupFields);
+        // 外层再次套sql
+        List<SQLObj> orders = new ArrayList<>();
+        orders.addAll(xOrders);
+        orders.addAll(yOrders);
+        List<String> aggWheres = new ArrayList<>();
+        aggWheres.addAll(yWheres.stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList()));
+
+//        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+        STGroup stg =  new STGroupFile(pluginDir + IotdbConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("querySql");
+
+        // 如果时文本卡则不分组 !
+        if (StringUtils.equals(view.getType(), "label")) {
+            st_sql.add("isGroup", false);
+        } else {
+            st_sql.add("isGroup", true);
+        }
+        if (CollectionUtils.isNotEmpty(groupFields))
+            st_sql.add("groups", groupFields);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("xfields", xFields);
+        if (CollectionUtils.isNotEmpty(yFields))
+            st_sql.add("aggregators", yFields);
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+        if (CollectionUtils.isNotEmpty(orders))
+            st_sql.add("orders", orders);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String sql = st_sql.render();
+
+//        ST st = stg.getInstanceOf("querySql");
+//        SQLObj tableSQL = SQLObj.builder()
+//                .tableName(String.format(IotdbConstants.BRACKETS, sql))
+////                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
+//                .build();
+//        if (CollectionUtils.isNotEmpty(aggWheres))
+//            st.add("filters", aggWheres);
+//        if (CollectionUtils.isNotEmpty(orders))
+//            st.add("orders", orders);
+//        if (ObjectUtils.isNotEmpty(tableSQL))
+//            st.add("table", tableSQL);
+        return sqlLimit(sql, view);
+    }
+
+    @Override
+    public String getSQLRangeBar(String table, List<ChartViewFieldDTO> baseXAxis, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, Datasource ds, ChartViewWithBLOBs view) {
+        SQLObj tableObj = SQLObj.builder()
+                .tableName(table)
+                .build();
+        setSchema(tableObj, ds);
+        List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xFields2Tail = new ArrayList<>();
+        List<SQLObj> xOrders = new ArrayList<>();
+
+        List<SQLObj> yFields = new ArrayList<>(); // 要把两个时间字段放进y里面
+        List<String> yWheres = new ArrayList<>();
+        List<SQLObj> yOrders = new ArrayList<>();
+
+        boolean ifAggregate = BooleanUtils.isTrue(view.getAggregate());
+        Boolean containTimeFlag = false;
+
+        if (CollectionUtils.isNotEmpty(xAxis)) {
+            for (int i = 0; i < xAxis.size(); i++) {
+                ChartViewFieldDTO x = xAxis.get(i);
+                String originField;
+
+                if (StringUtils.equalsIgnoreCase(x.getGroupType(), "q")) {
+                    if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                        // 解析origin name中有关联的字段生成sql表达式
+                        originField = calcFieldRegex(x.getOriginName(), tableObj);
+                    } else {
+                        originField = x.getOriginName().replace(tableObj.getTableName()+".","");
+                    }
+                    if(originField.equals("Time")) {
+                        containTimeFlag = true;
+                        continue;
+                    }
+                    String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_Y_PREFIX, i);
+                    // 处理纵轴字段
+                    yFields.add(getYFields(x, originField, fieldAlias, containTimeFlag));
+                    // 处理纵轴过滤
+                    yWheres.add(getYWheres(x, originField, fieldAlias));
+                    // 处理纵轴排序
+                    if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                        yOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    }
+                    continue;
+                }
+
+                if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(x.getOriginName(), tableObj);
+                } else {
+                    originField = x.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
+
+                if (ifAggregate) {
+                    if (i == baseXAxis.size()) {// 起止时间
+                        String fieldName = String.format(IotdbConstants.AGG_FIELD, "min", originField);
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
+
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
+
+                    } else if (i == baseXAxis.size() + 1) {
+                        String fieldName = String.format(IotdbConstants.AGG_FIELD, "max", originField);
+
+                        yFields.add(getXFields(x, fieldName, fieldAlias));
+
+                        yWheres.add(getYWheres(x, originField, fieldAlias));
+                    } else {
+                        // 处理横轴字段
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
+                } else {
+                    if (i == baseXAxis.size() || i == baseXAxis.size() + 1) {// 起止时间
+                        xFields2Tail.add(getXFields(x, originField, fieldAlias));
+                    } else {
+                        xFields.add(getXFields(x, originField, fieldAlias));
+                    }
+                }
+
+                // 处理横轴排序
+                if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                    xOrders.add(SQLObj.builder()
+                            .orderField(originField)
+                            .orderAlias(originField)
+                            .orderDirection(x.getSort())
+                            .build());
+                }
+            }
+            if (!ifAggregate) { //把起止时间放到数组最后
+                xFields.addAll(xFields2Tail);
+            }
+        }
+
+
+        // 处理视图中字段过滤
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // 处理仪表板字段过滤
+        String extWheres = transExtFilterList(tableObj, extFilterRequestList);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        // 构建sql所有参数
+        List<SQLObj> fields = new ArrayList<>();
+        fields.addAll(xFields);
+        fields.addAll(yFields);
+        List<String> wheres = new ArrayList<>();
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (extWheres != null)
+            wheres.add(extWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        List<SQLObj> groups = new ArrayList<>();
+        groups.addAll(xFields);
+        // 外层再次套sql
+        List<SQLObj> orders = new ArrayList<>();
+        orders.addAll(xOrders);
+        orders.addAll(yOrders);
+        List<String> aggWheres = new ArrayList<>();
+        aggWheres.addAll(yWheres.stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList()));
+
+//        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+        STGroup stg =  new STGroupFile(pluginDir + IotdbConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("querySql");
+        st_sql.add("isGroup", true);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("groups", xFields);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("xfields", xFields);
+        if (CollectionUtils.isNotEmpty(yFields))
+            st_sql.add("aggregators", yFields);
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String sql = st_sql.render();
+
+//        ST st = stg.getInstanceOf("querySql");
+//        SQLObj tableSQL = SQLObj.builder()
+//                .tableName(String.format(IotdbConstants.BRACKETS, sql))
+////                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
+//                .build();
+//        if (CollectionUtils.isNotEmpty(aggWheres))
+//            st.add("filters", aggWheres);
+//        if (CollectionUtils.isNotEmpty(orders))
+//            st.add("orders", orders);
+//        if (ObjectUtils.isNotEmpty(tableSQL))
+//            st.add("table", tableSQL);
+        return sqlLimit(sql, view);
+    }
+
+    @Override
+    public String getSQLAsTmpRangeBar(String table, List<ChartViewFieldDTO> baseXAxis, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack, ChartViewWithBLOBs view) {
+        return getSQLRangeBar(table, baseXAxis, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, extStack, null, view);
+    }
+
+    @Override
+    public String getSQLWithPage(boolean isTable, String table, List<ChartViewFieldDTO> xAxis,
+                                 FilterTreeObj fieldCustomFilter,
+                                 List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                 List<ChartExtFilterRequest> extFilterRequestList, Datasource ds,
+                                 ChartViewWithBLOBs view,
+                                 PageInfo pageInfo) {
+        String limit = ((pageInfo.getGoPage() != null && pageInfo.getPageSize() != null)
+                ? " LIMIT " + pageInfo.getPageSize() + " offset " + (pageInfo.getGoPage() - 1) * pageInfo.getPageSize()
+                : "");
+        if (isTable) {
+            return originalTableInfo(table, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds,
+                    view) + limit;
+        } else {
+            return originalTableInfo(table, xAxis, fieldCustomFilter, rowPermissionsTree,
+                    extFilterRequestList, ds, view) + limit;
+        }
+    }
+
+    private String originalTableInfo(String table, List<ChartViewFieldDTO> xAxis,
+                                     FilterTreeObj fieldCustomFilter,
+                                     List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                     List<ChartExtFilterRequest> extFilterRequestList, Datasource ds,
+                                     ChartViewWithBLOBs view) {
+        if(table.toLowerCase().trim().startsWith("select")) return table;
+        SQLObj tableObj = SQLObj.builder()
+                .tableName(table)
+                .build();
+        setSchema(tableObj, ds);
+        List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xOrders = new ArrayList<>();
+
+        Boolean containTimeFlag = false;
+        if (CollectionUtils.isNotEmpty(xAxis)) {
+            for (int i = 0; i < xAxis.size(); i++) {
+                ChartViewFieldDTO x = xAxis.get(i);
+                String originField;
+                if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(x.getOriginName(), tableObj);
+                } else if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 1) {
+                    originField = x.getOriginName().replace(tableObj.getTableName()+".","");
+                } else {
+                    if (x.getDeType() == 2 || x.getDeType() == 3) {
+                        originField = String.format(IotdbConstants.CAST,
+                                x.getOriginName().replace(tableObj.getTableName()+".",""),
+                                IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                    } else {
+                        originField = x.getOriginName().replace(tableObj.getTableName()+".","");
+                    }
+                }
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
+                if (originField.equals("Time")) {
+                    containTimeFlag = true;
+                } else {
+                    // 处理横轴字段
+                    xFields.add(getXFields(x, originField, fieldAlias));
+                }
+
+                // 处理横轴排序
+                if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                    if (originField.equals("Time")) {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    } else {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    }
+                }
+            }
+        }
+        // 处理视图中字段过滤
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // 处理仪表板字段过滤
+        String extWheres = transExtFilterList(tableObj, extFilterRequestList);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        // 构建sql所有参数
+        List<SQLObj> fields = new ArrayList<>();
+        fields.addAll(xFields);
+        List<String> wheres = new ArrayList<>();
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (extWheres != null)
+            wheres.add(extWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        List<SQLObj> groups = new ArrayList<>();
+        groups.addAll(xFields);
+        // 外层再次套sql
+        List<SQLObj> orders = new ArrayList<>();
+        orders.addAll(xOrders);
+
+//        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+        STGroup stg =  new STGroupFile(pluginDir + IotdbConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("previewSql");
+        st_sql.add("isGroup", false);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("groups", xFields);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("xfields", xFields);
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+        if (CollectionUtils.isNotEmpty(orders))
+            st_sql.add("orders", orders);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String sql = st_sql.render();
+
+//        ST st = stg.getInstanceOf("previewSql");
+//        st.add("isGroup", false);
+//        SQLObj tableSQL = SQLObj.builder()
+//                .tableName(String.format(IotdbConstants.BRACKETS, sql))
+////                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
+//                .build();
+//        if (ObjectUtils.isNotEmpty(tableSQL))
+//            st.add("table", tableSQL);
+        return sql;
+    }
+
+    @Override
+    public String getSQLTableInfo(String table, List<ChartViewFieldDTO> xAxis,
+                                  FilterTreeObj fieldCustomFilter,
+                                  List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                  List<ChartExtFilterRequest> extFilterRequestList, Datasource ds,
+                                  ChartViewWithBLOBs view) {
+        return sqlLimit(
+                originalTableInfo(table, xAxis, fieldCustomFilter, rowPermissionsTree, extFilterRequestList, ds, view),
+                view);
+    }
+
+    @Override
+    public String getSQLAsTmpTableInfo(String sql, List<ChartViewFieldDTO> xAxis,
+                                       FilterTreeObj fieldCustomFilter,
+                                       List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                       List<ChartExtFilterRequest> extFilterRequestList, Datasource ds,
+                                       ChartViewWithBLOBs view) {
+        return getSQLTableInfo(sql, xAxis, fieldCustomFilter, rowPermissionsTree,
+                extFilterRequestList, ds, view);
+    }
+
+    @Override
+    public String getSQLAsTmp(String sql, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
+                              FilterTreeObj fieldCustomFilter,
+                              List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                              List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view) {
+        return getSQL(sql, xAxis, yAxis, fieldCustomFilter, rowPermissionsTree,
+                extFilterRequestList, null, view);
+    }
+
+    @Override
+    public String getSQLStack(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
+                              FilterTreeObj fieldCustomFilter,
+                              List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                              List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack,
+                              Datasource ds,
+                              ChartViewWithBLOBs view) {
+        SQLObj tableObj = SQLObj.builder()
+                .tableName(table)
+                .build();
+        setSchema(tableObj, ds);
+        List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xOrders = new ArrayList<>();
+        List<ChartViewFieldDTO> xList = new ArrayList<>();
+        xList.addAll(xAxis);
+        xList.addAll(extStack);
+
+        Boolean containTimeFlag = false;
+
+        if (CollectionUtils.isNotEmpty(xList)) {
+            for (int i = 0; i < xList.size(); i++) {
+                ChartViewFieldDTO x = xList.get(i);
+                String originField;
+                if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(x.getOriginName(), tableObj);
+                }else {
+                    originField = x.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
+                if (originField.equals("Time")) {
+                    containTimeFlag = true;
+                } else {
+                    // 处理横轴字段
+                    xFields.add(getXFields(x, originField, fieldAlias));
+                }
+                // 处理横轴排序
+                if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                    if (originField.equals("Time")) {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    } else {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    }
+
+                }
+            }
+        }
+        List<SQLObj> yFields = new ArrayList<>();
+        List<String> yWheres = new ArrayList<>();
+        List<SQLObj> yOrders = new ArrayList<>();
+        if (CollectionUtils.isNotEmpty(yAxis)) {
+            for (int i = 0; i < yAxis.size(); i++) {
+                ChartViewFieldDTO y = yAxis.get(i);
+                String originField;
+                if (ObjectUtils.isNotEmpty(y.getExtField()) && y.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(y.getOriginName(), tableObj);
+                } else {
+                    originField = y.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                if(originField.equals("Time")) continue;
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_Y_PREFIX, i);
+                // 处理纵轴字段
+                yFields.add(getYFields(y, originField, fieldAlias, containTimeFlag));
+                // 处理纵轴过滤
+                yWheres.add(getYWheres(y, originField, fieldAlias));
+                // 处理纵轴排序
+                if (StringUtils.isNotEmpty(y.getSort()) && Utils.joinSort(y.getSort())) {
+                    yOrders.add(SQLObj.builder()
+                            .orderField(originField)
+                            .orderAlias(originField)
+                            .orderDirection(y.getSort())
+                            .build());
+                }
+            }
+        }
+        // 处理视图中字段过滤
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // 处理仪表板字段过滤
+        String extWheres = transExtFilterList(tableObj, extFilterRequestList);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        // 构建sql所有参数
+        List<SQLObj> fields = new ArrayList<>();
+        fields.addAll(xFields);
+        fields.addAll(yFields);
+        List<String> wheres = new ArrayList<>();
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (extWheres != null)
+            wheres.add(extWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        List<SQLObj> groups = new ArrayList<>();
+        groups.addAll(xFields);
+        // 外层再次套sql
+        List<SQLObj> orders = new ArrayList<>();
+        orders.addAll(xOrders);
+        orders.addAll(yOrders);
+        List<String> aggWheres = new ArrayList<>();
+        aggWheres.addAll(yWheres.stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList()));
+
+//        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+        STGroup stg =  new STGroupFile(pluginDir + IotdbConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("querySql");
+        st_sql.add("isGroup", true);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("groups", xFields);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("xfields", xFields);
+        if (CollectionUtils.isNotEmpty(yFields))
+            st_sql.add("aggregators", yFields);
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+        if (CollectionUtils.isNotEmpty(orders))
+            st_sql.add("orders", orders);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String sql = st_sql.render();
+
+//        ST st = stg.getInstanceOf("querySql");
+//        SQLObj tableSQL = SQLObj.builder()
+//                .tableName(String.format(IotdbConstants.BRACKETS, sql))
+////                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
+//                .build();
+//        if (CollectionUtils.isNotEmpty(aggWheres))
+//            st.add("filters", aggWheres);
+//        if (ObjectUtils.isNotEmpty(tableSQL))
+//            st.add("table", tableSQL);
+        return sqlLimit(sql, view);
+    }
+
+    @Override
+    public String getSQLAsTmpStack(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
+                                   FilterTreeObj fieldCustomFilter,
+                                   List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                   List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extStack,
+                                   ChartViewWithBLOBs view) {
+        return getSQLStack("(" + sqlFix(table) + ")", xAxis, yAxis, fieldCustomFilter, rowPermissionsTree,
+                extFilterRequestList, extStack, null, view);
+    }
+
+    @Override
+    public String getSQLScatter(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
+                                FilterTreeObj fieldCustomFilter,
+                                List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                List<ChartExtFilterRequest> extFilterRequestList, List<ChartViewFieldDTO> extBubble, List<ChartViewFieldDTO> extGroup,
+                                Datasource ds,
+                                ChartViewWithBLOBs view) {
+        SQLObj tableObj = SQLObj.builder()
+                .tableName(table)
+                .build();
+        setSchema(tableObj, ds);
+        List<SQLObj> xFields = new ArrayList<>();
+        List<SQLObj> xOrders = new ArrayList<>();
+
+        boolean xIsNumber = false;
+        List<ChartViewFieldDTO> xAxisList = new ArrayList<>();
+
+        //先判断x轴内是不是数值格式的
+        if (CollectionUtils.isNotEmpty(xAxis)) {
+            if (StringUtils.equals(xAxis.get(0).getGroupType(), "q") && StringUtils.equalsIgnoreCase(view.getRender(), "antv")) {
+                xIsNumber = true;
+            } else {
+                xAxisList.addAll(xAxis);
+            }
+        }
+
+        //然后是数值格式的情况还需要传extGroup
+        if (xIsNumber && CollectionUtils.isNotEmpty(extGroup)) {
+            xAxisList.addAll(extGroup);
+        }
+
+        Boolean containTimeFlag = false;
+        if (CollectionUtils.isNotEmpty(xAxisList)) {
+            for (int i = 0; i < xAxisList.size(); i++) {
+                ChartViewFieldDTO x = xAxisList.get(i);
+                String originField;
+                if (ObjectUtils.isNotEmpty(x.getExtField()) && x.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(x.getOriginName(), tableObj);
+                } else {
+                    originField = x.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_X_PREFIX, i);
+                if (originField.equals("Time")) {
+                    containTimeFlag = true;
+                } else {
+                    // 处理横轴字段
+                    xFields.add(getXFields(x, originField, fieldAlias));
+                }
+
+                // 处理横轴排序
+                if (StringUtils.isNotEmpty(x.getSort()) && Utils.joinSort(x.getSort())) {
+                    if (originField.equals("Time")) {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    } else {
+                        xOrders.add(SQLObj.builder()
+                                .orderField(originField)
+                                .orderAlias(originField)
+                                .orderDirection(x.getSort())
+                                .build());
+                    }
+
+                }
+            }
+        }
+        List<SQLObj> yFields = new ArrayList<>();
+        List<String> yWheres = new ArrayList<>();
+        List<SQLObj> yOrders = new ArrayList<>();
+        List<ChartViewFieldDTO> yList = new ArrayList<>();
+        if (xIsNumber) {
+            yList.add(xAxis.get(0));
+        }
+        yList.addAll(yAxis);
+        yList.addAll(extBubble);
+        if (CollectionUtils.isNotEmpty(yList)) {
+            for (int i = 0; i < yList.size(); i++) {
+                ChartViewFieldDTO y = yList.get(i);
+                String originField;
+                if (ObjectUtils.isNotEmpty(y.getExtField()) && y.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originField = calcFieldRegex(y.getOriginName(), tableObj);
+                } else {
+                    originField = y.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                if(originField.equals("Time")) continue;
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_Y_PREFIX, i);
+                // 处理纵轴字段
+                yFields.add(getYFields(y, originField, fieldAlias, containTimeFlag));
+                // 处理纵轴过滤
+                yWheres.add(getYWheres(y, originField, fieldAlias));
+                // 处理纵轴排序
+                if (StringUtils.isNotEmpty(y.getSort()) && Utils.joinSort(y.getSort())) {
+                    yOrders.add(SQLObj.builder()
+                            .orderField(originField)
+                            .orderAlias(originField)
+                            .orderDirection(y.getSort())
+                            .build());
+                }
+            }
+        }
+        // 处理视图中字段过滤
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // 处理仪表板字段过滤
+        String extWheres = transExtFilterList(tableObj, extFilterRequestList);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        // 构建sql所有参数
+        List<SQLObj> fields = new ArrayList<>();
+        fields.addAll(xFields);
+        fields.addAll(yFields);
+        List<String> wheres = new ArrayList<>();
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (extWheres != null)
+            wheres.add(extWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        List<SQLObj> groups = new ArrayList<>();
+        groups.addAll(xFields);
+        // 外层再次套sql
+        List<SQLObj> orders = new ArrayList<>();
+        orders.addAll(xOrders);
+        orders.addAll(yOrders);
+        List<String> aggWheres = new ArrayList<>();
+        aggWheres.addAll(yWheres.stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList()));
+
+//        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+         STGroup stg =  new STGroupFile(pluginDir + IotdbConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("querySql");
+        st_sql.add("isGroup", true);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("groups", xFields);
+        if (CollectionUtils.isNotEmpty(xFields))
+            st_sql.add("xfields", xFields);
+        if (CollectionUtils.isNotEmpty(yFields))
+            st_sql.add("aggregators", yFields);
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+        if (CollectionUtils.isNotEmpty(orders))
+            st_sql.add("orders", orders);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String sql = st_sql.render();
+
+//        ST st = stg.getInstanceOf("querySql");
+//        SQLObj tableSQL = SQLObj.builder()
+//                .tableName(String.format(IotdbConstants.BRACKETS, sql))
+////                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
+//                .build();
+//        if (CollectionUtils.isNotEmpty(aggWheres))
+//            st.add("filters", aggWheres);
+//        if (ObjectUtils.isNotEmpty(tableSQL))
+//            st.add("table", tableSQL);
+        return sqlLimit(sql, view);
+    }
+
+    @Override
+    public String getSQLAsTmpScatter(String table, List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis,
+                                     FilterTreeObj fieldCustomFilter,
+                                     List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                     List<ChartExtFilterRequest> extFilterRequestList,
+                                     List<ChartViewFieldDTO> extBubble, List<ChartViewFieldDTO> extGroup,
+                                     ChartViewWithBLOBs view) {
+        return getSQLScatter("(" + sqlFix(table) + ")", xAxis, yAxis, fieldCustomFilter, rowPermissionsTree,
+                extFilterRequestList, extBubble, extGroup, null, view);
+    }
+
+    @Override
+    public String searchTable(String table) {
+        return "SELECT table_name FROM information_schema.TABLES WHERE table_name ='" + table + "'";
+    }
+
+    @Override
+    public String getSQLSummary(String table, List<ChartViewFieldDTO> yAxis,
+                                FilterTreeObj fieldCustomFilter,
+                                List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view,
+                                Datasource ds) {
+        // 字段汇总 排序等
+        SQLObj tableObj = SQLObj.builder()
+                .tableName(table)
+                .build();
+        setSchema(tableObj, ds);
+        List<SQLObj> yFields = new ArrayList<>();
+        List<String> yWheres = new ArrayList<>();
+        List<SQLObj> yOrders = new ArrayList<>();
+        if (CollectionUtils.isNotEmpty(yAxis)) {
+            for (int i = 0; i < yAxis.size(); i++) {
+                ChartViewFieldDTO y = yAxis.get(i);
+                String originField;
+                // 解析origin name中有关联的字段生成sql表达式
+                if (ObjectUtils.isNotEmpty(y.getExtField()) && y.getExtField() == 2)
+                    originField = calcFieldRegex(y.getOriginName(), tableObj);
+                else {
+                    originField = y.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+                if(originField.equals("Time")) continue;
+                String fieldAlias = String.format(SQLConstants.FIELD_ALIAS_Y_PREFIX, i);
+                // 处理纵轴字段
+                yFields.add(getYFields(y, originField, fieldAlias, false));
+                // 处理纵轴过滤
+                yWheres.add(getYWheres(y, originField, fieldAlias));
+                // 处理纵轴排序
+                if (StringUtils.isNotEmpty(y.getSort()) && Utils.joinSort(y.getSort())) {
+                    yOrders.add(SQLObj.builder()
+                            .orderField(originField)
+                            .orderAlias(originField)
+                            .orderDirection(y.getSort())
+                            .build());
+                }
+            }
+        }
+        // 处理视图中字段过滤
+        String customWheres = transChartFilterTrees(tableObj, fieldCustomFilter);
+        // 处理仪表板字段过滤
+        String extWheres = transExtFilterList(tableObj, extFilterRequestList);
+        // row permissions tree
+        String whereTrees = transFilterTrees(tableObj, rowPermissionsTree);
+        // 构建sql所有参数
+        List<SQLObj> fields = new ArrayList<>();
+        fields.addAll(yFields);
+        List<String> wheres = new ArrayList<>();
+        if (customWheres != null)
+            wheres.add(customWheres);
+        if (extWheres != null)
+            wheres.add(extWheres);
+        if (whereTrees != null)
+            wheres.add(whereTrees);
+        List<SQLObj> groups = new ArrayList<>();
+        // 外层再次套sql
+        List<SQLObj> orders = new ArrayList<>();
+        orders.addAll(yOrders);
+        List<String> aggWheres = new ArrayList<>();
+        aggWheres.addAll(yWheres.stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList()));
+
+        STGroup stg =  new STGroupFile(pluginDir + IotdbConstants.SQL_TEMPLATE);
+        //        STGroup stg = new STGroupFile(SQLConstants.SQL_TEMPLATE);
+        ST st_sql = stg.getInstanceOf("querySql");
+        if (CollectionUtils.isNotEmpty(yFields))
+            st_sql.add("aggregators", yFields);
+        if (CollectionUtils.isNotEmpty(wheres))
+            st_sql.add("filters", wheres);
+        if (ObjectUtils.isNotEmpty(tableObj))
+            st_sql.add("table", tableObj);
+        String sql = st_sql.render();
+
+//        ST st = stg.getInstanceOf("querySql");
+//        SQLObj tableSQL = SQLObj.builder()
+//                .tableName(String.format(IotdbConstants.BRACKETS, sql))
+////                .tableAlias(String.format(TABLE_ALIAS_PREFIX, 1))
+//                .build();
+//        if (CollectionUtils.isNotEmpty(aggWheres))
+//            st.add("filters", aggWheres);
+//        if (CollectionUtils.isNotEmpty(orders))
+//            st.add("orders", orders);
+//        if (ObjectUtils.isNotEmpty(tableSQL))
+//            st.add("table", tableSQL);
+        return sqlLimit(sql, view);
+    }
+
+    @Override
+    public String getSQLSummaryAsTmp(String sql, List<ChartViewFieldDTO> yAxis,
+                                     FilterTreeObj fieldCustomFilter,
+                                     List<DataSetRowPermissionsTreeDTO> rowPermissionsTree,
+                                     List<ChartExtFilterRequest> extFilterRequestList, ChartViewWithBLOBs view) {
+        return getSQLSummary(sql, yAxis, fieldCustomFilter, rowPermissionsTree,
+                extFilterRequestList, view, null);
+    }
+
+    @Override
+    public String wrapSql(String sql) {
+        sql = sql.trim();
+        if (sql.lastIndexOf(";") == (sql.length() - 1)) {
+            sql = sql.substring(0, sql.length() - 1);
+        }
+        return sql;
+    }
+
+    @Override
+    public String getResultCount(boolean isTable, String sql, List<ChartViewFieldDTO> xAxis, FilterTreeObj fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+       return getTotalCount(isTable,sql,ds);
+    }
+
+    @Override
+    public String getTotalCount(boolean isTable, String sql, Datasource ds) {
+        if (isTable) {
+            String table = sql;
+            return "SELECT count_time(*) from " + table;
+        } else {
+            return "SELECT count_time(*) "+ sql.substring(sql.toLowerCase().indexOf(" from "));
+        }
+    }
+
+    @Override
+    public String createRawQuerySQL(String table, List<DatasetTableField> fields, Datasource ds) {
+        String[] array = fields.stream().map(f -> {
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("\"").append(f.getOriginName()).append("\" AS ").append(f.getDataeaseName());
+            return stringBuilder.toString();
+        }).toArray(String[]::new);
+        if (ds != null) {
+            return MessageFormat.format("SELECT {0} FROM {1}  LIMIT DE_PAGE_SIZE OFFSET DE_OFFSET ",
+                    StringUtils.join(array, ","), table);
+        } else {
+            return MessageFormat.format("SELECT {0} FROM {1}  LIMIT DE_PAGE_SIZE OFFSET DE_OFFSET ",
+                    StringUtils.join(array, ","), table);
+        }
+    }
+
+    @Override
+    public String createRawQuerySQLAsTmp(String sql, List<DatasetTableField> fields) {
+        return createRawQuerySQL(sql, fields, null);
+    }
+
+    @Override
+    public String transTreeItem(SQLObj tableObj, DatasetRowPermissionsTreeItem item) {
+        String res = null;
+        DatasetTableField field = item.getField();
+        if (ObjectUtils.isEmpty(field)) {
+            return null;
+        }
+        String whereName = "";
+        String originName;
+        if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 2) {
+            // 解析origin name中有关联的字段生成sql表达式
+            originName = calcFieldRegex(field.getOriginName(), tableObj);
+        } else {
+            originName = field.getOriginName().replace(tableObj.getTableName()+".","");
+        }
+        if (field.getDeType() == 1) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(IotdbConstants.STR_TO_DATE, originName,
+                        StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat()
+                                : IotdbConstants.DEFAULT_DATE_FORMAT);
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                String cast = String.format(IotdbConstants.CAST, originName, "bigint");
+                whereName = String.format(IotdbConstants.FROM_UNIXTIME, cast);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = originName;
+            }
+        } else if (field.getDeType() == 2 || field.getDeType() == 3) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(IotdbConstants.CAST, originName, IotdbConstants.DEFAULT_FLOAT_FORMAT);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = String.format(IotdbConstants.UNIX_TIMESTAMP, originName);
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                whereName = originName;
+            }
+        } else {
+            whereName = originName;
+        }
+
+        if (StringUtils.equalsIgnoreCase(item.getFilterType(), "enum")) {
+            if (CollectionUtils.isNotEmpty(item.getEnumValue())) {
+                res = "(" + whereName + " IN ('" + String.join("','", item.getEnumValue()) + "'))";
+            }
+        } else {
+            String value = item.getValue();
+            String whereTerm = transMysqlFilterTerm(item.getTerm());
+            String whereValue = "";
+
+            if (StringUtils.equalsIgnoreCase(item.getTerm(), "null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "empty")) {
+                whereValue = "''";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
+                whereValue = "''";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in")
+                    || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
+                whereValue = "('" + String.join("','", value.split(",")) + "')";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
+                whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "lt")
+                    || StringUtils.containsIgnoreCase(item.getTerm(), "le")
+                    || StringUtils.containsIgnoreCase(item.getTerm(), "gt")
+                    || StringUtils.containsIgnoreCase(item.getTerm(), "ge")) {
+                whereValue = String.format(IotdbConstants.WHERE_NUMBER_VALUE, item.getValue());
+            } else {
+                whereValue = String.format(IotdbConstants.WHERE_VALUE_VALUE, value);
+            }
+            SQLObj build = SQLObj.builder()
+                    .whereField(whereName)
+                    .whereTermAndValue(whereTerm + whereValue)
+                    .build();
+            res = build.getWhereField() + " " + build.getWhereTermAndValue();
+        }
+        return res;
+    }
+
+    @Override
+    public String transTreeItem(SQLObj tableObj, FilterTreeItem item) {
+        String res = null;
+        DatasetTableField field = item.getField();
+        if (ObjectUtils.isEmpty(field)) {
+            return null;
+        }
+        String whereName = "";
+        String originName;
+        if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 2) {
+            // 解析origin name中有关联的字段生成sql表达式
+            originName = calcFieldRegex(field.getOriginName(), tableObj);
+        } else {
+            originName = field.getOriginName().replace(tableObj.getTableName()+".","");
+        }
+        if (field.getDeType() == 1) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(IotdbConstants.STR_TO_DATE, originName,
+                        StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat()
+                                : IotdbConstants.DEFAULT_DATE_FORMAT);
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                String cast = String.format(IotdbConstants.CAST, originName, "bigint");
+                whereName = String.format(IotdbConstants.FROM_UNIXTIME, cast);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = originName;
+            }
+        } else if (field.getDeType() == 2 || field.getDeType() == 3) {
+            if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                whereName = String.format(IotdbConstants.CAST, originName, IotdbConstants.DEFAULT_FLOAT_FORMAT);
+            }
+            if (field.getDeExtractType() == 1) {
+                whereName = String.format(IotdbConstants.UNIX_TIMESTAMP, originName);
+            }
+            if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                whereName = originName;
+            }
+        } else {
+            whereName = originName;
+        }
+
+        if (StringUtils.equalsIgnoreCase(item.getFilterType(), "enum")) {
+            if (CollectionUtils.isNotEmpty(item.getEnumValue())) {
+                res = "(" + whereName + " IN ('" + String.join("','", item.getEnumValue()) + "'))";
+            }
+        } else {
+            String value = item.getValue();
+            String whereTerm = transMysqlFilterTerm(item.getTerm());
+            String whereValue = "";
+
+            if (StringUtils.equalsIgnoreCase(item.getTerm(), "null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_null")) {
+                whereValue = "";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "empty")) {
+                whereValue = "''";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "not_empty")) {
+                whereValue = "''";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "in")
+                    || StringUtils.equalsIgnoreCase(item.getTerm(), "not in")) {
+                whereValue = "('" + String.join("','", value.split(",")) + "')";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "like")) {
+                whereValue = "'%" + value + "%'";
+            } else if (StringUtils.equalsIgnoreCase(item.getTerm(), "begin_with")) {
+                whereValue = "'" + value + "%'";
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                whereValue = "'%" + value + "'";
+            } else if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                // 数值类型
+                whereValue = value;
+            } else if (field.getDeExtractType() == 1) {
+                // 时间类型
+                whereValue = value;
+            } else {
+                whereValue = String.format(IotdbConstants.WHERE_VALUE_VALUE, value);
+            }
+            SQLObj build = SQLObj.builder()
+                    .whereField(whereName)
+                    .whereTermAndValue(whereTerm + whereValue)
+                    .build();
+            res = build.getWhereField() + " " + build.getWhereTermAndValue();
+        }
+        return res;
+    }
+
+    @Override
+    public String convertTableToSql(String tableName, Datasource ds) {
+        if(tableName.toLowerCase().trim().startsWith("select")) return tableName;
+        return createSQLPreview("SELECT * FROM " + tableName,
+                null);
+    }
+
+    public String transMysqlFilterTerm(String term) {
+        switch (term) {
+            case "eq":
+                return " = ";
+            case "not_eq":
+                return " <> ";
+            case "lt":
+                return " < ";
+            case "le":
+                return " <= ";
+            case "gt":
+                return " > ";
+            case "ge":
+                return " >= ";
+            case "in":
+                return " IN ";
+            case "not in":
+                return " NOT IN ";
+            case "like":
+            case "begin_with":
+            case "end_with":
+                return " LIKE ";
+            case "not like":
+                return " NOT LIKE ";
+            case "null":
+                return " IS NULL ";
+            case "not_null":
+                return " IS NOT NULL ";
+            case "empty":
+                return " = ";
+            case "not_empty":
+                return " <> ";
+            case "between":
+                return " BETWEEN ";
+            default:
+                return "";
+        }
+    }
+
+    @Deprecated
+    public String transCustomFilterList(SQLObj tableObj, List<ChartFieldCustomFilterDTO> requestList) {
+        if (CollectionUtils.isEmpty(requestList)) {
+            return null;
+        }
+        List<String> res = new ArrayList<>();
+        for (ChartFieldCustomFilterDTO request : requestList) {
+            List<SQLObj> list = new ArrayList<>();
+            DatasetTableField field = request.getField();
+
+            if (ObjectUtils.isEmpty(field)) {
+                continue;
+            }
+            String whereName = "";
+            String originName;
+            if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 2) {
+                // 解析origin name中有关联的字段生成sql表达式
+                originName = calcFieldRegex(field.getOriginName(), tableObj);
+            } else {
+                originName = field.getOriginName().replace(tableObj.getTableName()+".","");
+            }
+            if (field.getDeType() == 1) {
+                if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                    whereName = String.format(IotdbConstants.STR_TO_DATE, originName,
+                            StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat()
+                                    : IotdbConstants.DEFAULT_DATE_FORMAT);
+                }
+                if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                    String cast = String.format(IotdbConstants.CAST, originName, "bigint");
+                    whereName = String.format(IotdbConstants.FROM_UNIXTIME, cast);
+                }
+                if (field.getDeExtractType() == 1) {
+                    whereName = originName;
+                }
+            } else if (field.getDeType() == 2 || field.getDeType() == 3) {
+                if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                    whereName = String.format(IotdbConstants.CAST, originName,
+                            IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                }
+                if (field.getDeExtractType() == 1) {
+                    whereName = String.format(IotdbConstants.UNIX_TIMESTAMP, originName);
+                }
+                if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
+                    whereName = originName;
+                }
+            } else {
+                whereName = originName;
+            }
+
+            if (StringUtils.equalsIgnoreCase(request.getFilterType(), "enum")) {
+                if (CollectionUtils.isNotEmpty(request.getEnumCheckField())) {
+                    res.add("(" + whereName + " IN ('" + String.join("','", request.getEnumCheckField()) + "'))");
+                }
+            } else {
+                List<ChartCustomFilterItemDTO> filter = request.getFilter();
+                for (ChartCustomFilterItemDTO filterItemDTO : filter) {
+                    String value = filterItemDTO.getValue();
+                    String whereTerm = transMysqlFilterTerm(filterItemDTO.getTerm());
+                    String whereValue = "";
+
+                    if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "null")) {
+                        whereValue = "";
+                    } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "not_null")) {
+                        whereValue = "";
+                    } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "empty")) {
+                        whereValue = "''";
+                    } else if (StringUtils.equalsIgnoreCase(filterItemDTO.getTerm(), "not_empty")) {
+                        whereValue = "''";
+                    } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "in")
+                            || StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "not in")) {
+                        whereValue = "('" + String.join("','", value.split(",")) + "')";
+                    } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "like")) {
+                        whereValue = "'%" + value + "%'";
+                    } else if (StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "lt")
+                            || StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "le")
+                            || StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "gt")
+                            || StringUtils.containsIgnoreCase(filterItemDTO.getTerm(), "ge")) {
+                        whereValue = String.format(IotdbConstants.WHERE_NUMBER_VALUE, filterItemDTO.getValue());
+                    } else {
+                        whereValue = String.format(IotdbConstants.WHERE_VALUE_VALUE, value);
+                    }
+                    list.add(SQLObj.builder()
+                            .whereField(whereName)
+                            .whereTermAndValue(whereTerm + whereValue)
+                            .build());
+                }
+
+                List<String> strList = new ArrayList<>();
+                list.forEach(ele -> strList.add(ele.getWhereField() + " " + ele.getWhereTermAndValue()));
+                if (CollectionUtils.isNotEmpty(list)) {
+                    res.add("(" + String.join(" " + getLogic(request.getLogic()) + " ", strList) + ")");
+                }
+            }
+        }
+        return CollectionUtils.isNotEmpty(res) ? "(" + String.join(" AND ", res) + ")" : null;
+    }
+
+    public String transExtFilterList(SQLObj tableObj, List<ChartExtFilterRequest> requestList) {
+        if (CollectionUtils.isEmpty(requestList)) {
+            return null;
+        }
+        List<SQLObj> list = new ArrayList<>();
+        for (ChartExtFilterRequest request : requestList) {
+            List<String> value = request.getValue();
+
+            List<String> whereNameList = new ArrayList<>();
+            List<DatasetTableField> fieldList = new ArrayList<>();
+            if (request.getIsTree()) {
+                fieldList.addAll(request.getDatasetTableFieldList());
+            } else {
+                fieldList.add(request.getDatasetTableField());
+            }
+
+            for (DatasetTableField field : fieldList) {
+                if (CollectionUtils.isEmpty(value) || ObjectUtils.isEmpty(field)) {
+                    continue;
+                }
+                String whereName = "";
+
+                String originName;
+                if (ObjectUtils.isNotEmpty(field.getExtField()) && field.getExtField() == 2) {
+                    // 解析origin name中有关联的字段生成sql表达式
+                    originName = calcFieldRegex(field.getOriginName(), tableObj);
+                } else {
+                    originName = field.getOriginName().replace(tableObj.getTableName()+".","");
+                }
+
+                if (field.getDeType() == 1) {
+                    String format = transDateFormat(request.getDateStyle(), request.getDatePattern());
+                    if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5
+                            || field.getDeExtractType() == 1) {
+                        String timestamp = String.format(IotdbConstants.STR_TO_DATE, originName,
+                                StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat()
+                                        : IotdbConstants.DEFAULT_DATE_FORMAT);
+                        if (request.getOperator().equals("between")) {
+                            whereName = timestamp;
+                        } else {
+                            whereName = String.format(IotdbConstants.DATE_FORMAT, timestamp, format);
+                        }
+                    }
+                    if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3
+                            || field.getDeExtractType() == 4) {
+                        String cast = String.format(IotdbConstants.CAST, originName, "bigint");
+                        String timestamp = String.format(IotdbConstants.FROM_UNIXTIME, cast);
+                        if (request.getOperator().equals("between")) {
+                            whereName = timestamp;
+                        } else {
+                            whereName = String.format(IotdbConstants.DATE_FORMAT, timestamp, format);
+                        }
+                    }
+                    if (field.getDeExtractType() == 1) {
+                        whereName = originName;
+                    }
+                } else if (field.getDeType() == 2 || field.getDeType() == 3) {
+                    if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
+                        whereName = String.format(IotdbConstants.CAST, originName,
+                                IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                    }
+                    if (field.getDeExtractType() == 1) {
+                        whereName = String.format(IotdbConstants.UNIX_TIMESTAMP, originName);
+                    }
+                    if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3
+                            || field.getDeExtractType() == 4) {
+                        whereName = originName;
+                    }
+                } else {
+                    whereName = originName;
+                }
+                whereNameList.add(whereName);
+            }
+
+            String whereName = "";
+            if (request.getIsTree()) {
+                whereName = "CONCAT(" + StringUtils.join(whereNameList, ",',',") + ")";
+            } else {
+                whereName = whereNameList.get(0);
+            }
+            String whereTerm = transMysqlFilterTerm(request.getOperator());
+            String whereValue = "";
+
+            if (StringUtils.containsIgnoreCase(request.getOperator(), "in")) {
+                // 过滤空数据
+                if (value.contains(SQLConstants.EMPTY_SIGN)) {
+                    whereValue = "('" + StringUtils.join(value, "','") + "', '')" + " or " + whereName + " is null ";
+                } else {
+                    whereValue = "('" + StringUtils.join(value, "','") + "')";
+                }
+            } else if (StringUtils.containsIgnoreCase(request.getOperator(), "like")) {
+                String keyword = value.get(0).toUpperCase();
+                whereValue = formatLikeValue(keyword);
+                whereName = "upper(" + whereName + ")";
+            } else if (StringUtils.containsIgnoreCase(request.getOperator(), "between")) {
+                if (request.getDatasetTableField().getDeType() == 1) {
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                    String startTime = simpleDateFormat.format(new Date(Long.parseLong(value.get(0))));
+                    String endTime = simpleDateFormat.format(new Date(Long.parseLong(value.get(1))));
+                    whereValue = String.format(IotdbConstants.WHERE_BETWEEN, startTime, endTime);
+                } else {
+                    whereValue = String.format(IotdbConstants.WHERE_BETWEEN, value.get(0), value.get(1));
+                }
+            } else if (StringUtils.containsIgnoreCase(request.getOperator(), "lt")
+                    || StringUtils.containsIgnoreCase(request.getOperator(), "le")
+                    || StringUtils.containsIgnoreCase(request.getOperator(), "gt")
+                    || StringUtils.containsIgnoreCase(request.getOperator(), "ge")) {
+                whereValue = String.format(IotdbConstants.WHERE_NUMBER_VALUE, value.get(0));
+            } else {
+                // 过滤空数据
+                if (StringUtils.equals(value.get(0), SQLConstants.EMPTY_SIGN)) {
+                    whereValue = String.format(IotdbConstants.WHERE_VALUE_VALUE, "") + " or " + whereName + " is null ";
+                } else {
+                    whereValue = String.format(IotdbConstants.WHERE_VALUE_VALUE, value.get(0));
+                }
+            }
+            list.add(SQLObj.builder()
+                    .whereField(whereName)
+                    .whereTermAndValue(whereTerm + whereValue)
+                    .build());
+        }
+        List<String> strList = new ArrayList<>();
+        list.forEach(ele -> strList.add("(" + ele.getWhereField() + " " + ele.getWhereTermAndValue() + ")"));
+        return CollectionUtils.isNotEmpty(list) ? "(" + String.join(" AND ", strList) + ")" : null;
+    }
+
+    private String sqlFix(String sql) {
+        if (sql.lastIndexOf(";") == (sql.length() - 1)) {
+            sql = sql.substring(0, sql.length() - 1);
+        }
+        return sql;
+    }
+
+    private String transDateFormat(String dateStyle, String datePattern) {
+        String split = "-";
+        if (StringUtils.equalsIgnoreCase(datePattern, "date_sub")) {
+            split = "-";
+        } else if (StringUtils.equalsIgnoreCase(datePattern, "date_split")) {
+            split = "/";
+        } else {
+            split = "-";
+        }
+
+        if (StringUtils.isEmpty(dateStyle)) {
+            return "YYYY-MM-DD HH24:MI:SS";
+        }
+
+        switch (dateStyle) {
+            case "y":
+                return "YYYY";
+            case "y_M":
+                return "YYYY" + split + "MM";
+            case "y_M_d":
+                return "YYYY" + split + "MM" + split + "DD";
+            case "H_m_s":
+                return "HH24:MI:SS";
+            case "y_M_d_H_m":
+                return "YYYY" + split + "MM" + split + "DD" + " HH24:MI";
+            case "y_M_d_H_m_s":
+                return "YYYY" + split + "MM" + split + "DD" + " HH24:MI:SS";
+            default:
+                return "YYYY-MM-DD HH24:MI:SS";
+        }
+    }
+
+    private String transTimeGroup(String dateStyle, String datePattern) {
+        if (StringUtils.isEmpty(dateStyle)) {
+            return "session(1s)";
+        }
+
+        switch (dateStyle) {
+            case "y":
+                return "session(1y)";
+            case "y_M":
+                return "session(1mo)";
+            case "y_M_d":
+                return "session(1d)";
+            case "y_M_d_H":
+                return "session(1H)";
+            case "y_M_d_H_m":
+                return "session(1m)";
+            case "H_m_s":
+            case "y_M_d_H_m_s":
+            default:
+                return "session(1s)";
+        }
+    }
+
+    private SQLObj getXFields(ChartViewFieldDTO x, String originField, String fieldAlias) {
+        String fieldName = "";
+        if (StringUtils.equals(originField, "Time")) {
+            fieldName = transTimeGroup(x.getDateStyle(), x.getDatePattern());
+        } else if (x.getDeExtractType() == DeTypeConstants.DE_TIME) {
+            if (x.getDeType() == 2 || x.getDeType() == 3) {
+                fieldName = String.format(IotdbConstants.UNIX_TIMESTAMP, originField);
+            } else if (x.getDeType() == DeTypeConstants.DE_TIME) {
+                String format = transDateFormat(x.getDateStyle(), x.getDatePattern());
+                fieldName = String.format(IotdbConstants.DATE_FORMAT, originField, format);
+            } else {
+                fieldName = originField;
+            }
+        } else {
+            if (x.getDeType() == DeTypeConstants.DE_TIME) {
+                String format = transDateFormat(x.getDateStyle(), x.getDatePattern());
+                if (x.getDeExtractType() == DeTypeConstants.DE_STRING) {
+                    fieldName = String.format(IotdbConstants.DATE_FORMAT,
+                            String.format(IotdbConstants.STR_TO_DATE, originField,
+                                    StringUtils.isNotEmpty(x.getDateFormat()) ? x.getDateFormat()
+                                            : IotdbConstants.DEFAULT_DATE_FORMAT),
+                            format);
+                } else {
+                    String cast = String.format(IotdbConstants.CAST, originField, "bigint");
+                    String from_unixtime = String.format(IotdbConstants.FROM_UNIXTIME, cast);
+                    fieldName = String.format(IotdbConstants.DATE_FORMAT, from_unixtime, format);
+                }
+            } else {
+                if (x.getDeType() == DeTypeConstants.DE_INT) {
+                    fieldName = String.format(IotdbConstants.CAST, originField,
+                            IotdbConstants.DEFAULT_INT_FORMAT);
+                } else if (x.getDeType() == DeTypeConstants.DE_FLOAT) {
+                    fieldName = String.format(IotdbConstants.CAST, originField,
+                            IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                } else {
+                    fieldName = originField;
+                }
+            }
+        }
+        return SQLObj.builder()
+                .fieldName(fieldName)
+                .fieldAlias(fieldAlias)
+                .build();
+    }
+
+    private SQLObj getYFields(ChartViewFieldDTO y, String originField, String fieldAlias, Boolean containTimeFlag) {
+        String fieldName = "";
+        if (StringUtils.equalsIgnoreCase(y.getOriginName(), "*")) {
+            fieldName = IotdbConstants.AGG_COUNT;
+        } else if (SQLConstants.DIMENSION_TYPE.contains(y.getDeType())) {
+            if (StringUtils.equalsIgnoreCase(y.getSummary(), "count_distinct")) {
+                fieldName = String.format(IotdbConstants.AGG_FIELD, "COUNT", "DISTINCT " + originField);
+            } else if (StringUtils.equalsIgnoreCase(y.getSummary(), "group_concat")) {
+                fieldName = String.format(IotdbConstants.GROUP_CONCAT, originField);
+            } else {
+                fieldName = String.format(IotdbConstants.AGG_FIELD, y.getSummary(), originField);
+            }
+        } else {
+            if (StringUtils.equalsIgnoreCase(y.getSummary(), "avg")) {
+                String cast = String.format(IotdbConstants.CAST, originField,
+                        y.getDeType() == DeTypeConstants.DE_INT ? IotdbConstants.DEFAULT_INT_FORMAT
+                                : IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                String agg = String.format(IotdbConstants.AGG_FIELD, y.getSummary(), cast);
+                fieldName = String.format(IotdbConstants.CAST, agg, IotdbConstants.DEFAULT_FLOAT_FORMAT);
+            } else if (StringUtils.equalsIgnoreCase(y.getSummary(), "max")) {
+                String cast = String.format(IotdbConstants.CAST, originField,
+                        y.getDeType() == DeTypeConstants.DE_INT ? IotdbConstants.DEFAULT_INT_FORMAT
+                                : IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                fieldName = String.format(IotdbConstants.AGG_FIELD, "MAX_VALUE", cast);
+            } else if (StringUtils.equalsIgnoreCase(y.getSummary(), "min")) {
+                String cast = String.format(IotdbConstants.CAST, originField,
+                        y.getDeType() == DeTypeConstants.DE_INT ? IotdbConstants.DEFAULT_INT_FORMAT
+                                : IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                fieldName = String.format(IotdbConstants.AGG_FIELD, "MIN_VALUE", cast);
+            } else {
+                String cast = String.format(IotdbConstants.CAST, originField,
+                        y.getDeType() == DeTypeConstants.DE_INT ? IotdbConstants.DEFAULT_INT_FORMAT
+                                : IotdbConstants.DEFAULT_FLOAT_FORMAT);
+                if (StringUtils.equalsIgnoreCase(y.getSummary(), "count_distinct")) {
+                    fieldName = String.format(IotdbConstants.AGG_FIELD, "COUNT", cast);
+                } else {
+                    fieldName = String.format(IotdbConstants.AGG_FIELD, y.getSummary(), cast);
+                }
+            }
+        }
+        return SQLObj.builder()
+                .fieldName(fieldName)
+                .fieldAlias(fieldAlias)
+                .build();
+    }
+
+    private String getYWheres(ChartViewFieldDTO y, String originField, String fieldAlias) {
+        List<SQLObj> list = new ArrayList<>();
+        if (CollectionUtils.isNotEmpty(y.getFilter()) && y.getFilter().size() > 0) {
+            y.getFilter().forEach(f -> {
+                String whereTerm = transMysqlFilterTerm(f.getTerm());
+                String whereValue = "";
+                // 原始类型不是时间，在de中被转成时间的字段做处理
+                if (StringUtils.equalsIgnoreCase(f.getTerm(), "null")) {
+                    whereValue = "";
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "not_null")) {
+                    whereValue = "";
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "empty")) {
+                    whereValue = "''";
+                } else if (StringUtils.equalsIgnoreCase(f.getTerm(), "not_empty")) {
+                    whereValue = "''";
+                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "in")) {
+                    whereValue = "('" + StringUtils.join(f.getValue(), "','") + "')";
+                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "like")) {
+                    whereValue = "'%" + f.getValue() + "%'";
+                } else if (StringUtils.containsIgnoreCase(f.getTerm(), "lt")
+                        || StringUtils.containsIgnoreCase(f.getTerm(), "le")
+                        || StringUtils.containsIgnoreCase(f.getTerm(), "gt")
+                        || StringUtils.containsIgnoreCase(f.getTerm(), "ge")) {
+                    whereValue = String.format(IotdbConstants.WHERE_NUMBER_VALUE, f.getValue());
+                } else {
+                    whereValue = String.format(IotdbConstants.WHERE_VALUE_VALUE, f.getValue());
+                }
+                list.add(SQLObj.builder()
+                        .whereField(originField)
+                        .whereAlias(originField)
+                        .whereTermAndValue(whereTerm + whereValue)
+                        .build());
+            });
+        }
+        List<String> strList = new ArrayList<>();
+        list.forEach(ele -> strList.add(ele.getWhereField() + " " + ele.getWhereTermAndValue()));
+        return CollectionUtils.isNotEmpty(list) ? "(" + String.join(" " + getLogic(y.getLogic()) + " ", strList) + ")"
+                : null;
+    }
+
+    private String calcFieldRegex(String originField, SQLObj tableObj) {
+        originField = originField.replaceAll("[\\t\\n\\r]]", "");
+        // 正则提取[xxx]
+        String regex = "\\[(.*?)]";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(originField);
+        Set<String> ids = new HashSet<>();
+        while (matcher.find()) {
+            String id = matcher.group(1);
+            ids.add(id);
+        }
+        if (CollectionUtils.isEmpty(ids)) {
+            return originField;
+        }
+        DatasetTableFieldExample datasetTableFieldExample = new DatasetTableFieldExample();
+        datasetTableFieldExample.createCriteria().andIdIn(new ArrayList<>(ids));
+        List<DatasetTableField> calcFields = datasetTableFieldMapper.selectByExample(datasetTableFieldExample);
+        for (DatasetTableField ele : calcFields) {
+            originField = originField.replaceAll("\\[" + ele.getId() + "]",
+                    ele.getOriginName().replace(tableObj.getTableName()+".",""));
+        }
+        return originField;
+    }
+
+    private String sqlLimit(String sql, ChartViewWithBLOBs view) {
+        if (StringUtils.equalsIgnoreCase(view.getResultMode(), "custom")) {
+            return sql + " LIMIT " + view.getResultCount() + " offset 0";
+        } else {
+            return sql;
+        }
+    }
+
+    @Override
+    public String sqlForPreview(String table, Datasource ds) {
+        if(table.toLowerCase().trim().startsWith("select")) return table;
+        return "SELECT * FROM " + table;
+    }
+
+    public void setSchema(SQLObj tableObj, Datasource ds) {
+    }
+
+    public List<Dateformat> dateformat() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        List<Dateformat> dateformats = new ArrayList<>();
+        try {
+            dateformats = objectMapper.readValue("[\n" +
+                    "{\"dateformat\": \"yyyy-MM-dd\"},\n" +
+                    "{\"dateformat\": \"yyyy/MM/dd\"},\n" +
+                    "{\"dateformat\": \"yyyyMMdd\"},\n" +
+                    "{\"dateformat\": \"yyyy-MM-dd HH:mm:s\"},\n" +
+                    "{\"dateformat\": \"yyyy-MM-dd HH:mm:s\"},\n" +
+                    "{\"dateformat\": \"yyyy-MM-dd HH:mm:s\"}\n" +
+                    "]", new TypeReference<List<Dateformat>>() {
+            });
+        } catch (Exception e) {
+        }
+        return dateformats;
+    }
+}
