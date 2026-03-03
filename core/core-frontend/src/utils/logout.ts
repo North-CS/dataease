@@ -4,7 +4,10 @@ import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { interactiveStoreWithOut } from '@/store/modules/interactive'
 import { useCache } from '@/hooks/web/useCache'
 
+import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
+
 const { wsCache } = useCache()
+const appearanceStore = useAppearanceStoreWithOut()
 const permissionStore = usePermissionStoreWithOut()
 const userStore = useUserStoreWithOut()
 const interactiveStore = interactiveStoreWithOut()
@@ -17,7 +20,7 @@ export const logoutHandler = (justClean?: boolean, save_platform_status = false)
   interactiveStore.clear()
   interactiveStore.$reset()
   removeCache()
-  let queryRedirectPath = '/workbranch/index'
+  let queryRedirectPath = appearanceStore.homeEnable === 'true' ? '/home/index' : '/workbranch/index'
   // 如果redirect参数中有值
   if (router.currentRoute.value.fullPath) {
     queryRedirectPath = router.currentRoute.value.fullPath as string

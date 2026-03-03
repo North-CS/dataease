@@ -89,7 +89,8 @@ router.beforeEach(async (to, from, next) => {
       await userStore.setUser()
     }
     if (to.path === '/login') {
-      next({ path: '/workbranch/index' })
+      const path = appearanceStore.homeEnable === 'true' ? '/home/index' : '/workbranch/index'
+      next({ path })
     } else {
       permissionStore.setCurrentPath(to.path)
       if (permissionStore.getIsAddRouters) {
@@ -108,9 +109,9 @@ router.beforeEach(async (to, from, next) => {
             return pre
           }, {})
         }
-        if (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link')) {
+        if ((to.path === '/' || !pathValid(to.path)) && to.path !== '/404' && !to.path.startsWith('/de-link')) {
           const firstPath = getFirstAuthMenu()
-          next({ path: firstPath || '/404' })
+          next({ path: firstPath || '/workbranch/index' })
           return
         }
         next()
@@ -136,9 +137,9 @@ router.beforeEach(async (to, from, next) => {
       permissionStore.setIsAddRouters(true)
       await interactiveStore.initInteractive(true)
 
-      if (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link')) {
+      if (to.path === '/' || (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link'))) {
         const firstPath = getFirstAuthMenu()
-        next({ path: firstPath || '/404' })
+        next({ path: firstPath || '/workbranch/index' })
         return
       }
       next(nextData)
@@ -165,7 +166,12 @@ router.beforeEach(async (to, from, next) => {
       permissionStore.setCurrentPath(to.path)
       next()
     } else {
-      next(`/login?redirect=${to.fullPath || to.path}`) // 否则全部重定向到登录页
+      const redirect = to.fullPath || to.path
+      if (redirect === '/workbranch/index' || redirect === '/home/index' || redirect === '/') {
+        next('/login?redirect=/')
+      } else {
+        next(`/login?redirect=${redirect}`) // 否则全部重定向到登录页
+      }
     }
   }
 })

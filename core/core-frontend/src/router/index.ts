@@ -1,12 +1,29 @@
 import { createRouter, createWebHashHistory } from 'vue-router_2'
 import type { RouteRecordRaw } from 'vue-router_2'
 import type { App } from 'vue'
+import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 
 export const routes: AppRouteRecordRaw[] = [
   {
+    path: '/home',
+    name: 'home',
+    component: () => import('@/layout/index.vue'),
+    hidden: false,
+    meta: {
+      title: '首页'
+    },
+    children: [
+      {
+        path: 'index',
+        name: 'home-index',
+        component: () => import('@/views/home/index.vue'),
+        meta: { title: '首页' }
+      }
+    ]
+  },
+  {
     path: '/',
     name: 'index',
-    redirect: '/workbranch/index',
     component: () => import('@/layout/index.vue'),
     hidden: true,
     meta: {},

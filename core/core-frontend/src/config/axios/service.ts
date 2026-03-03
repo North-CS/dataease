@@ -12,6 +12,7 @@ import qs from 'qs'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { useEmbedded } from '@/store/modules/embedded'
 import { useLinkStoreWithOut } from '@/store/modules/link'
+import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 import { config } from './config'
 import { configHandler } from './refresh'
 import { isMobile, getLocale } from '@/utils/utils'
@@ -33,6 +34,7 @@ import router from '@/router'
 
 const { result_code } = config
 import { useCache } from '@/hooks/web/useCache'
+const appearanceStore = useAppearanceStoreWithOut()
 const { wsCache } = useCache()
 const requestStore = useRequestStoreWithOut()
 const embeddedStore = useEmbedded()
@@ -201,11 +203,7 @@ service.interceptors.response.use(
         })
         if (response.data.code === 80001) {
           clearCache()
-          let queryRedirectPath = '/workbranch/index'
-          if (router.currentRoute.value.fullPath) {
-            queryRedirectPath = router.currentRoute.value.fullPath as string
-          }
-          router.push(`/login?redirect=${queryRedirectPath}`)
+          router.push(`/login?redirect=/`)
         }
       } else if (response?.config?.url.startsWith('/xpackComponent/content')) {
         console.error(
@@ -264,7 +262,8 @@ service.interceptors.response.use(
         const flag = header.get('DE-GATEWAY-FLAG')
         localStorage.setItem('DE-GATEWAY-FLAG', flag.toString())
       }
-      let queryRedirectPath = '/workbranch/index'
+      let queryRedirectPath =
+        appearanceStore.homeEnable === 'true' ? '/home/index' : '/workbranch/index'
       if (router.currentRoute.value.fullPath) {
         queryRedirectPath = router.currentRoute.value.fullPath as string
       }

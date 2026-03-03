@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { routes } from '@/router'
+import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 
 import { generateRoutesFn2 } from '@/router/establish'
 import { store } from '../index'
@@ -59,7 +60,12 @@ export const usePermissionStore = defineStore('permission', {
           }
         ])
         // 渲染菜单的所有路由
-        this.routers = cloneDeep(routes).concat(routerMap)
+        const appearanceStore = useAppearanceStoreWithOut()
+        let baseRoutes = cloneDeep(routes)
+        if (appearanceStore.homeEnable !== 'true') {
+          baseRoutes = baseRoutes.filter(route => route.name !== 'home')
+        }
+        this.routers = baseRoutes.concat(routerMap)
         resolve()
       })
     },

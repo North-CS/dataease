@@ -24,6 +24,8 @@ interface AppearanceState {
   showCopilot?: string
   showDoc?: string
   showAbout?: string
+  homeEnable?: string
+  homeUrl?: string
   bg?: string
   login?: string
   showSlogan?: string
@@ -53,6 +55,8 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       showAi: '0',
       showCopilot: '0',
       showAbout: '0',
+      homeEnable: 'false',
+      homeUrl: '',
       bg: '',
       login: '',
       showSlogan: 'true',
@@ -89,6 +93,12 @@ export const useAppearanceStore = defineStore('appearanceStore', {
     },
     getHelp(): string {
       return this.help
+    },
+    getHomeEnable(): string {
+      return this.homeEnable
+    },
+    getHomeUrl(): string {
+      return this.homeUrl
     },
     getThemeColor(): string {
       return this.themeColor
@@ -192,6 +202,12 @@ export const useAppearanceStore = defineStore('appearanceStore', {
     setHelp(data: string) {
       this.help = data
     },
+    setHomeEnable(data: string) {
+      this.homeEnable = data
+    },
+    setHomeUrl(data: string) {
+      this.homeUrl = data
+    },
     setNavigateBg(data: string) {
       this.navigateBg = data
     },
@@ -278,6 +294,8 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       this.mobileLogin = data.mobileLogin
       this.mobileLoginBg = data.mobileLoginBg
       this.help = data.help
+      this.homeEnable = data.homeEnable
+      this.homeUrl = data.homeUrl
       this.showAi = data.showAi
       this.showCopilot = data.showCopilot
       this.showDoc = data.showDoc
@@ -285,6 +303,12 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       this.navigateBg = data.navigateBg
       this.themeColor = data.themeColor
       this.customColor = data.customColor
+      this.showSlogan = data.showSlogan
+      this.slogan = data.slogan
+      this.web = data.web
+      this.name = data.name
+      this.foot = data.foot
+      this.footContent = data.footContent
       if (this.themeColor === 'custom' && this.customColor) {
         document.documentElement.style.setProperty('--ed-color-primary', this.customColor)
         document.documentElement.style.setProperty('--van-blue', this.customColor)
@@ -297,44 +321,24 @@ export const useAppearanceStore = defineStore('appearanceStore', {
         document.documentElement.style.setProperty(
           '--ed-color-primary-light-3',
           colorFunctions
-            .mix(new colorTree('ffffff'), new colorTree(this.customColor.substr(1)), { value: 15 })
+            .mix(new colorTree('ffffff'), new colorTree(this.customColor.substr(1)), { value: 70 })
             .toRGB()
         )
-        document.documentElement.style.setProperty('--ed-color-primary-1a', `${this.customColor}1a`)
-        document.documentElement.style.setProperty('--ed-color-primary-33', `${this.customColor}33`)
-        document.documentElement.style.setProperty('--ed-color-primary-99', `${this.customColor}99`)
         document.documentElement.style.setProperty(
-          '--ed-color-primary-dark-2',
+          '--ed-color-primary-light-1',
           colorFunctions
-            .mix(new colorTree('000000'), new colorTree(this.customColor.substr(1)), { value: 15 })
+            .mix(new colorTree('ffffff'), new colorTree(this.customColor.substr(1)), { value: 90 })
             .toRGB()
         )
-      } else if (document.documentElement.style.getPropertyValue('--ed-color-primary')) {
+      } else if (this.themeColor === 'default') {
         document.documentElement.style.setProperty('--ed-color-primary', '#3370FF')
-        document.documentElement.style.removeProperty('--ed-color-primary-light-3')
-        document.documentElement.style.removeProperty('--ed-color-primary-light-5')
-        document.documentElement.style.removeProperty('--ed-color-primary-1a')
-        document.documentElement.style.removeProperty('--ed-color-primary-33')
-        document.documentElement.style.removeProperty('--ed-color-primary-99')
-        document.documentElement.style.removeProperty('--ed-color-primary-dark-2')
+        document.documentElement.style.setProperty('--van-blue', '#3370FF')
       }
-      this.bg = data.bg
-      this.login = data.login
-      this.showSlogan = data.showSlogan
-      this.slogan = data.slogan
-      this.web = data.web
-      this.name = data.name
-      this.foot = data.foot
-      this.footContent = data.footContent
-      if (isDataEaseBi) return
-      if (this.name) {
-        document.title = this.name
-        setTitle(this.name)
-      } else {
-        document.title = 'DataEase'
-        setTitle('DataEase')
+      if (!isDataEaseBi) {
+        document.title = this.name || 'DataEase'
+        setLinkIcon()
       }
-      setLinkIcon(this.web)
+      this.loaded = true
     }
   }
 })

@@ -59,7 +59,17 @@ const permissionStore = usePermissionStore()
 const downloadClick = params => {
   useEmitt().emitter.emit('data-export-center', params)
 }
-const routers: any[] = formatRoute(permissionStore.getRoutersNotHidden as AppCustomRouteRecordRaw[])
+const routers = computed(() => {
+  const allRouters = formatRoute(permissionStore.getRoutersNotHidden as AppCustomRouteRecordRaw[])
+  if (appearanceStore.homeEnable === 'true') {
+    return allRouters
+  }
+  return allRouters.filter(item => {
+    const path = item.path || ''
+    const name = item.name || ''
+    return path !== '/home' && path !== 'home' && name !== 'home'
+  })
+})
 const showSystem = ref(false)
 const showMsg = ref(false)
 const showToolbox = ref(false)
