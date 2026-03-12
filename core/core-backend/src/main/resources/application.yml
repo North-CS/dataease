@@ -1,9 +1,28 @@
 server:
   port: 8100
   max-http-request-header-size: 500KB
-  tomcat:
+#  tomcat:
+#    connection-timeout: 70000
+  # 使用tongweb配置
+  tongweb:
+    port: 8100
+    context-path: /
+    uri-encoding: UTF-8
+    max-threads: 200
+    min-spare-threads: 10
     connection-timeout: 70000
+    max-connections: 10000
+    accept-count: 100
+    license:
+      type: file
+      path: "E:\\opt\\dataease2.0\\conf\\license.dat"
+      uri-encoding: utf-8
+      max-threads: 800
 spring:
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 200MB
   profiles:
     active: '@profiles.active@'
   application:

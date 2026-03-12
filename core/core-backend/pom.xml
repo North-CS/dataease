@@ -12,7 +12,85 @@
     <packaging>jar</packaging>
     <artifactId>core-backend</artifactId>
 
+    <properties>
+        <tongweb.version>3.x-8.0.E.2</tongweb.version>
+    </properties>
+
     <dependencies>
+        <!--适配 TongWeb     -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>5.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.websocket</groupId>
+            <artifactId>jakarta.websocket-api</artifactId>
+            <version>2.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tongweb</groupId>
+            <artifactId>tongweb-spring-boot-starter</artifactId>
+            <version>${tongweb.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tongweb-spring-boot-starter-3.x-8.0.E.2.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.tongweb</groupId>
+            <artifactId>tongweb-embed-core</artifactId>
+            <version>${tongweb.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tongweb-embed-core-3.x-8.0.E.2.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.tongweb</groupId>
+            <artifactId>tongweb-embed-el</artifactId>
+            <version>${tongweb.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tongweb-embed-el-3.x-8.0.E.2.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.tongweb</groupId>
+            <artifactId>tongweb-embed-websocket</artifactId>
+            <version>${tongweb.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tongweb-embed-websocket-3.x-8.0.E.2.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.tongweb</groupId>
+            <artifactId>tongweb-spring-boot-websocket</artifactId>
+            <version>${tongweb.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tongweb-spring-boot-websocket-3.x-8.0.E.2.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.tongweb</groupId>
+            <artifactId>tongweb-lic-sdk</artifactId>
+            <version>${tongweb.version}</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tongweb-lic-sdk-4.5.1.2.jar</systemPath>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>tomcat-embed-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>tomcat-embed-websocket</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
@@ -77,7 +155,28 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
+            <exclusions>
+                <!-- 排除Tomcat的WebSocket实现 -->
+                <exclusion>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>tomcat-embed-websocket</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+                <!-- 排除javax.servlet相关依赖 -->
+                <exclusion>
+                    <groupId>javax.servlet</groupId>
+                    <artifactId>javax.servlet-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.websocket</groupId>
+                    <artifactId>javax.websocket-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
+
         <dependency>
             <groupId>com.fit2cloud</groupId>
             <artifactId>quartz-spring-boot-starter</artifactId>
@@ -307,6 +406,7 @@
                 <configuration>
                     <finalName>CoreApplication</finalName>
                     <layout>ZIP</layout>
+                    <includeSystemScope>true</includeSystemScope>
                 </configuration>
                 <executions>
                     <execution>
