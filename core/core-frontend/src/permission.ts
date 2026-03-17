@@ -13,6 +13,11 @@ import { interactiveStoreWithOut } from '@/store/modules/interactive'
 import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 import { useEmbedded } from '@/store/modules/embedded'
 import { useLoading } from '@/hooks/web/useLoading'
+
+// SSO相关导入
+import { getSsoTicket, getUrlParam, redirectToSsoLogin, setSsoTicket } from '@/utils/sso'
+import { ssoLoginApi } from '@/api/sso'
+
 const appearanceStore = useAppearanceStoreWithOut()
 const { wsCache } = useCache()
 const permissionStore = usePermissionStoreWithOut()
@@ -77,6 +82,37 @@ router.beforeEach(async (to, from, next) => {
         url += window.location.search
       }
       window.location.href = url
+    }
+  }
+
+  //处理sso登录逻辑
+  const ssoTicket = getUrlParam('sso_service_ticket')
+  if (ssoTicket){
+    try {
+      //等待设备指纹准备就绪
+      setTimeout(async() => {
+        //调用后端sso登录接口
+        const res = await ssoLoginApi(ssoTicket)
+        if(res.data.success){
+          //保存登录态
+          const { token, exp } = res.data
+          userStore.setToken(token)
+          userStore.setExp(exp)
+          userStore.setTime(Date.now())
+          //设置sso票据至Cookie
+          setSsoTicket(ssoTicket)
+          //构建不包含sso_service_ticket参数的url
+          const redirectPath = to.query.redirect || '/workbranch/index'
+          //确保url不包含sso_service_ticket参数
+          const url = new URL(window.location.href)
+          url.searchParams.delete('sso_service_ticket')
+          url.hash = redirectPath
+          window.location.replace(url.toString())
+          return
+        }
+      }, 1000) //延迟一秒，确保设备指纹准备就
+    } catch(error){
+      console.error('路由守卫向你报道：sso登陆失败',error)
     }
   }
   await appearanceStore.setAppearance()
@@ -145,32 +181,41 @@ router.beforeEach(async (to, from, next) => {
       next(nextData)
     }
   } else {
-    const embeddedStore = useEmbedded()
-    if (
-      embeddedStore.getToken &&
-      appStore.getIsIframe &&
-      embeddedRouteWhiteList.includes(to.path)
-    ) {
-      if (to.path.includes('/dataset-form')) {
-        next({ path: '/dataset-embedded-form', query: to.query })
-        return
-      }
-      permissionStore.setCurrentPath(to.path)
-      next()
-    } else if (
-      (!platform && embeddedWindowWhiteList.includes(to.path)) ||
-      whiteList.includes(to.path) ||
-      to.path.startsWith('/de-link/')
-    ) {
-      await appearanceStore.setFontList()
-      permissionStore.setCurrentPath(to.path)
+    //检查sso登录态
+    const ssoLoginTicket = getSsoTicket()
+    if (ssoLoginTicket) {
+      //已登录，继续请求
       next()
     } else {
-      const redirect = to.fullPath || to.path
-      if (redirect === '/workbranch/index' || redirect === '/home/index' || redirect === '/') {
-        next('/login?redirect=/')
+      const embeddedStore = useEmbedded()
+      if (
+        embeddedStore.getToken &&
+        appStore.getIsIframe &&
+        embeddedRouteWhiteList.includes(to.path)
+      ) {
+        if (to.path.includes('/dataset-form')) {
+          next({path: '/dataset-embedded-form', query: to.query})
+          return
+        }
+        permissionStore.setCurrentPath(to.path)
+        next()
+      } else if (
+        (!platform && embeddedWindowWhiteList.includes(to.path)) ||
+        whiteList.includes(to.path) ||
+        to.path.startsWith('/de-link/')
+      ) {
+        await appearanceStore.setFontList()
+        permissionStore.setCurrentPath(to.path)
+        next()
       } else {
-        next(`/login?redirect=${redirect}`) // 否则全部重定向到登录页
+        // const redirect = to.fullPath || to.path
+        // if (redirect === '/workbranch/index' || redirect === '/home/index' || redirect === '/') {
+        //   next('/login?redirect=/')
+        // } else {
+        //   next(`/login?redirect=${redirect}`) // 否则全部重定向到登录页
+        // }
+        //未登录 重定向至登录页
+        redirectToSsoLogin()
       }
     }
   }

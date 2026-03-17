@@ -53,6 +53,15 @@ dataease:
     domain: http://127.0.0.1:9180
     key: edd1c9f034335f136f87ad84b625c8f1
 
+# SSO配置
+sso:
+  appKey: your_app_key
+  appToken: your_app_token
+  api:
+    getTicket: http://localhost:8081/api/getTicket
+    verifyTicket: http://localhost:8081/api/verifyTicket
+    logout: http://localhost:8081/api/logout
+
 # springdoc-openapi项目配置
 springdoc:
   swagger-ui:
