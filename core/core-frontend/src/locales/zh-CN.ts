@@ -693,7 +693,8 @@ export default {
       title: 'SAML2 设置',
       request: '开启请求签名',
       assertion: '开启断言签名'
-    }
+    },
+    country: '国家'
   },
   components: {
     dashboard_style: '仪表板风格',
@@ -1048,6 +1049,13 @@ export default {
     all_compute_mode: '直连、抽取模式',
     extra_params: '额外的 JDBC 连接字符串',
     jdbcUrl: 'JDBC 连接',
+    ck_ssl_ca: 'SSL CA 证书',
+    ck_ssl_client_cert: 'SSL 客户端证书',
+    ck_ssl_client_key: 'SSL 客户端私钥',
+    ck_ssl_upload: '上传证书',
+    ck_ssl_upload_hint: '支持 .pem/.crt/.cer/.key，上传后可自动填充内容',
+    ck_ssl_pem_placeholder: '请输入或上传 PEM 内容',
+    ck_ssl_read_failed: 'SSL 证书读取失败',
     please_input_dataPath: '请输入 JsonPath 数据路径',
     show_api_data: '查看API数据结构',
     warning: '包含无效数据表',
@@ -1163,6 +1171,10 @@ export default {
     load_data: '加载数据'
   },
   chart: {
+    self: '自己',
+    total_row: '整行',
+    custom: '自定义',
+    apply_to: '作用范围',
     align: '对齐方式',
     reset: '重置',
     chart_refresh_tips: '图表刷新设置优先于仪表板刷新设置',
@@ -1678,6 +1690,11 @@ export default {
     table_column_adapt: '自适应',
     table_column_fixed: '固定列宽',
     table_column_custom: '自定义',
+    table_column_col_adapt: '列自适应',
+    table_row_header_width: '行头宽度',
+    table_row_header_adapt: '自适应',
+    table_row_header_fixed: '固定宽度',
+    table_row_header_percent: '百分比',
     chart_table_pivot: '透视表',
     chart_table_heatmap: '热力图',
     table_pivot_row: '数据行',
@@ -2079,7 +2096,8 @@ export default {
     enable_slider_tip: '开启缩略轴后，轮播提示将会失效',
     liquid_show_border: '显示边框',
     liquid_border_width: '边框宽度',
-    liquid_border_distance: '边框间距'
+    liquid_border_distance: '边框间距',
+    top_n_label_tip: '请勿和扇区标签字段数据值重复，否则会导致显示异常'
   },
   dataset: {
     field_value: '字段值',
@@ -4182,7 +4200,11 @@ export default {
       retrying_rate: '重试间隔（分钟）',
       please_input_positive_int: '请输入 {0} 正整数',
       rate: '发送频率',
-      ext_wait_time: '额外等待时间（秒）'
+      ext_wait_time: '额外等待时间（秒）',
+      data_permission: '数据权限',
+      creator_permission: '创建人权限',
+      reci_permission: '接收人权限',
+      data_permission_tips: '接收人若为系统内用户，则遵循设置的数据权限规则；否则使用创建人的权限'
     },
     filter: {
       title: '设置查询组件默认值',
@@ -4691,5 +4713,22 @@ export default {
     content_type: '内容类型',
     del_confirm: '确定删除该 Webhook吗？',
     batch_del_confirm: '确定删除 {0} 个 Webhook吗'
+  },
+  element_plus: {
+    el: {
+      pagination: {
+        goto: '前往',
+        pagesize: '条/页',
+        total: '共 {total} 条',
+        pageClassifier: '页',
+        page: '页',
+        prev: '上一页',
+        next: '下一页',
+        currentPage: '第 {pager} 页',
+        prevPages: '向前 {pager} 页',
+        nextPages: '向后 {pager} 页',
+        deprecationWarning: '检测到已弃用的用法，请参阅 el-pagination 文档以了解更多详情'
+      }
+    }
   }
 }

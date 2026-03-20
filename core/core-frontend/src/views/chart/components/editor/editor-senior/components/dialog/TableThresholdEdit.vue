@@ -8,6 +8,10 @@ import { COLOR_PANEL } from '../../../util/chart'
 import { fieldType } from '@/utils/attr'
 import { iconFieldMap } from '@/components/icon-group/field-list'
 import { cloneDeep } from 'lodash-es'
+import {
+  transDateFormat,
+  transDatePickerType
+} from '@/views/chart/components/editor/util/DateFormatUtil'
 
 const { t } = useI18n()
 
@@ -35,7 +39,9 @@ const thresholdCondition = {
   type: 'fixed',
   dynamicField: { summary: 'value' },
   dynamicMinField: { summary: 'value' },
-  dynamicMaxField: { summary: 'value' }
+  dynamicMaxField: { summary: 'value' },
+  target: 'self',
+  targetFieldId: null
 }
 const textOptions = [
   {
@@ -197,6 +203,12 @@ const valueOptions = [
 ]
 const predefineColors = COLOR_PANEL
 
+const targetOptions = [
+  { label: t('chart.self'), value: 'self' },
+  { label: t('chart.total_row'), value: 'total_row' },
+  { label: t('chart.custom'), value: 'custom' }
+]
+
 const state = reactive({
   thresholdArr: [] as TableThreshold[],
   fields: [],
@@ -269,6 +281,9 @@ const changeThreshold = () => {
 
 const addConditions = item => {
   const newCondition = JSON.parse(JSON.stringify(thresholdCondition))
+  if (item.field.dateStyle === 'H_m_s') {
+    newCondition.value = '00:00:00'
+  }
   // 获取单元格默认背景颜色
   const tableCell = props.chart?.customAttr?.tableCell
   if (tableCell) {
@@ -403,6 +418,14 @@ const getFieldOptions = () => {
   return fieldOptions
 }
 
+const datePickerFormat = (fieldItem: { dateStyle: any; datePattern: any }) => {
+  return transDateFormat(fieldItem.dateStyle, fieldItem.datePattern)
+}
+
+const datePickerType = (fieldItem: { dateStyle: string }) => {
+  return transDatePickerType(fieldItem.dateStyle)
+}
+
 init()
 </script>
 
@@ -473,7 +496,7 @@ init()
             class="line-item"
             :gutter="12"
           >
-            <el-col :span="!isNotEmptyAndNull(item) ? 15 : 3">
+            <el-col :span="!isNotEmptyAndNull(item) ? 11 : 3">
               <el-form-item class="form-item">
                 <el-select v-model="item.term" @change="changeThreshold">
                   <el-option-group
@@ -515,7 +538,7 @@ init()
             <!--不是between 不是动态值-->
             <el-col
               v-if="isNotEmptyAndNull(item) && !isBetween(item) && !isDynamic(item)"
-              :span="12"
+              :span="6"
               style="text-align: center"
             >
               <el-form-item class="form-item">
@@ -527,6 +550,33 @@ init()
                   class="value-item"
                   clearable
                   @change="changeThreshold"
+                />
+                <el-date-picker
+                  v-model="item.value"
+                  v-else-if="
+                    [1].includes(fieldItem.field.deType) && fieldItem.field.dateStyle !== 'H_m_s'
+                  "
+                  :type="datePickerType(fieldItem.field)"
+                  :placeholder="t('chart.drag_block_label_value')"
+                  :format="datePickerFormat(fieldItem.field)"
+                  :value-format="datePickerFormat(fieldItem.field)"
+                  size="default"
+                  class="value-item"
+                  @change="changeThreshold"
+                  style="width: 100%"
+                />
+                <el-time-picker
+                  v-model="item.value"
+                  v-else-if="
+                    [1].includes(fieldItem.field.deType) && fieldItem.field.dateStyle === 'H_m_s'
+                  "
+                  :placeholder="t('chart.drag_block_label_value')"
+                  :format="datePickerFormat(fieldItem.field)"
+                  :value-format="datePickerFormat(fieldItem.field)"
+                  size="default"
+                  class="value-item"
+                  @change="changeThreshold"
+                  style="width: 100%"
                 />
                 <el-input
                   v-model="item.value"
@@ -540,7 +590,7 @@ init()
             </el-col>
             <!--不是between 是动态值-->
             <!--动态值 字段-->
-            <el-col v-if="isNotEmptyAndNull(item) && !isBetween(item) && isDynamic(item)" :span="6">
+            <el-col v-if="isNotEmptyAndNull(item) && !isBetween(item) && isDynamic(item)" :span="3">
               <el-form-item class="form-item">
                 <el-select
                   v-model="item.dynamicField.fieldId"
@@ -578,7 +628,7 @@ init()
             <!--动态值聚合方式-->
             <el-col
               v-if="isNotEmptyAndNull(item) && !isBetween(item) && isDynamic(item)"
-              :span="6"
+              :span="3"
               style="text-align: center"
             >
               <el-form-item class="form-item">
@@ -601,7 +651,7 @@ init()
             <!--between 开始值-->
             <el-col
               v-if="isNotEmptyAndNull(item) && isBetween(item) && !isDynamic(item)"
-              :span="5"
+              :span="2"
               style="text-align: center"
             >
               <el-form-item class="form-item">
@@ -627,7 +677,7 @@ init()
             <!--between 结束值-->
             <el-col
               v-if="isNotEmptyAndNull(item) && isBetween(item) && !isDynamic(item)"
-              :span="5"
+              :span="2"
               style="text-align: center"
             >
               <el-form-item class="form-item">
@@ -647,7 +697,7 @@ init()
             <el-col
               v-if="isNotEmptyAndNull(item) && isBetween(item) && isDynamic(item)"
               class="minField"
-              :span="3"
+              :span="2"
             >
               <el-form-item class="form-item">
                 <el-select v-model="item.dynamicMinField.fieldId" @change="addField(item)">
@@ -700,7 +750,7 @@ init()
             <el-col
               v-if="isBetween(item) && isDynamic(item)"
               class="term"
-              :span="2"
+              :span="1"
               style="margin-top: 4px; text-align: center"
             >
               <span style="margin: 0 -5px">
@@ -711,7 +761,7 @@ init()
             <el-col
               v-if="isNotEmptyAndNull(item) && isBetween(item) && isDynamic(item)"
               class="maxField"
-              :span="3"
+              :span="2"
             >
               <el-form-item class="form-item">
                 <el-select v-model="item.dynamicMaxField.fieldId" @change="addField(item)">
@@ -761,26 +811,75 @@ init()
                 </el-select>
               </el-form-item>
             </el-col>
-            <el-col :span="3">
+            <el-col :span="item.target === 'custom' ? 3 : 5">
+              <el-form-item class="form-item">
+                <el-select
+                  v-model="item.target"
+                  style="width: 100%"
+                  :placeholder="t('chart.apply_to')"
+                  @change="changeThreshold"
+                >
+                  <el-option
+                    v-for="opt in targetOptions"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="2" v-if="item.target === 'custom'">
+              <el-form-item class="form-item">
+                <el-select
+                  v-model="item.targetFieldId"
+                  :placeholder="t('chart.field')"
+                  style="width: 100%"
+                  @change="changeThreshold"
+                >
+                  <el-option
+                    class="series-select-option"
+                    v-for="targetField in state.fields"
+                    :key="targetField.id"
+                    :label="targetField.name"
+                    :value="targetField.id"
+                  >
+                    <el-icon style="margin-right: 8px">
+                      <Icon
+                        ><component
+                          :class="`field-icon-${
+                            fieldType[[2, 3].includes(targetField.deType) ? 2 : 0]
+                          }`"
+                          class="svg-icon"
+                          :is="iconFieldMap[fieldType[targetField.deType]]"
+                        ></component
+                      ></Icon>
+                    </el-icon>
+                    {{ targetField.name }}
+                  </el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :span="2">
               <el-form-item class="form-item" :label="t('chart.textColor')">
                 <el-color-picker
                   is-custom
                   v-model="item.color"
                   show-alpha
-                  :trigger-width="68"
+                  :trigger-width="54"
                   class="color-picker-style"
                   :predefine="predefineColors"
                   @change="changeThreshold"
                 />
               </el-form-item>
             </el-col>
-            <el-col :span="3">
+            <el-col :span="2">
               <el-form-item class="form-item" :label="t('chart.backgroundColor')">
                 <el-color-picker
                   is-custom
                   size="default"
                   v-model="item.backgroundColor"
-                  :trigger-width="68"
+                  :trigger-width="54"
                   show-alpha
                   class="color-picker-style"
                   :predefine="predefineColors"

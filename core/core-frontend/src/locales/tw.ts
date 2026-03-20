@@ -689,7 +689,8 @@ export default {
       title: 'SAML2 設定',
       request: '開啟請求簽名',
       assertion: '開啟斷言簽名'
-    }
+    },
+    country: '國家'
   },
   components: {
     effective_during_link: '公共連結生效',
@@ -1043,6 +1044,13 @@ export default {
     all_compute_mode: '直連、抽取模式',
     extra_params: '額外的JDBC 連接字串',
     jdbcUrl: 'JDBC 連接',
+    ck_ssl_ca: 'SSL CA 憑證',
+    ck_ssl_client_cert: 'SSL 用戶端憑證',
+    ck_ssl_client_key: 'SSL 用戶端私鑰',
+    ck_ssl_upload: '上傳憑證',
+    ck_ssl_upload_hint: '支援 .pem/.crt/.cer/.key，上傳後可自動填入內容',
+    ck_ssl_pem_placeholder: '請輸入或上傳 PEM 內容',
+    ck_ssl_read_failed: 'SSL 憑證讀取失敗',
     please_input_dataPath: '請輸入JsonPath 資料路徑',
     show_api_data: '查看API資料結構',
     warning: '包含無效資料表',
@@ -1158,6 +1166,10 @@ export default {
     load_data: '載入資料'
   },
   chart: {
+    self: '自己',
+    total_row: '整行',
+    custom: '自定義',
+    apply_to: '作用範圍',
     align: '對齊方式',
     reset: '重置',
     chart_refresh_tips: '圖表刷新設定優先於儀表板刷新設定',
@@ -1673,6 +1685,11 @@ export default {
     table_column_adapt: '自適應',
     table_column_fixed: '固定列寬',
     table_column_custom: '自訂',
+    table_column_col_adapt: '列自適應',
+    table_row_header_width: '行頭寬度',
+    table_row_header_adapt: '自適應',
+    table_row_header_fixed: '固定寬度',
+    table_row_header_percent: '百分比',
     chart_table_pivot: '透視表',
     chart_table_heatmap: '熱力圖',
     table_pivot_row: '資料行',
@@ -2073,7 +2090,8 @@ export default {
     enable_slider_tip: '開啟縮略軸後，輪播提示將會失效',
     liquid_show_border: '顯示邊框',
     liquid_border_width: '邊框寬度',
-    liquid_border_distance: '邊框間距'
+    liquid_border_distance: '邊框間距',
+    top_n_label_tip: '請勿與扇區標籤欄位的數據值重複，否則會導致顯示異常。'
   },
   dataset: {
     field_value: '欄位值',

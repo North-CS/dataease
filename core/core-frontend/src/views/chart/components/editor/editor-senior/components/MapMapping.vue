@@ -78,8 +78,14 @@ const getAreaMapping = async areaId => {
     }, {})
   }
   const geoJson = await getGeoJsonFile(areaId)
+  const names = Object.keys(geoJson?.features[0]?.properties).filter(key => key.startsWith('NAME_'))
+  const nameKey = names[names.length - 1]
   return geoJson.features.reduce((p, n) => {
-    p[n.properties.name] = n.properties.name
+    if (n.properties.name) {
+      p[n.properties.name] = n.properties.name
+    } else {
+      p[n.properties[nameKey]] = n.properties[nameKey]
+    }
     return p
   }, {})
 }
@@ -101,7 +107,8 @@ const finishEdit = () => {
     }, {})
   }
   const oldMappedName = areaNameMap[curOriginName.value]
-  if (oldMappedName === curMappedName.value) {
+  if (!curMappedName.value || oldMappedName === curMappedName.value) {
+    curMappedName.value = oldMappedName
     return
   }
   areaNameMap[curOriginName.value] = curMappedName.value

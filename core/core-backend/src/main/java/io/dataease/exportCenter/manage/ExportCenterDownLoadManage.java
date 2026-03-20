@@ -89,6 +89,8 @@ public class ExportCenterDownLoadManage {
     private CoreChartViewMapper coreChartViewMapper;
     @Resource
     private PermissionManage permissionManage;
+    @Resource
+    private DatasetGroupManage datasetGroupManage;
     @Autowired
     private WsService wsService;
     @Autowired(required = false)
@@ -230,8 +232,8 @@ public class ExportCenterDownLoadManage {
                     datasetTableFieldDTO.setFieldShortName(ele.getDataeaseName());
                     return datasetTableFieldDTO;
                 }).collect(Collectors.toList());
-
-                Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(dto, null);
+                DatasetGroupInfoDTO datasetGroupInfoDTO = datasetGroupManage.getDatasetGroupInfoDTO(request.getId(), null);
+                Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, null);
                 String sql = (String) sqlMap.get("sql");
                 if (ObjectUtils.isEmpty(allFields)) {
                     DEException.throwException(Translator.get("i18n_no_fields"));
@@ -516,7 +518,7 @@ public class ExportCenterDownLoadManage {
                             details.clear();
                         }
                         exportTask.setExportStatus("IN_PROGRESS");
-                        double exportProgress = (double) (i / (chartViewDTO.getTotalPage() + 1));
+                        double exportProgress = (double) ((double) i / (chartViewDTO.getTotalPage()));
                         DecimalFormat df = new DecimalFormat("#.##");
                         String formattedResult = df.format((exportProgress) * 100);
                         exportTask.setExportProgress(formattedResult);
@@ -669,8 +671,8 @@ public class ExportCenterDownLoadManage {
                 datasetTableFieldDTO.setFieldShortName(ele.getDataeaseName());
                 return datasetTableFieldDTO;
             }).collect(Collectors.toList());
-
-            Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(dto, null);
+            DatasetGroupInfoDTO datasetGroupInfoDTO = datasetGroupManage.getDatasetGroupInfoDTO(request.getId(), null);
+            Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(datasetGroupInfoDTO, null);
             String sql = (String) sqlMap.get("sql");
             if (ObjectUtils.isEmpty(allFields)) {
                 DEException.throwException(Translator.get("i18n_no_fields"));

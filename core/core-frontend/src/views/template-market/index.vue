@@ -50,7 +50,7 @@
       </el-row>
     </el-row>
     <el-row v-show="previewModel === 'full'" class="main-container">
-      <el-row class="market-head">
+      <el-row class="market-head" :class="isDialog && 'create-preview'">
         <span>{{ title }} </span>
         <el-row class="head-right">
           <el-input
@@ -96,25 +96,28 @@
         </el-row>
       </el-row>
       <el-row class="template-area">
-        <div class="template-left">
-          <el-tree
-            v-if="state.treeShow"
-            menu
-            class="custom-market-tree"
-            v-model="state.marketActiveTab"
-            :data="categoriesComputed"
-            :props="state.treeProps"
-            node-key="label"
-            default-expand-all
-            highlight-current
-            :current-node-key="state.marketActiveTab"
-            @node-click="nodeClick"
-          >
-            <template #default="{ data }">
-              <span :title="data.label" class="ed-tree-node__label">{{ data.label }}</span>
-            </template>
-          </el-tree>
-        </div>
+        <el-scrollbar>
+          <div class="template-left">
+            <el-tree
+              v-if="state.treeShow"
+              menu
+              class="custom-market-tree"
+              v-model="state.marketActiveTab"
+              :data="categoriesComputed"
+              :props="state.treeProps"
+              node-key="label"
+              default-expand-all
+              highlight-current
+              :current-node-key="state.marketActiveTab"
+              @node-click="nodeClick"
+            >
+              <template #default="{ data }">
+                <span :title="data.label" class="ed-tree-node__label">{{ data.label }}</span>
+              </template>
+            </el-tree>
+          </div>
+        </el-scrollbar>
+
         <div
           v-show="state.networkStatus && state.hasResult"
           id="template-show-area"
@@ -207,6 +210,13 @@ const { wsCache } = useCache()
 const embeddedStore = useEmbedded()
 const appStore = useAppStoreWithOut()
 const interactiveStore = interactiveStoreWithOut()
+
+defineProps({
+  isDialog: {
+    type: Boolean,
+    default: false
+  }
+})
 
 // full 正常展示 marketPreview 模板中心预览 createPreview 创建界面预览
 const previewModel = ref('full')
@@ -633,14 +643,14 @@ defineExpose({
     width: 100%;
     height: 100%;
     .market-head {
-      height: 56px;
       background: #ffffff;
       align-items: center;
       padding: 12px 24px;
       border-bottom: 1px solid rgba(31, 35, 41, 0.15);
+
       span {
         font-size: 16px;
-        font-color: #1f2329;
+        color: #1f2329;
         font-weight: 500;
       }
       .head-right {
@@ -661,7 +671,6 @@ defineExpose({
         padding: 8px;
         width: 204px;
         height: 100%;
-        overflow-y: auto;
         background: #ffffff;
       }
       .template-right {
@@ -753,7 +762,7 @@ defineExpose({
 }
 
 .custom-back-icon {
-  font-size: 20px;
+  font-size: 20px !important;
   cursor: pointer;
   margin-right: 8px;
   color: rgba(31, 35, 41, 1);
@@ -761,12 +770,17 @@ defineExpose({
 
 .img-main-create {
   display: inherit;
-  justify-content: center;
-  width: 100%;
   background: #0f1114;
   overflow-x: auto;
   overflow-y: hidden;
+  width: 100%;
+  height: 100% !important;
+}
+
+.img-main-create img {
+  width: 100%;
   height: 100%;
+  object-fit: contain; /* 保持图片比例，不裁剪 */
 }
 
 .custom-market-tree {
@@ -783,9 +797,10 @@ defineExpose({
 
 <style lang="less">
 .custom-line {
-  margin: 4px;
+  margin: 4px 0;
   background: rgba(31, 35, 41, 0.15);
   border: 0;
   height: 1px;
+  margin-left: 24px;
 }
 </style>

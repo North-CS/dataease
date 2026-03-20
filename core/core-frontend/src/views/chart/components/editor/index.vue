@@ -2009,6 +2009,30 @@ const deleteChartFieldItem = id => {
       fieldLoading.value = false
     })
 }
+
+let directionTop = 0
+const scrollToTop = debounce(() => {
+  chartStyleRef.value.setScrollTop(directionTop)
+  directionTop = 0
+}, 10)
+
+const chartStyleRef = ref()
+const chartStyleScroll = (val: any) => {
+  if (chartStyleRef.value) {
+    if (directionTop === 0) {
+      directionTop = val.scrollTop
+    }
+    if (val.scrollTop - directionTop > 0) {
+      // 向下滚
+      directionTop = val.scrollTop - 1
+      scrollToTop()
+    } else if (val.scrollTop === 0) {
+      // 向上滚
+      directionTop = 1
+      scrollToTop()
+    }
+  }
+}
 </script>
 
 <template>
@@ -3364,7 +3388,11 @@ const deleteChartFieldItem = id => {
                   style="width: 100%"
                 >
                   <el-container direction="vertical">
-                    <el-scrollbar class="drag_main_area">
+                    <el-scrollbar
+                      ref="chartStyleRef"
+                      @scroll="chartStyleScroll"
+                      class="drag_main_area"
+                    >
                       <template v-if="view.plugin?.isPlugin">
                         <plugin-component
                           :jsname="view.plugin.staticMap['editor-style']"
@@ -3511,7 +3539,7 @@ const deleteChartFieldItem = id => {
                     style="margin-left: 8px"
                     @click="editDs"
                   >
-                    <Icon name="icon_edit_outlined" class="el-icon-arrow-down el-icon-delete"
+                    <Icon name="icon_edit_outlined"
                       ><icon_edit_outlined class="svg-icon el-icon-arrow-down el-icon-delete"
                     /></Icon>
                   </el-icon>
@@ -3531,7 +3559,7 @@ const deleteChartFieldItem = id => {
                         :class="{ dark: themes === 'dark' }"
                         @click="getFields(view.tableId, view.id, view.type)"
                       >
-                        <Icon name="icon_refresh_outlined" class="el-icon-arrow-down el-icon-delete"
+                        <Icon name="icon_refresh_outlined"
                           ><icon_refresh_outlined
                             class="svg-icon el-icon-arrow-down el-icon-delete"
                         /></Icon>
@@ -3543,7 +3571,7 @@ const deleteChartFieldItem = id => {
                       :class="{ dark: themes === 'dark' }"
                       @click="addCalcField('d')"
                     >
-                      <Icon name="icon_add_outlined" class="el-icon-arrow-down el-icon-delete"
+                      <Icon name="icon_add_outlined"
                         ><icon_add_outlined class="svg-icon el-icon-arrow-down el-icon-delete"
                       /></Icon>
                     </el-icon>
@@ -3551,7 +3579,6 @@ const deleteChartFieldItem = id => {
                 </div>
                 <el-input
                   v-model="state.searchField"
-                  size="middle"
                   :effect="themes"
                   class="dataset-search-input"
                   :class="{ dark: themes === 'dark' }"

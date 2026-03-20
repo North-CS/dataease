@@ -483,7 +483,8 @@ export const DEFAULT_TABLE_HEADER: ChartTableHeaderAttr = {
     columns: [],
     meta: []
   },
-  rowHeaderFreeze: true
+  rowHeaderFreeze: true,
+  alignConfig: []
 }
 export const DEFAULT_TABLE_CELL: ChartTableCellAttr = {
   tableFontColor: '#000000',
@@ -501,7 +502,8 @@ export const DEFAULT_TABLE_CELL: ChartTableCellAttr = {
   tableFreeze: false,
   tableColumnFreezeHead: 0,
   tableRowFreezeHead: 0,
-  mergeCells: true
+  mergeCells: true,
+  alignConfig: []
 }
 export const DEFAULT_TITLE_STYLE: ChartTextStyle = {
   show: true,
@@ -1729,7 +1731,10 @@ export const DEFAULT_BASIC_STYLE: ChartBasicStyle = {
   circleBorderWidth: 0,
   circlePadding: 0,
   quotaPosition: 'col',
-  quotaColLabel: t('dataset.value')
+  quotaColLabel: t('dataset.value'),
+  tableRowHeaderMode: 'adapt',
+  tableRowHeaderWidth: 120,
+  tableRowHeaderWidthPercent: 20
 }
 
 export const BASE_VIEW_CONFIG = {

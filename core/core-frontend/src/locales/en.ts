@@ -714,7 +714,8 @@ export default {
       title: 'SAML2 Settings',
       request: 'Enable Request Signing',
       assertion: 'Enable Assertion Signing'
-    }
+    },
+    country: 'Country'
   },
   components: {
     dashboard_style: 'Dashboard style',
@@ -1082,6 +1083,13 @@ export default {
     all_compute_mode: 'Direct connection, extraction mode',
     extra_params: 'Additional JDBC connection string',
     jdbcUrl: 'JDBC connection',
+    ck_ssl_ca: 'SSL CA Certificate',
+    ck_ssl_client_cert: 'SSL Client Certificate',
+    ck_ssl_client_key: 'SSL Client Private Key',
+    ck_ssl_upload: 'Upload Certificate',
+    ck_ssl_upload_hint: 'Supports .pem/.crt/.cer/.key; content will be auto-filled after upload',
+    ck_ssl_pem_placeholder: 'Enter or upload PEM content',
+    ck_ssl_read_failed: 'Failed to read SSL certificate file',
     please_input_dataPath: 'Please enter the JsonPath data path',
     show_api_data: 'View API data structure',
     warning: 'Invalid data table included',
@@ -1195,6 +1203,10 @@ export default {
     load_data: 'Load Data'
   },
   chart: {
+    self: 'Self',
+    total_row: 'Entire Row',
+    custom: 'Custom',
+    apply_to: 'Apply To',
     align: 'Alignment',
     reset: 'Reset',
     chart_refresh_tips: 'Chart refresh settings take precedence over dashboard refresh settings',
@@ -1714,6 +1726,11 @@ export default {
     table_column_adapt: 'Adaptive',
     table_column_fixed: 'Fixed column width',
     table_column_custom: 'Custom',
+    table_column_col_adapt: 'Column adaptive',
+    table_row_header_width: 'Table Row Header Width',
+    table_row_header_adapt: 'Adaptive',
+    table_row_header_fixed: 'Fixed',
+    table_row_header_percent: 'Percent',
     chart_table_pivot: 'Pivot table',
     chart_table_heatmap: 'Heat map',
     table_pivot_row: 'Data row',
@@ -2132,7 +2149,9 @@ export default {
     enable_slider_tip: 'After enabling the slider, the carousel prompt will be disabled.',
     liquid_show_border: 'Show Border',
     liquid_border_width: 'Border Width',
-    liquid_border_distance: 'Border Distance'
+    liquid_border_distance: 'Border Distance',
+    top_n_label_tip:
+      'Do not duplicate the data value of the sector label field, otherwise it will cause display abnormalities.'
   },
   dataset: {
     field_value: 'Field Value',
@@ -4834,5 +4853,23 @@ export default {
     content_type: 'Content Type',
     del_confirm: 'Are you sure you want to delete this Webhook?',
     batch_del_confirm: 'Are you sure you want to delete {0} Webhooks?'
+  },
+  element_plus: {
+    el: {
+      pagination: {
+        goto: 'Go to',
+        pagesize: '/page',
+        total: 'Total {total}',
+        pageClassifier: '',
+        page: 'Page',
+        prev: 'Go to previous page',
+        next: 'Go to next page',
+        currentPage: 'page {pager}',
+        prevPages: 'Previous {pager} pages',
+        nextPages: 'Next {pager} pages',
+        deprecationWarning:
+          'Deprecated usages detected, please refer to the el-pagination documentation for more details'
+      }
+    }
   }
 }

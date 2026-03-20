@@ -11,6 +11,8 @@ import java.util.Map;
 @Data
 public class DataSQLBotAssistantVO implements Serializable {
 
+    private Long id;
+
     private String name;
 
     private String type;
@@ -30,6 +32,8 @@ public class DataSQLBotAssistantVO implements Serializable {
     private String schema;
 
     private String comment;
+
+    private String mode;
 
     private List<SQLBotAssistanTable> tables = new ArrayList<>();
 

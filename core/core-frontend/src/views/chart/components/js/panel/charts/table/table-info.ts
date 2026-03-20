@@ -409,7 +409,7 @@ export class TableInfo extends S2ChartView<TableSheet> {
 
   protected configTheme(chart: Chart): S2Theme {
     const theme = super.configTheme(chart)
-    const { basicStyle, tableCell } = parseJson(chart.customAttr)
+    const { basicStyle, tableCell, tableHeader } = parseJson(chart.customAttr)
     if (tableCell.mergeCells) {
       const tableFontColor = hexColorToRGBA(tableCell.tableFontColor, basicStyle.alpha)
       let tableItemBgColor = tableCell.tableItemBgColor
@@ -467,6 +467,26 @@ export class TableInfo extends S2ChartView<TableSheet> {
       }
       merge(theme, mergeCellTheme)
     }
+    if (tableCell.tableItemAlign === 'custom') {
+      const { alignConfig } = tableCell
+      const alignMap = alignConfig.reduce((p, n) => {
+        p[n.id] = n.align
+        return p
+      }, {})
+      merge(theme, {
+        dataCellAlignConfig: alignMap
+      })
+    }
+    if (tableHeader.tableHeaderAlign === 'custom') {
+      const { alignConfig } = tableHeader
+      const alignMap = alignConfig.reduce((p, n) => {
+        p[n.id] = n.align
+        return p
+      }, {})
+      merge(theme, {
+        colCellAlignConfig: alignMap
+      })
+    }
     return theme
   }
 
@@ -502,7 +522,12 @@ export class TableInfo extends S2ChartView<TableSheet> {
       // 计算汇总加入到数据里，冻结最后一行
       s2Options.frozenTrailingRowCount = 1
       const axis = filter(xAxis, axis => [2, 3, 4].includes(axis.deType))
-      const summaryObj = getSummaryRow(data, axis, basicStyle.seriesSummary) as any
+      const summaryObj = getSummaryRow(
+        data,
+        axis,
+        basicStyle.seriesSummary,
+        chart.data.customSumResult
+      ) as any
       data.push(summaryObj)
     }
     const { mergeCells } = tableCell
@@ -551,6 +576,14 @@ export class TableInfo extends S2ChartView<TableSheet> {
       }
       return new CustomDataCell(viewMeta, viewMeta?.spreadsheet)
     }
+  }
+
+  setupDefaultOptions(chart: ChartObj): ChartObj {
+    const customAttr = parseJson(chart.customAttr)
+    if (customAttr.basicStyle.tableColumnMode === 'colAdapt') {
+      customAttr.basicStyle.tableColumnMode = 'adapt'
+    }
+    return chart
   }
 
   constructor() {

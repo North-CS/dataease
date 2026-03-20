@@ -156,6 +156,9 @@ const initForm = (type, pluginDsList, indexPlugin, isPluginDs) => {
       host: '',
       authMethod: '',
       port: '',
+      sslCA: '',
+      sslCert: '',
+      sslKey: '',
       initialPoolSize: 50,
       minPoolSize: 50,
       maxPoolSize: 100,
@@ -243,6 +246,35 @@ const validateSshkey = (_: any, value: any, callback: any) => {
     callback(new Error(t('data_source.cannot_be_empty_de_key')))
   }
   return callback()
+}
+
+const handleSSLFileChange = (e: Event, field: 'sslCA' | 'sslCert' | 'sslKey') => {
+  const target = e.target as HTMLInputElement
+  const file = target?.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = event => {
+    form.value.configuration[field] = (event.target?.result as string) || ''
+  }
+  reader.onerror = () => {
+    ElMessage.error(t('datasource.ck_ssl_read_failed'))
+  }
+  reader.readAsText(file)
+  target.value = ''
+}
+
+const sslCAInput = ref<HTMLInputElement>()
+const sslCertInput = ref<HTMLInputElement>()
+const sslKeyInput = ref<HTMLInputElement>()
+
+const chooseSSLFile = (field: 'sslCA' | 'sslCert' | 'sslKey') => {
+  if (field === 'sslCA') {
+    sslCAInput.value?.click()
+  } else if (field === 'sslCert') {
+    sslCertInput.value?.click()
+  } else {
+    sslKeyInput.value?.click()
+  }
 }
 
 const setRules = () => {
@@ -1013,8 +1045,8 @@ defineExpose({
             v-if="form.type !== 'es'"
           >
             <el-radio-group v-model="form.configuration.urlType">
-              <el-radio label="hostName">{{ t('data_source.hostname') }}</el-radio>
-              <el-radio label="jdbcUrl">{{ t('data_source.jdbc_connection') }}</el-radio>
+              <el-radio value="hostName">{{ t('data_source.hostname') }}</el-radio>
+              <el-radio value="jdbcUrl">{{ t('data_source.jdbc_connection') }}</el-radio>
             </el-radio-group>
           </el-form-item>
 
@@ -1206,6 +1238,65 @@ defineExpose({
               autocomplete="off"
             />
           </el-form-item>
+          <template v-if="form.type === 'ck'">
+            <el-form-item :label="t('datasource.ck_ssl_ca')">
+              <input
+                ref="sslCAInput"
+                type="file"
+                accept=".pem,.crt,.cer"
+                style="display: none"
+                @change="e => handleSSLFileChange(e, 'sslCA')"
+              />
+              <el-button secondary @click="chooseSSLFile('sslCA')">
+                {{ t('datasource.ck_ssl_upload') }}
+              </el-button>
+              <span class="ml8">{{ t('datasource.ck_ssl_upload_hint') }}</span>
+              <el-input
+                type="textarea"
+                :rows="3"
+                v-model="form.configuration.sslCA"
+                :placeholder="t('datasource.ck_ssl_pem_placeholder')"
+              />
+            </el-form-item>
+            <el-form-item :label="t('datasource.ck_ssl_client_cert')">
+              <input
+                ref="sslCertInput"
+                type="file"
+                accept=".pem,.crt,.cer"
+                style="display: none"
+                @change="e => handleSSLFileChange(e, 'sslCert')"
+              />
+              <el-button secondary @click="chooseSSLFile('sslCert')">
+                {{ t('datasource.ck_ssl_upload') }}
+              </el-button>
+              <span class="ml8">{{ t('datasource.ck_ssl_upload_hint') }}</span>
+              <el-input
+                type="textarea"
+                :rows="3"
+                v-model="form.configuration.sslCert"
+                :placeholder="t('datasource.ck_ssl_pem_placeholder')"
+              />
+            </el-form-item>
+            <el-form-item :label="t('datasource.ck_ssl_client_key')">
+              <input
+                ref="sslKeyInput"
+                type="file"
+                accept=".pem,.key"
+                style="display: none"
+                @change="e => handleSSLFileChange(e, 'sslKey')"
+              />
+              <el-button secondary @click="chooseSSLFile('sslKey')">
+                {{ t('datasource.ck_ssl_upload') }}
+              </el-button>
+              <span class="ml8">{{ t('datasource.ck_ssl_upload_hint') }}</span>
+              <el-input
+                type="textarea"
+                :rows="3"
+                v-model="form.configuration.sslKey"
+                :placeholder="t('datasource.ck_ssl_pem_placeholder')"
+              />
+            </el-form-item>
+          </template>
           <el-form-item>
             <span
               v-if="!['es', 'api'].includes(form.type) && form.configuration.urlType !== 'jdbcUrl'"
@@ -1222,7 +1313,7 @@ defineExpose({
               </el-icon>
             </span>
           </el-form-item>
-          <template v-if="showSSH">
+          <template v-if="showSSH && form.configuration.urlType !== 'jdbcUrl'">
             <el-form-item>
               <el-checkbox v-model="form.configuration.useSSH"
                 >{{ t('data_source.enable_ssh') }}
@@ -1257,8 +1348,8 @@ defineExpose({
             </el-form-item>
             <el-form-item :label="t('data_source.connection_method')">
               <el-radio-group v-model="form.configuration.sshType">
-                <el-radio label="password">{{ t('data_source.password') }}</el-radio>
-                <el-radio label="sshkey">ssh key</el-radio>
+                <el-radio value="password">{{ t('data_source.password') }}</el-radio>
+                <el-radio value="sshkey">ssh key</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item
@@ -1405,8 +1496,8 @@ defineExpose({
           v-if="activeStep === 2 && form.type.startsWith('API')"
         >
           <el-radio-group v-model="form.syncSetting.updateType">
-            <el-radio label="all_scope">{{ t('datasource.all_scope') }}</el-radio>
-            <el-radio label="add_scope"> {{ t('datasource.add_scope') }}</el-radio>
+            <el-radio value="all_scope">{{ t('datasource.all_scope') }}</el-radio>
+            <el-radio value="add_scope"> {{ t('datasource.add_scope') }}</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item
@@ -1415,9 +1506,9 @@ defineExpose({
           v-if="activeStep === 2 && form.type.startsWith('API')"
         >
           <el-radio-group v-model="form.syncSetting.syncRate" @change="onRateChange">
-            <el-radio label="RIGHTNOW">{{ t('data_source.update_now') }}</el-radio>
-            <el-radio label="CRON">{{ t('datasource.cron_config') }}</el-radio>
-            <el-radio label="SIMPLE_CRON">{{ t('datasource.simple_cron') }}</el-radio>
+            <el-radio value="RIGHTNOW">{{ t('data_source.update_now') }}</el-radio>
+            <el-radio value="CRON">{{ t('datasource.cron_config') }}</el-radio>
+            <el-radio value="SIMPLE_CRON">{{ t('datasource.simple_cron') }}</el-radio>
           </el-radio-group>
         </el-form-item>
         <div

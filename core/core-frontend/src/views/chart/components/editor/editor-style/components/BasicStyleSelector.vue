@@ -65,11 +65,26 @@ const state = reactive({
     fieldId: '',
     width: 0
   },
-  fileList: []
+  fileList: [],
+  treeRowWidth: 10
 })
 const emit = defineEmits(['onBasicStyleChange', 'onMiscChange'])
 const changeBasicStyle = (prop?: string, requestData = false, render = true) => {
   emit('onBasicStyleChange', { data: state.basicStyleForm, requestData, render }, prop)
+}
+
+const changeTreeRowWidth = () => {
+  if (state.basicStyleForm.tableRowHeaderMode === 'percent') {
+    state.basicStyleForm.tableRowHeaderWidthPercent = state.treeRowWidth
+  }
+  if (state.basicStyleForm.tableRowHeaderMode === 'fixed') {
+    state.basicStyleForm.tableRowHeaderWidth = state.treeRowWidth
+  }
+  changeBasicStyle(
+    state.basicStyleForm.tableRowHeaderMode === 'percent'
+      ? 'tableRowHeaderWidthPercent'
+      : 'tableRowHeaderWidth'
+  )
 }
 const onAlphaChange = v => {
   const _v = parseInt(v)
@@ -144,6 +159,18 @@ const init = () => {
         name = t('chart.level_label', { num: numberToChineseUnderHundred(i) })
       }
       tableExpandLevelOptions.push({ name, value: i })
+    }
+    if (basicStyle.tableRowHeaderMode === 'percent') {
+      state.treeRowWidth = basicStyle.tableRowHeaderWidthPercent
+      if (basicStyle.tableRowHeaderWidthPercent > 80) {
+        state.treeRowWidth = 80
+      }
+    }
+    if (basicStyle.tableRowHeaderMode === 'fixed') {
+      state.treeRowWidth = basicStyle.tableRowHeaderWidth
+      if (basicStyle.tableRowHeaderWidth < 10) {
+        state.treeRowWidth = 120
+      }
     }
   }
   const lastPageInfo = dvMainStore.getViewPageInfo(props.chart.id)
@@ -410,8 +437,8 @@ onMounted(async () => {
         v-model="state.basicStyleForm.tableLayoutMode"
         @change="changeBasicStyle('tableLayoutMode')"
       >
-        <el-radio label="grid" :effect="themes">{{ t('chart.table_layout_grid') }}</el-radio>
-        <el-radio label="tree" :effect="themes">{{ t('chart.table_layout_tree') }}</el-radio>
+        <el-radio value="grid" :effect="themes">{{ t('chart.table_layout_grid') }}</el-radio>
+        <el-radio value="tree" :effect="themes">{{ t('chart.table_layout_tree') }}</el-radio>
       </el-radio-group>
     </el-form-item>
     <el-form-item
@@ -445,8 +472,8 @@ onMounted(async () => {
         v-model="state.basicStyleForm.quotaPosition"
         @change="changeBasicStyle('quotaPosition')"
       >
-        <el-radio label="col" :effect="themes">{{ t('chart.quota_position_col') }}</el-radio>
-        <el-radio label="row" :effect="themes">{{ t('chart.quota_position_row') }}</el-radio>
+        <el-radio value="col" :effect="themes">{{ t('chart.quota_position_col') }}</el-radio>
+        <el-radio value="row" :effect="themes">{{ t('chart.quota_position_row') }}</el-radio>
       </el-radio-group>
     </el-form-item>
     <el-form-item
@@ -507,8 +534,8 @@ onMounted(async () => {
         @change="changeBasicStyle('radiusColumnBar')"
         class="radius-class"
       >
-        <el-radio label="rightAngle" :effect="themes">{{ t('chart.rightAngle') }}</el-radio>
-        <el-radio label="roundAngle" :effect="themes">{{ t('chart.roundAngle') }}</el-radio>
+        <el-radio value="rightAngle" :effect="themes">{{ t('chart.rightAngle') }}</el-radio>
+        <el-radio value="roundAngle" :effect="themes">{{ t('chart.roundAngle') }}</el-radio>
         <el-radio
           v-if="!props.chart.type.includes('-stack')"
           label="topRoundAngle"
@@ -930,14 +957,17 @@ onMounted(async () => {
         @change="changeBasicStyle('tableColumnMode')"
         class="table-column-mode"
       >
-        <el-radio label="adapt" :effect="themes">
+        <el-radio value="adapt" :effect="themes">
           {{ t('chart.table_column_adapt') }}
         </el-radio>
-        <el-radio label="custom" :effect="themes">
+        <el-radio value="custom" :effect="themes">
           {{ t('chart.table_column_fixed') }}
         </el-radio>
         <el-radio v-show="chart.type !== 'table-pivot'" label="field" :effect="themes">
           {{ t('chart.table_column_custom') }}
+        </el-radio>
+        <el-radio v-show="chart.type === 'table-pivot'" label="colAdapt" :effect="themes">
+          {{ t('chart.table_column_col_adapt') }}
         </el-radio>
       </el-radio-group>
     </el-form-item>
@@ -982,6 +1012,46 @@ onMounted(async () => {
       >
         <template #append>%</template>
       </el-input>
+    </el-form-item>
+    <el-form-item
+      :label="t('chart.table_row_header_width')"
+      class="form-item"
+      :class="'form-item-' + themes"
+      v-if="showProperty('tableRowHeaderMode') && state.basicStyleForm.tableLayoutMode === 'tree'"
+    >
+      <el-radio-group
+        v-model="state.basicStyleForm.tableRowHeaderMode"
+        @change="changeBasicStyle('tableRowHeaderMode')"
+        class="table-column-mode"
+      >
+        <el-radio value="adapt" :effect="themes">
+          {{ t('chart.table_row_header_adapt') }}
+        </el-radio>
+        <el-radio value="fixed" :effect="themes">
+          {{ t('chart.table_row_header_fixed') }}
+        </el-radio>
+        <el-radio label="percent" :effect="themes">
+          {{ t('chart.table_row_header_percent') }}
+        </el-radio>
+      </el-radio-group>
+    </el-form-item>
+    <el-form-item
+      v-if="
+        showProperty('tableRowHeaderMode') &&
+        state.basicStyleForm.tableLayoutMode === 'tree' &&
+        state.basicStyleForm.tableRowHeaderMode !== 'adapt'
+      "
+      class="form-item form-item-slider"
+      :class="'form-item-' + themes"
+    >
+      <el-input-number
+        :effect="themes"
+        v-model.number="state.treeRowWidth"
+        :min="state.basicStyleForm.tableRowHeaderMode === 'percent' ? 1 : 10"
+        :max="state.basicStyleForm.tableRowHeaderMode === 'percent' ? 80 : 100000"
+        controls-position="right"
+        @change="changeTreeRowWidth"
+      />
     </el-form-item>
     <el-form-item v-if="showProperty('autoWrap')" class="form-item" :class="'form-item-' + themes">
       <el-checkbox
@@ -1278,7 +1348,6 @@ onMounted(async () => {
         style="width: 100%"
         :effect="themes"
         controls-position="right"
-        size="middle"
         :min="0"
         :max="30"
         :disabled="!state.basicStyleForm.radarShowPoint"
@@ -1440,7 +1509,6 @@ onMounted(async () => {
       <el-form-item
         class="form-item"
         :class="'form-item-' + themes"
-        :label="t('chart.top_n_label')"
         v-show="state.basicStyleForm.calcTopN"
       >
         <el-input
@@ -1450,6 +1518,19 @@ onMounted(async () => {
           :maxlength="50"
           @change="changeBasicStyle('topNLabel')"
         />
+        <template #label>
+          <div style="display: flex; align-items: center">
+            <span style="margin-right: 4px">{{ $t('chart.top_n_label') }}</span>
+            <el-tooltip effect="dark" placement="bottom">
+              <template #content>
+                <div>{{ t('chart.top_n_label_tip') }}</div>
+              </template>
+              <el-icon class="hint-icon" :class="{ 'hint-icon--dark': themes === 'dark' }">
+                <Icon name="icon_info_outlined"><icon_info_outlined class="svg-icon" /></Icon>
+              </el-icon>
+            </el-tooltip>
+          </div>
+        </template>
       </el-form-item>
     </div>
     <div class="alpha-setting" v-if="showProperty('innerRadius')">
@@ -1645,7 +1726,7 @@ onMounted(async () => {
 }
 .table-column-mode {
   :deep(.ed-radio) {
-    margin-right: 10px !important;
+    margin-right: 8px !important;
   }
 }
 .basic-input-number {

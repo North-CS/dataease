@@ -66,7 +66,7 @@ declare interface ChartBasicStyle {
   /**
    * 表格列宽模式: 自适应和自定义
    */
-  tableColumnMode: 'adapt' | 'custom' | 'field' | 'dialog'
+  tableColumnMode: 'adapt' | 'custom' | 'field' | 'colAdapt' | 'dialog'
   /**
    * 表格列宽
    */
@@ -381,6 +381,18 @@ declare interface ChartBasicStyle {
    * 圆形填充图间距
    */
   circlePadding: number
+  /**
+   * 透视表行头模式
+   */
+  tableRowHeaderMode: 'adapt' | 'fixed' | 'percent'
+  /**
+   * 透视表行头宽度
+   */
+  tableRowHeaderWidth: number
+  /**
+   * 透视表行头宽度百分比
+   */
+  tableRowHeaderWidthPercent: number
 }
 /**
  * 表头属性
@@ -411,7 +423,7 @@ declare interface ChartTableHeaderAttr {
   /**
    * 表头对齐方式
    */
-  tableHeaderAlign: 'left' | 'center' | 'right'
+  tableHeaderAlign: 'left' | 'center' | 'right' | 'custom'
   tableHeaderCornerAlign: 'left' | 'center' | 'right'
   tableHeaderColAlign: 'left' | 'center' | 'right'
   /**
@@ -490,6 +502,13 @@ declare interface ChartTableHeaderAttr {
    * 透视表行头冻结
    */
   rowHeaderFreeze: boolean
+  /**
+   * 对齐设置
+   */
+  alignConfig: {
+    id: string
+    align: 'left' | 'center' | 'right'
+  }[]
 }
 /**
  * 单元格属性
@@ -510,7 +529,7 @@ declare interface ChartTableCellAttr {
   /**
    * 单元格对齐方式
    */
-  tableItemAlign: 'left' | 'center' | 'right'
+  tableItemAlign: 'left' | 'center' | 'right' | 'custom'
   /**
    * 单元格行高
    */
@@ -560,6 +579,13 @@ declare interface ChartTableCellAttr {
    * 合并单元格
    */
   mergeCells: boolean
+  /**
+   * 对齐设置
+   */
+  alignConfig: {
+    id: string
+    align: string
+  }[]
 }
 
 /**

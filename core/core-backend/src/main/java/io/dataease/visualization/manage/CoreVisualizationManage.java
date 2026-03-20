@@ -101,6 +101,14 @@ public class CoreVisualizationManage {
         return TreeUtils.mergeTree(nodes, BusiNodeVO.class, false);
     }
 
+    public void dataVisualizationInit() {
+        List<Long> resourceIds= extDataVisualizationMapper.findCopyResource();
+        if (CollectionUtils.isNotEmpty(resourceIds)) {
+            resourceIds.forEach(this::delete);
+        }
+
+    }
+
     @XpackInteract(value = "visualizationResourceTree", before = false)
     public void delete(Long id) {
         DataVisualizationInfo info = mapper.selectById(id);
@@ -124,8 +132,10 @@ public class CoreVisualizationManage {
             }
         }
 
-        // 删除分享相关资源
-        xpackShareManage.deleteByResource(id);
+        if(!ModelUtils.isDesktop()){
+            // 删除分享相关资源
+            xpackShareManage.deleteByResource(id);
+        }
 
         // 删除可视化资源
         extDataVisualizationMapper.deleteDataVBatch(delIds, CommonConstants.RESOURCE_TABLE.CORE);

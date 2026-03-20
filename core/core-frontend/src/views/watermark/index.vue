@@ -2,13 +2,9 @@
   <el-row class="watermark-table__content">
     <el-row class="watermark-main-outer">
       <el-col class="main-col-left" :span="12">
-        <el-form ref="watermarkForm" :model="state.watermarkForm" label-width="120px" size="middle">
+        <el-form ref="watermarkForm" :model="state.watermarkForm" label-width="120px">
           <el-form-item :label="t('watermark.enable')" style="text-align: left">
-            <el-switch
-              size="middle"
-              v-model="state.watermarkForm.enable"
-              @change="enableChange"
-            ></el-switch>
+            <el-switch v-model="state.watermarkForm.enable" @change="enableChange"></el-switch>
           </el-form-item>
           <el-form-item label="" style="text-align: left">
             <el-checkbox
@@ -46,7 +42,6 @@
               :disabled="!state.watermarkForm.enable"
               v-model="state.watermarkForm.watermark_color"
               :predefine="state.predefineColors"
-              size="middle"
             />
           </el-form-item>
           <el-form-item :label="t('watermark.watermark_font_size')" style="text-align: left">
@@ -55,7 +50,6 @@
               v-model="state.watermarkForm.watermark_fontsize"
               :min="12"
               :max="32"
-              size="middle"
             />
             px
           </el-form-item>
@@ -79,13 +73,9 @@
           </el-form-item>
         </el-form>
         <el-row style="margin-left: 53px; text-align: left">
-          <el-button size="middle" type="i" @click="cancel">{{ t('watermark.reset') }} </el-button>
-          <el-button size="middle" type="info" @click="preview"
-            >{{ t('watermark.preview') }}
-          </el-button>
-          <el-button type="primary" size="middle" @click="save"
-            >{{ t('watermark.save') }}
-          </el-button>
+          <el-button type="i" @click="cancel">{{ t('watermark.reset') }} </el-button>
+          <el-button type="info" @click="preview">{{ t('watermark.preview') }} </el-button>
+          <el-button type="primary" @click="save">{{ t('watermark.save') }} </el-button>
         </el-row>
       </el-col>
       <el-col :span="12" style="height: 100%">

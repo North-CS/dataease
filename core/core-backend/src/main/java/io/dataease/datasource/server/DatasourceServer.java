@@ -65,6 +65,7 @@ import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.dataease.datasource.server.DatasourceTaskServer.ScheduleType.MANUAL;
@@ -74,6 +75,8 @@ import static io.dataease.datasource.server.DatasourceTaskServer.ScheduleType.RI
 @RestController
 @RequestMapping("/datasource")
 public class DatasourceServer implements DatasourceApi {
+    private static final Pattern ORACLE_RECYCLE_BIN_TABLE_PATTERN = Pattern.compile("^BIN\\$.*\\$[0-9]+$", Pattern.CASE_INSENSITIVE);
+
     @Resource
     private CoreDatasourceMapper datasourceMapper;
     @Resource
@@ -757,7 +760,26 @@ public class DatasourceServer implements DatasourceApi {
             return ExcelUtils.getTables(datasourceRequest);
         }
         Provider provider = ProviderFactory.getProvider(datasourceDTO.getType());
-        return provider.getTables(datasourceRequest);
+        List<DatasetTableDTO> tables = provider.getTables(datasourceRequest);
+        if (StringUtils.equalsIgnoreCase(coreDatasource.getType(), DatasourceConfiguration.DatasourceType.oracle.name())) {
+            return tables.stream().filter(table -> !isOracleRecycleBinTable(table)).collect(Collectors.toList());
+        }
+        return tables;
+    }
+
+    private boolean isOracleRecycleBinTable(DatasetTableDTO table) {
+        if (table == null) {
+            return false;
+        }
+        return isOracleRecycleBinName(table.getTableName()) || isOracleRecycleBinName(table.getName());
+    }
+
+    private boolean isOracleRecycleBinName(String tableName) {
+        if (StringUtils.isBlank(tableName)) {
+            return false;
+        }
+        String normalized = StringUtils.removeEnd(StringUtils.removeStart(tableName.trim(), "\""), "\"");
+        return ORACLE_RECYCLE_BIN_TABLE_PATTERN.matcher(normalized).matches();
     }
 
     @Override
@@ -1088,6 +1110,11 @@ public class DatasourceServer implements DatasourceApi {
         Long id = Long.valueOf(req.get("id").toString());
         if (ObjectUtils.isEmpty(tableName) || ObjectUtils.isEmpty(id)) {
             return null;
+        }
+        DatasetTableDTO datasetTableDTO = new DatasetTableDTO();
+        datasetTableDTO.setDatasourceId(id);
+        if (!getTables(datasetTableDTO).stream().map(DatasetTableDTO::getTableName).collect(Collectors.toList()).contains(tableName)) {
+            DEException.throwException(Translator.get("i18n_invalid_table_name"));
         }
         String sql = "SELECT * FROM `" + tableName + "`";
         sql = new String(Base64.getEncoder().encode(sql.getBytes()));

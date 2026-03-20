@@ -22,7 +22,12 @@ import { S2ChartView, S2DrawOptions } from '../../types/impl/s2'
 import { TABLE_EDITOR_PROPERTY_INNER } from './common'
 import { useI18n } from '@/hooks/web/useI18n'
 import { keys, maxBy, merge, minBy, some, isEmpty, get } from 'lodash-es'
-import { copyContent, CustomDataCell, isNumeric } from '../../common/common_table'
+import {
+  copyContent,
+  CustomDataCell,
+  getPivotConditions,
+  isNumeric
+} from '../../common/common_table'
 import Decimal from 'decimal.js'
 import { DEFAULT_TABLE_HEADER } from '@/views/chart/components/editor/util/chart'
 
@@ -104,7 +109,8 @@ export class TablePivot extends S2ChartView<PivotSheet> {
       'tableLayoutMode',
       'showHoverStyle',
       'quotaPosition',
-      'quotaColLabel'
+      'quotaColLabel',
+      'tableRowHeaderMode'
     ]
   }
   axis: AxisType[] = ['xAxis', 'xAxisExt', 'yAxis', 'filter']
@@ -248,7 +254,7 @@ export class TablePivot extends S2ChartView<PivotSheet> {
       height: containerDom.offsetHeight,
       totals: tableTotal as Totals,
       cornerExtraFieldText: basicStyle.quotaColLabel ?? t('dataset.value'),
-      conditions: this.configConditions(chart),
+      conditions: getPivotConditions(chart),
       tooltip: {
         getContainer: () => containerDom
       },
@@ -265,9 +271,14 @@ export class TablePivot extends S2ChartView<PivotSheet> {
     }
     // options
     s2Options.style = this.configStyle(chart, s2DataConfig)
-    // 默认展开层级
     if (basicStyle.tableLayoutMode === 'tree') {
-      const { defaultExpandLevel } = basicStyle
+      const {
+        defaultExpandLevel,
+        tableRowHeaderMode,
+        tableRowHeaderWidth,
+        tableRowHeaderWidthPercent
+      } = basicStyle
+      // 默认展开层级
       if (isNumeric(defaultExpandLevel)) {
         if ((defaultExpandLevel as number) >= chart.xAxis.length) {
           s2Options.style.rowExpandDepth = defaultExpandLevel as number
@@ -280,6 +291,23 @@ export class TablePivot extends S2ChartView<PivotSheet> {
       }
       if (!defaultExpandLevel) {
         s2Options.style.hierarchyCollapse = true
+      }
+
+      // 行头宽度
+      if (tableRowHeaderMode === 'fixed') {
+        let treeRowsWidth = tableRowHeaderWidth
+        if (treeRowsWidth < 10) {
+          treeRowsWidth = 120
+        }
+        s2Options.style.treeRowsWidth = treeRowsWidth
+      }
+      if (tableRowHeaderMode === 'percent') {
+        let treeRowsWidthPercent = tableRowHeaderWidthPercent
+        if (treeRowsWidthPercent > 80) {
+          treeRowsWidthPercent = 20
+        }
+        const width = containerDom.offsetWidth * (treeRowsWidthPercent / 100)
+        s2Options.style.treeRowsWidth = width
       }
     }
     // 列汇总别名
@@ -410,14 +438,38 @@ export class TablePivot extends S2ChartView<PivotSheet> {
           return
         }
         const containerWidth = containerDom.getBoundingClientRect().width
-        const scale = containerWidth / (ev.colsHierarchy.width + ev.rowsHierarchy.width)
+        let scale = containerWidth / (ev.colsHierarchy.width + ev.rowsHierarchy.width)
+        let totalRowWidth = Math.round(ev.rowsHierarchy.width * scale)
+        if (basicStyle.tableLayoutMode === 'tree') {
+          if (basicStyle.tableRowHeaderMode === 'fixed') {
+            totalRowWidth = basicStyle.tableRowHeaderWidth
+          }
+          if (basicStyle.tableRowHeaderMode === 'percent') {
+            const treeRowsWidthPercent = basicStyle.tableRowHeaderWidthPercent
+            totalRowWidth = containerWidth * (treeRowsWidthPercent / 100)
+            // 百分比要随着容器大小改变
+            ev.rowsHierarchy.width = totalRowWidth
+            ev.rowNodes.forEach(n => {
+              n.width = totalRowWidth
+            })
+          }
+          if (tableHeader.rowHeaderFreeze !== false) {
+            // 表头冻结，树形模式最大表头宽度为表格的一半
+            const maxRowWidth = containerWidth / 2
+            if (totalRowWidth > maxRowWidth) {
+              totalRowWidth = maxRowWidth
+            }
+          }
+          scale = (containerWidth - totalRowWidth) / ev.colsHierarchy.width
+        }
         if (scale <= 1) {
           return
         }
-        const totalRowWidth = Math.round(ev.rowsHierarchy.width * scale)
-        ev.rowNodes.forEach(n => {
-          n.width = Math.round(n.width * scale)
-        })
+        if (basicStyle.tableLayoutMode !== 'tree' && basicStyle.tableRowHeaderMode === 'adapt') {
+          ev.rowNodes.forEach(n => {
+            n.width = Math.round(n.width * scale)
+          })
+        }
         if (basicStyle.tableLayoutMode !== 'tree') {
           ev.rowNodes.forEach(n => {
             n.x = 0
@@ -988,6 +1040,12 @@ export class TablePivot extends S2ChartView<PivotSheet> {
     const { customAttr } = chart
     if (customAttr.basicStyle.tableColumnMode === 'field') {
       customAttr.basicStyle.tableColumnMode = 'custom'
+    }
+    if (customAttr.tableHeader.tableHeaderAlign === 'custom') {
+      customAttr.tableHeader.tableHeaderAlign = 'left'
+    }
+    if (customAttr.tableCell.tableItemAlign === 'custom') {
+      customAttr.tableCell.tableItemAlign = 'left'
     }
     return chart
   }
