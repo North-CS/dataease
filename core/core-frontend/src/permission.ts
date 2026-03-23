@@ -15,7 +15,7 @@ import { useEmbedded } from '@/store/modules/embedded'
 import { useLoading } from '@/hooks/web/useLoading'
 
 // SSO相关导入
-import { getSsoTicket, getUrlParam, redirectToSsoLogin, setSsoTicket } from '@/utils/sso'
+import { getSsoTicket, redirectToSsoLogin, setSsoTicket } from '@/utils/sso'
 import { ssoLoginApi } from '@/api/sso'
 
 const appearanceStore = useAppearanceStoreWithOut()
@@ -86,31 +86,37 @@ router.beforeEach(async (to, from, next) => {
   }
 
   //处理sso登录逻辑
-  const ssoTicket = getUrlParam('sso_service_ticket')
+  // const ssoTicket = getUrlParam('sso_service_ticket')
+  const rawTicket = to.query.sso_service_ticket;
+  const ssoTicket = Array.isArray(rawTicket) ? rawTicket[0] : rawTicket;
   if (ssoTicket){
+    console.log("ticket:",ssoTicket)
     try {
       //等待设备指纹准备就绪
-      setTimeout(async() => {
-        //调用后端sso登录接口
-        const res = await ssoLoginApi(ssoTicket)
-        if(res.data.success){
-          //保存登录态
-          const { token, exp } = res.data
-          userStore.setToken(token)
-          userStore.setExp(exp)
-          userStore.setTime(Date.now())
-          //设置sso票据至Cookie
-          setSsoTicket(ssoTicket)
-          //构建不包含sso_service_ticket参数的url
-          const redirectPath = to.query.redirect || '/workbranch/index'
-          //确保url不包含sso_service_ticket参数
-          const url = new URL(window.location.href)
-          url.searchParams.delete('sso_service_ticket')
-          url.hash = redirectPath
-          window.location.replace(url.toString())
-          return
-        }
-      }, 1000) //延迟一秒，确保设备指纹准备就
+      //调用后端sso登录接口
+      const res = await ssoLoginApi(ssoTicket)
+      if(res.data.success){
+        //保存登录态
+        const { token, exp, ticket } = res.data
+        userStore.setToken(token)
+        userStore.setExp(exp)
+        userStore.setTime(Date.now())
+        //设置sso票据至Cookie
+        setSsoTicket(ticket)
+        //构建不包含sso_service_ticket参数的url
+        const redirectPath = to.query.redirect || '/workbranch/index'
+        //确保url不包含sso_service_ticket参数
+        // const url = new URL(window.location.href)
+        // url.hash = redirectPath
+        // url.searchParams.delete('sso_service_ticket')
+        // window.location.replace(url.toString())
+        const urlObj = new URL(redirectPath, window.location.origin);
+        urlObj.searchParams.delete('sso_service_ticket');
+        // next({path: redirectPath, query: {} });
+        window.location.replace(urlObj.toString());
+        alert("马上要return了！"+redirectPath)
+        return;
+      }
     } catch(error){
       console.error('路由守卫向你报道：sso登陆失败',error)
     }
@@ -125,8 +131,9 @@ router.beforeEach(async (to, from, next) => {
       await userStore.setUser()
     }
     if (to.path === '/login') {
-      const path = appearanceStore.homeEnable === 'true' ? '/home/index' : '/workbranch/index'
-      next({ path })
+      // const path = appearanceStore.homeEnable === 'true' ? '/home/index' : '/workbranch/index'
+      // next({ path })
+      next({path: '/workbranch/index'})
     } else {
       permissionStore.setCurrentPath(to.path)
       if (permissionStore.getIsAddRouters) {
@@ -145,9 +152,11 @@ router.beforeEach(async (to, from, next) => {
             return pre
           }, {})
         }
-        if ((to.path === '/' || !pathValid(to.path)) && to.path !== '/404' && !to.path.startsWith('/de-link')) {
+        // if ((to.path === '/' || !pathValid(to.path)) && to.path !== '/404' && !to.path.startsWith('/de-link')) {
+        if (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link')) {
           const firstPath = getFirstAuthMenu()
-          next({ path: firstPath || '/workbranch/index' })
+          // next({ path: firstPath || '/workbranch/index' })
+          next({ path: firstPath || '/404' })
           return
         }
         next()
@@ -175,7 +184,8 @@ router.beforeEach(async (to, from, next) => {
 
       if (to.path === '/' || (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link'))) {
         const firstPath = getFirstAuthMenu()
-        next({ path: firstPath || '/workbranch/index' })
+        // next({ path: firstPath || '/workbranch/index' })
+        next({ path: firstPath || '/404' })
         return
       }
       next(nextData)
@@ -184,6 +194,7 @@ router.beforeEach(async (to, from, next) => {
     //检查sso登录态
     const ssoLoginTicket = getSsoTicket()
     if (ssoLoginTicket) {
+      console.log("已登录，继续请求")
       //已登录，继续请求
       next()
     } else {
@@ -210,8 +221,10 @@ router.beforeEach(async (to, from, next) => {
       } else {
         // const redirect = to.fullPath || to.path
         // if (redirect === '/workbranch/index' || redirect === '/home/index' || redirect === '/') {
-        //   next('/login?redirect=/')
+        //   // next('/login?redirect=/')
+        //   redirectToSsoLogin()
         // } else {
+        //   redirectToSsoLogin()
         //   next(`/login?redirect=${redirect}`) // 否则全部重定向到登录页
         // }
         //未登录 重定向至登录页

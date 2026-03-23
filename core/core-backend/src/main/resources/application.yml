@@ -55,12 +55,12 @@ dataease:
 
 # SSO配置
 sso:
-  appKey: your_app_key
-  appToken: your_app_token
+  appKey: jdpreport
+  appToken: 447a814ab2bc4a0f982e3c575be3b372
   api:
-    getTicket: http://localhost:8081/api/getTicket
-    verifyTicket: http://localhost:8081/api/verifyTicket
-    logout: http://localhost:8081/api/logout
+    getTicket: https://ssa.jd.com/api/getTicket
+    verifyTicket: https://ssa.jd.com/api/verifyTicket
+    logout: https://ssa.jd.com/api/logout
 
 # springdoc-openapi项目配置
 springdoc:

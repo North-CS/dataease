@@ -32,6 +32,7 @@ export const ssoVerifyTicketApi = (ticket: string) => {
  * SSO登出接口 - 销毁正式票据
  * @returns 登出结果
  */
-export const ssoLogoutApi = () => {
-  return request.get({ url: '/sso/logout' })
+export const ssoLogoutApi = (ticket: string) => {
+  alert("进入等出逻辑")
+  return request.post({ url: '/sso/logout',data:{ ticket } })
 }

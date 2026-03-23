@@ -26,6 +26,7 @@ const interactiveStore = interactiveStoreWithOut()
  * @param save_platform_status 是否保存平台状态
  */
 export const logoutHandler = (justClean?: boolean, save_platform_status = false) => {
+  alert("删除开始")
   // 清理用户数据
   userStore.clear()
   userStore.$reset()

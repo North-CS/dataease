@@ -12,6 +12,7 @@
  */
 import { useCache } from '@/hooks/web/useCache'
 import { ssoConfig } from '@/config/sso'
+import {ssoLogoutApi} from "@/api/sso";
 
 const { wsCache } = useCache()
 
@@ -19,7 +20,7 @@ const { wsCache } = useCache()
  * SSO票据名称
  * 注意：这里使用的是临时名称，实际应该使用ssoConfig中的配置
  */
-export const SSO_TICKET_NAME = 'YOUR_SSO_TICKET'
+const TICKET_NAME = 'sso.jd.com'
 
 /**
  * 从Cookie中读取SSO票据
@@ -28,7 +29,7 @@ export const SSO_TICKET_NAME = 'YOUR_SSO_TICKET'
 export const getSsoTicket = (): string | null => {
   const cookieValue = document.cookie
     .split('; ')
-    .find(row => row.startsWith(`${SSO_TICKET_NAME}=`))
+    .find(row => row.startsWith(`${TICKET_NAME}=`))
     ?.split('=')[1]
   return cookieValue ? decodeURIComponent(cookieValue) : null
 }
@@ -40,14 +41,17 @@ export const getSsoTicket = (): string | null => {
 export const setSsoTicket = (ticket: string): void => {
   const expirationDate = new Date()
   expirationDate.setDate(expirationDate.getDate() + 7) // 7天过期
-  document.cookie = `${SSO_TICKET_NAME}=${encodeURIComponent(ticket)}; expires=${expirationDate.toUTCString()}; path=/`
+  document.cookie = `${TICKET_NAME}=${encodeURIComponent(ticket)}; expires=${expirationDate.toUTCString()}; path=/`
 }
 
 /**
  * 移除SSO票据
  */
 export const removeSsoTicket = (): void => {
-  document.cookie = `${SSO_TICKET_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+  const ticket = getSsoTicket();
+  alert("移除sso票据"+ ticket)
+  ssoLogoutApi(ticket);
+  document.cookie = `${TICKET_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
 }
 
 /**

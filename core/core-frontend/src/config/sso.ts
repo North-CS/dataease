@@ -9,15 +9,15 @@
  */
 export const ssoConfig = {
   // SSO登录地址 - 跳转到SSO统一登录页面
-  loginUrl: 'http://localhost:8081',
+  loginUrl: 'https://ssa.jd.com/sso/login',
   // SSO验证地址 - 验证SSO票据的有效性
-  verifyUrl: 'http://localhost:8081/api/verify',
+  verifyUrl: 'https://ssa.jd.com/api/verify',
   // SSO登出地址 - 销毁SSO登录态
-  logoutUrl: 'http://localhost:8081/api/logout',
+  logoutUrl: 'https://ssa.jd.com/api/logout',
   // 票据参数名 - SSO重定向回系统时携带的临时票据参数名
   ticketParam: 'sso_service_ticket',
   // 重定向参数名 - 跳转到SSO登录页面时携带的重定向地址参数名
-  redirectParam: 'redirect',
+  redirectParam: 'ReturnUrl',
   // 系统回调地址 - SSO登录成功后重定向回的地址
   callbackUrl: window.origin + window.location.pathname
 }
