@@ -6,9 +6,14 @@ import io.dataease.api.xpack.settings.vo.XpackOauthAuthVO;
 import io.dataease.api.xpack.settings.vo.XpackOauthTokenVO;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.Map;
 
 @Hidden
 @Tag(name = "Oauth2认证")
@@ -18,7 +23,13 @@ public interface XpackOauth2Api {
     @GetMapping("/auth")
     XpackOauthAuthVO auth();
 
+//    @PostMapping("/token")
+//    XpackOauthTokenVO oauth2Token(@RequestBody XpackOauth2TokenRequest request);
     @PostMapping("/token")
-    XpackOauthTokenVO oauth2Token(@RequestBody XpackOauth2TokenRequest request);
+    XpackOauthTokenVO oauth2Token(@RequestBody Map<String,String> ssoServiceTicket,
+                                  HttpServletRequest request,
+                                  HttpServletResponse response);
 
+//    @PostMapping("/logout")
+//    void oauth2Logout(String ticket,HttpServletRequest request);
 }

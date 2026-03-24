@@ -12,6 +12,37 @@
 <body style="height:100%">
   <div class="de-main_scrollbar" id="app" style="height: 100%;"></div>
   <script type="module" src="/src/pages/index/main.ts"></script>
+  <!-- 京东天盾设备指纹（PC端） -->
+  <!-- 如果需要传递加密的 pin（非 *.jd.com 域下需要） -->
+  <script>
+    // var pin = "加密后的pin";  // 如果不需要请注释掉
+  </script>
+  <script src="//gias.jd.com/js/td.js"></script>
+  <script language="JavaScript">
+    function setCookie(name, value, days) {
+      let expires = "";
+      if (days) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = "; expires=" + date.toUTCString();
+      }
+      // 设置 path=/ 使得整个网站都能访问该 Cookie
+      document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    }
+    <!-- 因为采集并上报一般需要在几百毫秒，延迟1秒执行 -->
+    setTimeout(function () {
+      try {
+        getJdEid(function(eid,fp,udfp){
+          <!-- 注意：调用getJdEid应该放在加载td.js之后 -->
+          // alert(" fp="+fp);
+          setCookie('jdfp', fp, 7);
+        });
+      }catch(e){
+        // 异常处理
+      }
+    }, 1000);
+  </script>
+
 </body>
 
 </html>

@@ -50,6 +50,7 @@ public class WhitelistUtils {
             "/embedded/initIframe",
             "/sysParameter/i18nOptions",
             "/login/modifyInvalidPwd",
+            "/sso/logout",
             "/");
 
     public static boolean match(String requestURI) {

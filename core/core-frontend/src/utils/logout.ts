@@ -3,6 +3,7 @@ import router from '@/router'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { interactiveStoreWithOut } from '@/store/modules/interactive'
 import { useCache } from '@/hooks/web/useCache'
+import request from '@/config/axios'
 
 import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 
@@ -13,12 +14,18 @@ const userStore = useUserStoreWithOut()
 const interactiveStore = interactiveStoreWithOut()
 
 export const logoutHandler = (justClean?: boolean, save_platform_status = false) => {
+  alert("退出入口！")
   userStore.clear()
   userStore.$reset()
   permissionStore.clear()
   permissionStore.$reset()
   interactiveStore.clear()
   interactiveStore.$reset()
+  alert("要用来删除的cookie+"+getSsoTicket());
+  const ticket = getSsoTicket()
+  request.post({ url: '/sso/logout',data:{ ticket } })
+  document.cookie = `sso.jd.com=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+  alert("删除后的cookie+"+getSsoTicket());
   removeCache()
   let queryRedirectPath = appearanceStore.homeEnable === 'true' ? '/home/index' : '/workbranch/index'
   // 如果redirect参数中有值
@@ -57,6 +64,14 @@ export const logoutHandler = (justClean?: boolean, save_platform_status = false)
     window.location.href = wsCache.get('custom_auth_logout_url')
   }
   router.push(justClean ? queryRedirectPath : `/login?redirect=${queryRedirectPath}`)
+}
+
+const getSsoTicket = (): string | null => {
+  const cookieValue = document.cookie
+    .split('; ')
+    .find(row => row.startsWith(`sso.jd.com=`))
+    ?.split('=')[1]
+  return cookieValue ? decodeURIComponent(cookieValue) : null
 }
 
 const removeCache = () => {
