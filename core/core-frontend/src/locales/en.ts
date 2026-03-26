@@ -3892,6 +3892,7 @@ export default {
     host: 'SMTP host',
     port: 'SMTP port',
     account: 'SMTP account',
+    sender: 'Sender',
     pwd: 'SMTP password',
     reci: 'Test recipient',
     ssl: 'SSL',

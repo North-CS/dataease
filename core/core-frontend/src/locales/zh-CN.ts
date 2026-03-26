@@ -3786,6 +3786,7 @@ export default {
     host: 'SMTP主机',
     port: 'SMTP端口',
     account: 'SMTP账号',
+    sender: '发件人',
     pwd: 'SMTP密码',
     reci: '测试收件人',
     ssl: 'SSL',
