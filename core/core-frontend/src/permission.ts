@@ -109,7 +109,12 @@ router.beforeEach(async (to, from, next) => {
             return pre
           }, {})
         }
-        if ((to.path === '/' || !pathValid(to.path)) && to.path !== '/404' && !to.path.startsWith('/de-link')) {
+        //if ((to.path === '/' || !pathValid(to.path)) && to.path !== '/404' && !to.path.startsWith('/de-link'))
+          if (
+            (to.path === '/' || !pathValid(to.path)) &&
+            to.path !== '/404' &&
+            !to.path.startsWith('/de-link')
+          ) {
           const firstPath = getFirstAuthMenu()
           next({ path: firstPath || '/workbranch/index' })
           return
@@ -137,7 +142,11 @@ router.beforeEach(async (to, from, next) => {
       permissionStore.setIsAddRouters(true)
       await interactiveStore.initInteractive(true)
 
-      if (to.path === '/' || (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link'))) {
+      //if (to.path === '/' || (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link')))
+      if (
+        to.path === '/' ||
+        (!pathValid(to.path) && to.path !== '/404' && !to.path.startsWith('/de-link'))
+      ) {
         const firstPath = getFirstAuthMenu()
         next({ path: firstPath || '/workbranch/index' })
         return
