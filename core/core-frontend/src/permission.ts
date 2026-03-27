@@ -110,11 +110,11 @@ router.beforeEach(async (to, from, next) => {
           }, {})
         }
         //if ((to.path === '/' || !pathValid(to.path)) && to.path !== '/404' && !to.path.startsWith('/de-link'))
-          if (
-            (to.path === '/' || !pathValid(to.path)) &&
-            to.path !== '/404' &&
-            !to.path.startsWith('/de-link')
-          ) {
+        if (
+          (to.path === '/' || !pathValid(to.path)) &&
+          to.path !== '/404' &&
+          !to.path.startsWith('/de-link')
+        ) {
           const firstPath = getFirstAuthMenu()
           next({ path: firstPath || '/workbranch/index' })
           return
