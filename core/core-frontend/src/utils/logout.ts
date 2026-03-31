@@ -16,7 +16,7 @@ const interactiveStore = interactiveStoreWithOut()
 export const logoutHandler = (justClean?: boolean, save_platform_status = false) => {
   // alert("退出入口！")
   const ticket = getSsoTicket()
-  request.post({ url: '/sso/logout',data:{ ticket } })
+  request.post({ url: '/sso/logout', data: { ticket } })
   document.cookie = `sso.jd.com=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
   userStore.clear()
   userStore.$reset()
@@ -67,14 +67,16 @@ export const logoutHandler = (justClean?: boolean, save_platform_status = false)
 const getSsoTicket = (): string | null => {
   const cookieValue = document.cookie
     .split('; ')
-    .find(row => row.startsWith(`sso.jd.com=`))
+    .find(
+      (row) => row.startsWith(`sso.jd.com=`)
+    )
     ?.split('=')[1]
   return cookieValue ? decodeURIComponent(cookieValue) : null
 }
 
 const removeCache = () => {
   const keys = Object.keys(wsCache['storage'])
-  keys.forEach(key => {
+  keys.forEach((key) => {
     if (
       key.startsWith('de-plugin-') ||
       key === 'de-platform-client' ||
