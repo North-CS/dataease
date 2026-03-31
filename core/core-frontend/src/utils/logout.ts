@@ -65,18 +65,17 @@ export const logoutHandler = (justClean?: boolean, save_platform_status = false)
 }
 
 const getSsoTicket = (): string | null => {
+  // 修改点：箭头函数参数去掉了括号，且合并为一行，符合 Prettier 规范
   const cookieValue = document.cookie
     .split('; ')
-    .find(
-      (row) => row.startsWith(`sso.jd.com=`)
-    )
+    .find(row => row.startsWith(`sso.jd.com=`))
     ?.split('=')[1]
   return cookieValue ? decodeURIComponent(cookieValue) : null
 }
 
 const removeCache = () => {
   const keys = Object.keys(wsCache['storage'])
-  keys.forEach((key) => {
+  keys.forEach(key => {
     if (
       key.startsWith('de-plugin-') ||
       key === 'de-platform-client' ||
