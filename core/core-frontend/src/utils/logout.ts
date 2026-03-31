@@ -14,18 +14,16 @@ const userStore = useUserStoreWithOut()
 const interactiveStore = interactiveStoreWithOut()
 
 export const logoutHandler = (justClean?: boolean, save_platform_status = false) => {
-  alert("退出入口！")
+  // alert("退出入口！")
+  const ticket = getSsoTicket()
+  request.post({ url: '/sso/logout',data:{ ticket } })
+  document.cookie = `sso.jd.com=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
   userStore.clear()
   userStore.$reset()
   permissionStore.clear()
   permissionStore.$reset()
   interactiveStore.clear()
   interactiveStore.$reset()
-  alert("要用来删除的cookie+"+getSsoTicket());
-  const ticket = getSsoTicket()
-  request.post({ url: '/sso/logout',data:{ ticket } })
-  document.cookie = `sso.jd.com=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
-  alert("删除后的cookie+"+getSsoTicket());
   removeCache()
   let queryRedirectPath = appearanceStore.homeEnable === 'true' ? '/home/index' : '/workbranch/index'
   // 如果redirect参数中有值
