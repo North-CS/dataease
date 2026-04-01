@@ -4,6 +4,7 @@ import cn.hutool.http.HttpRequest;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import io.dataease.sso.exception.SSOException;
+import io.dataease.utils.LogUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -19,10 +20,10 @@ import java.util.Map;
 public class SSOClient {
     private static final Logger log = LoggerFactory.getLogger(SSOClient.class);
 
-    @Value("appKey")
+    @Value("jdpreport")
     private String appKey;
 
-    @Value("appToken")
+    @Value("447a814ab2bc4a0f982e3c575be3b372")
     private String appToken;
 
     @Value("getTicketUrl")
@@ -31,7 +32,8 @@ public class SSOClient {
     @Value("verifyTicketUrl")
     private String verifyTicketUrl;
 
-    @Value("http://localhost:8081/api/logout")
+    //    @Value("http://localhost:8081/api/logout")
+    @Value("http://ssa.jd.com/api/logout")
     private String logoutUrl;
 
     /**
@@ -142,6 +144,7 @@ public class SSOClient {
      * 3. 登出销毁票据（/api/logout）
      */
     public void logout(String ticket, HttpServletRequest request) {
+        LogUtil.info("开始登出");
         long timestamp = System.currentTimeMillis();
         String sign = generateSign(appToken, timestamp, ticket);
 
