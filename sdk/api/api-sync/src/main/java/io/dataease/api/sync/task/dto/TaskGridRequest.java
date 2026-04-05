@@ -14,4 +14,5 @@ public class TaskGridRequest extends KeywordRequest implements Serializable {
     private List<String> status;
     private List<String> lastExecuteTime;
     private List<String> nextExecuteTime;
+    private List<String> taskType;
 }

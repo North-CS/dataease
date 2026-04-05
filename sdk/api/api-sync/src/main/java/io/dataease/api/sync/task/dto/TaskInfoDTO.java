@@ -118,4 +118,9 @@ public class TaskInfoDTO {
      * 所有内容可编辑
      */
     private boolean editable;
+    
+    /**
+     * 任务类型：0=同步任务，1=SQL任务
+     */
+    private Integer taskType;
 }
