@@ -32,4 +32,11 @@ public interface XpackOauth2Api {
 
 //    @PostMapping("/logout")
 //    void oauth2Logout(String ticket,HttpServletRequest request);
+    @PostMapping("/tokenWithSameDomain")
+    XpackOauthTokenVO oauth2TokenWithSameDomain(@RequestBody Map<String,String> ssoServiceTicket,
+                                            HttpServletRequest request,
+                                            HttpServletResponse response);
+
+    @PostMapping("/getCookie")
+    String oauth2TokenGetCookie(HttpServletRequest request);
 }
