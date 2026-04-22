@@ -154,6 +154,10 @@ public class DefaultChartHandler extends AbstractChartPlugin {
         if (view.getIsExcelExport()) {
             Map<String, Object> sourceInfo = ChartDataBuild.transTableNormal(xAxis, yAxis, view, calcResult.getOriginData(), extStack, desensitizationList);
             sourceInfo.put("sourceData", calcResult.getOriginData());
+            // 将汇总计算结果传递到导出数据中
+            if (calcResult.getData() != null && calcResult.getData().get("customSumResult") != null) {
+                sourceInfo.put("customSumResult", calcResult.getData().get("customSumResult"));
+            }
             view.setData(sourceInfo);
             return view;
         }
@@ -175,7 +179,7 @@ public class DefaultChartHandler extends AbstractChartPlugin {
         List<ChartSeniorAssistDTO> chartSeniorAssistDTOS = mergeAssistField(calcResult.getDynamicAssistFields(), calcResult.getAssistData(), calcResult.getDynamicAssistFieldsOriginList(), calcResult.getAssistDataOriginList());
         dataMap.put("dynamicAssistLines", chartSeniorAssistDTOS);
         view.setData(dataMap);
-        view.setSql(Base64.getEncoder().encodeToString(calcResult.getQuerySql().getBytes()));
+        view.setSql(null);
         view.setDrill(isDrill);
         view.setDrillFilters(drillFilters);
         return view;

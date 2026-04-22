@@ -143,7 +143,7 @@ onMounted(() => {
     </div>
     <div class="font-content_overflow">
       <div class="font-content_list" v-if="fontListComputed.length">
-        <div class="font-content_item" v-for="ele in fontListComputed" :key="ele">
+        <div class="font-content_item border-radius-12" v-for="ele in fontListComputed" :key="ele">
           <span v-if="ele.isDefault" class="font-default">{{ t('system.default_font') }}</span>
           <div class="font-name">
             <span :title="ele.name" :class="!ele.isBuiltin && 'font-name_text'">{{
@@ -219,7 +219,7 @@ onMounted(() => {
     row-gap: 16px;
     justify-content: space-between;
     .font-content_item {
-      border-radius: 4px;
+      border-radius: 6px;
       background: #fff;
       width: calc(50% - 8px);
       position: relative;
@@ -238,7 +238,8 @@ onMounted(() => {
         line-height: 22px;
         color: #2ca91f;
         padding: 0 6px;
-        border-bottom-left-radius: 4px;
+        border-bottom-left-radius: 6px;
+        border-top-right-radius: 12px;
       }
 
       .font-name {
@@ -297,12 +298,10 @@ onMounted(() => {
 
       .font-upload_btn {
         .ed-button {
-          min-width: 0;
-          margin: 0 12px 8px 0;
-          padding: 4px 8px;
-          font-size: 12px;
-          font-weight: 400;
-          line-height: 20px;
+          height: 28px;
+          line-height: 28px;
+          min-width: 48px;
+          padding: 3px 8px;
         }
       }
     }

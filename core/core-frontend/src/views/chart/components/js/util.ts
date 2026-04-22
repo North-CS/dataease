@@ -253,7 +253,14 @@ const distributionChartTypes = [
   'word-cloud'
 ]
 // 关系图
-const relationChartTypes = ['scatter', 'quadrant', 'funnel', 'sankey', 'circle-packing']
+const relationChartTypes = [
+  'scatter',
+  'multi-scatter',
+  'quadrant',
+  'funnel',
+  'sankey',
+  'circle-packing'
+]
 // 不支持指标累加的图表
 export const notSupportAccumulateViews = [
   ...quotaViews,
@@ -494,10 +501,13 @@ export const isParent = (type: any, parentType: any) => {
   return false
 }
 
-export const getGeoJsonFile = async (areaId: string): Promise<FeatureCollection> => {
+export const getGeoJsonFile = async (
+  areaId: string,
+  useGlobalAreaMapping = false
+): Promise<FeatureCollection> => {
   const mapStore = useMapStoreWithOut()
   let geoJson = mapStore.mapCache[areaId]
-  if (!geoJson) {
+  if (!geoJson || useGlobalAreaMapping) {
     const res = await getGeoJson(areaId)
     geoJson = res?.data
     mapStore.setMap({ id: areaId, geoJson })

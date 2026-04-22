@@ -444,6 +444,230 @@ public class ChartDataBuild {
         return map;
     }
 
+    /**
+     * 多维散点图数据转换
+     * 所有字段均作为维度查询（不聚合）
+     *
+     * @param extColor   颜色维度字段列表
+     * @param xAxisQuota 横轴指标字段列表
+     * @param yAxisQuota 纵轴指标字段列表
+     * @param yAxisExt   明暗指标字段列表
+     * @param extBubble  气泡大小指标字段列表
+     */
+    public static Map<String, Object> transMultiScatterDataAntV(
+            List<ChartViewFieldDTO> extColor,
+            List<ChartViewFieldDTO> xAxisQuota,
+            List<ChartViewFieldDTO> yAxisQuota,
+            List<ChartViewFieldDTO> extBubble,
+            List<ChartViewFieldDTO> yAxisExt,
+            ChartViewDTO view,
+            List<String[]> data,
+            boolean isDrill) {
+        Map<String, Object> map = new HashMap<>();
+        List<AxisChartDataAntVDTO> dataList = new ArrayList<>();
+
+        int colorSize = ObjectUtils.isNotEmpty(extColor) ? extColor.size() : 0;
+        int xQuotaSize = ObjectUtils.isNotEmpty(xAxisQuota) ? xAxisQuota.size() : 0;
+        int yQuotaSize = ObjectUtils.isNotEmpty(yAxisQuota) ? yAxisQuota.size() : 0;
+        int bubbleSize = ObjectUtils.isNotEmpty(extBubble) ? extBubble.size() : 0;
+        int lightnessSize = ObjectUtils.isNotEmpty(yAxisExt) ? yAxisExt.size() : 0;
+        int extLabelSize = ObjectUtils.isNotEmpty(view.getExtLabel()) ? view.getExtLabel().size() : 0;
+        int extTooltipSize = ObjectUtils.isNotEmpty(view.getExtTooltip()) ? view.getExtTooltip().size() : 0;
+
+        // 列索引定位
+        int xQuotaStart = colorSize;
+        int yQuotaStart = xQuotaStart + xQuotaSize;
+        int bubbleStart = yQuotaStart + yQuotaSize;
+        int lightnessStart = bubbleStart + bubbleSize;
+        int extLabelStart = lightnessStart + lightnessSize;
+        int extTooltipStart = extLabelStart + extLabelSize;
+        for (String[] row : data) {
+            AxisChartDataAntVDTO dto = new AxisChartDataAntVDTO();
+
+            // 颜色维度 (category)
+            StringBuilder colorVal = new StringBuilder();
+            if (colorSize > 0) {
+                for (int i = 0; i < colorSize; i++) {
+                    if (i > 0) {
+                        colorVal.append("\n");
+                    }
+                    colorVal.append(row[i] != null ? row[i] : "");
+                }
+            } else {
+                colorVal.append("default");
+            }
+            dto.setCategory(colorVal.toString());
+            dto.setField(colorVal.toString());
+            // name 为颜色+横轴+纵轴值，使每个散点在联动高亮时可唯一标识
+            StringBuilder nameBuilder = new StringBuilder(colorVal.toString());
+            if (xQuotaSize > 0 && xQuotaStart < row.length && row[xQuotaStart] != null) {
+                nameBuilder.append("\n").append(row[xQuotaStart]);
+            }
+            if (yQuotaSize > 0 && yQuotaStart < row.length && row[yQuotaStart] != null) {
+                nameBuilder.append("\n").append(row[yQuotaStart]);
+            }
+            dto.setName(nameBuilder.toString());
+
+            // 横轴
+            if (xQuotaSize > 0 && xQuotaStart < row.length) {
+                // 判断时间维度
+                ChartViewFieldDTO xField = xAxisQuota.get(0);
+                boolean isTimeDimension = ("d".equalsIgnoreCase(xField.getGroupType()))
+                        || (xField.getDeType() != null && xField.getDeType() == 1);
+                if (isTimeDimension) {
+                    // 保留为字符串
+                    dto.setXLabel(row[xQuotaStart]);
+                    dto.setX(null);
+                } else {
+                    try {
+                        dto.setX(StringUtils.isEmpty(row[xQuotaStart]) ? null : new BigDecimal(row[xQuotaStart]));
+                    } catch (Exception e) {
+                        dto.setXLabel(row[xQuotaStart]);
+                        dto.setX(null);
+                    }
+                }
+            }
+
+            // 纵轴
+            if (yQuotaSize > 0 && yQuotaStart < row.length) {
+                try {
+                    BigDecimal yVal = StringUtils.isEmpty(row[yQuotaStart]) ? null : new BigDecimal(row[yQuotaStart]);
+                    dto.setY(yVal);
+                    dto.setValue(yVal);
+                } catch (Exception e) {
+                    dto.setY(null);
+                    dto.setValue(null);
+                }
+            }
+
+            // 气泡大小
+            if (bubbleSize > 0 && bubbleStart < row.length) {
+                try {
+                    dto.setPopSize(StringUtils.isEmpty(row[bubbleStart]) ? null : new BigDecimal(row[bubbleStart]));
+                } catch (Exception e) {
+                    dto.setPopSize(null);
+                }
+            }
+
+            // 明暗
+            if (lightnessSize > 0 && lightnessStart < row.length) {
+                try {
+                    dto.setLightness(StringUtils.isEmpty(row[lightnessStart]) ? null : new BigDecimal(row[lightnessStart]));
+                } catch (Exception e) {
+                    dto.setLightness(null);
+                }
+            }
+
+            // dimensionList
+            List<ChartDimensionDTO> dimensionList = new ArrayList<>();
+            if (colorSize > 0) {
+                for (int j = 0; j < colorSize; j++) {
+                    ChartDimensionDTO chartDimensionDTO = new ChartDimensionDTO();
+                    chartDimensionDTO.setId(extColor.get(j).getId());
+                    chartDimensionDTO.setValue(row[j]);
+                    dimensionList.add(chartDimensionDTO);
+                }
+            }
+            // 将横轴值加入 dimensionList
+            if (xQuotaSize > 0 && xQuotaStart < row.length) {
+                ChartDimensionDTO xDim = new ChartDimensionDTO();
+                xDim.setId(xAxisQuota.get(0).getId());
+                xDim.setValue(row[xQuotaStart]);
+                dimensionList.add(xDim);
+            }
+            // 将纵轴值加入 dimensionList
+            if (yQuotaSize > 0 && yQuotaStart < row.length) {
+                ChartDimensionDTO yDim = new ChartDimensionDTO();
+                yDim.setId(yAxisQuota.get(0).getId());
+                yDim.setValue(row[yQuotaStart]);
+                dimensionList.add(yDim);
+            }
+            // 将气泡大小值加入 dimensionList
+            if (bubbleSize > 0 && bubbleStart < row.length) {
+                ChartDimensionDTO bubbleDim = new ChartDimensionDTO();
+                bubbleDim.setId(extBubble.get(0).getId());
+                bubbleDim.setValue(row[bubbleStart]);
+                dimensionList.add(bubbleDim);
+            }
+            // 将明暗值加入 dimensionList
+            if (lightnessSize > 0 && lightnessStart < row.length) {
+                ChartDimensionDTO lightnessDim = new ChartDimensionDTO();
+                lightnessDim.setId(yAxisExt.get(0).getId());
+                lightnessDim.setValue(row[lightnessStart]);
+                dimensionList.add(lightnessDim);
+            }
+            dto.setDimensionList(dimensionList);
+
+            // quotaList
+            List<ChartQuotaDTO> quotaList = new ArrayList<>();
+            if (xQuotaSize > 0) {
+                ChartQuotaDTO xQuota = new ChartQuotaDTO();
+                xQuota.setId(xAxisQuota.get(0).getId());
+                quotaList.add(xQuota);
+            }
+            if (yQuotaSize > 0) {
+                ChartQuotaDTO yQuota = new ChartQuotaDTO();
+                yQuota.setId(yAxisQuota.get(0).getId());
+                quotaList.add(yQuota);
+            }
+            if (bubbleSize > 0) {
+                ChartQuotaDTO bubbleQuota = new ChartQuotaDTO();
+                bubbleQuota.setId(extBubble.get(0).getId());
+                quotaList.add(bubbleQuota);
+            }
+            if (lightnessSize > 0) {
+                ChartQuotaDTO lightnessQuota = new ChartQuotaDTO();
+                lightnessQuota.setId(yAxisExt.get(0).getId());
+                quotaList.add(lightnessQuota);
+            }
+            dto.setQuotaList(quotaList);
+
+            // 动态标签和提示
+            List<DynamicValueDTO> dynamicLabelValue = new ArrayList<>();
+            List<DynamicValueDTO> dynamicTooltipValue = new ArrayList<>();
+            if (extLabelSize > 0) {
+                for (int ii = 0; ii < extLabelSize; ii++) {
+                    DynamicValueDTO valueDTO = new DynamicValueDTO();
+                    ChartViewFieldDTO f = view.getExtLabel().get(ii);
+                    int idx = extLabelStart + ii;
+                    if (idx < row.length && StringUtils.isNotEmpty(row[idx])) {
+                        try {
+                            valueDTO.setValue(new BigDecimal(row[idx]));
+                        } catch (NumberFormatException e) {
+                            // 时间等非数值类型，保留原始字符串
+                            valueDTO.setStringValue(row[idx]);
+                        }
+                    }
+                    valueDTO.setFieldId(f.getId());
+                    dynamicLabelValue.add(valueDTO);
+                }
+            }
+            if (extTooltipSize > 0) {
+                for (int ii = 0; ii < extTooltipSize; ii++) {
+                    DynamicValueDTO valueDTO = new DynamicValueDTO();
+                    ChartViewFieldDTO f = view.getExtTooltip().get(ii);
+                    int idx = extTooltipStart + ii;
+                    if (idx < row.length && StringUtils.isNotEmpty(row[idx])) {
+                        try {
+                            valueDTO.setValue(new BigDecimal(row[idx]));
+                        } catch (NumberFormatException e) {
+                            // 时间等非数值类型，保留原始字符串
+                            valueDTO.setStringValue(row[idx]);
+                        }
+                    }
+                    valueDTO.setFieldId(f.getId());
+                    dynamicTooltipValue.add(valueDTO);
+                }
+            }
+            dto.setDynamicLabelValue(dynamicLabelValue);
+            dto.setDynamicTooltipValue(dynamicTooltipValue);
+
+            dataList.add(dto);
+        }
+        map.put("data", dataList);
+        return map;
+    }
+
     // antv radar
     public static Map<String, Object> transRadarChartDataAntV(List<ChartViewFieldDTO> xAxis, List<ChartViewFieldDTO> yAxis, ChartViewDTO view, List<String[]> data, boolean isDrill) {
         Map<String, Object> map = new HashMap<>();
@@ -1309,7 +1533,7 @@ public class ChartDataBuild {
                 if (i == ele.length) break;
                 ChartViewFieldDTO chartViewFieldDTO = fields.get(i);
                 if (chartViewFieldDTO.getDeType() == 0 || chartViewFieldDTO.getDeType() == 1 || chartViewFieldDTO.getDeType() == 5 || chartViewFieldDTO.getDeType() == 7) {
-                    d.put(fields.get(i).getDataeaseName(), StringUtils.isEmpty(ele[i]) ? "" : ele[i]);
+                    d.put(fields.get(i).getDataeaseName(), ele[i]);
                 } else if (chartViewFieldDTO.getDeType() == 2 || chartViewFieldDTO.getDeType() == 3 || chartViewFieldDTO.getDeType() == 4) {
                     // 如果是在维度中展示，导出excel时展示为字符串，其它情况展示为数值类型
                     if (view.getIsExcelExport() || StringUtils.equalsIgnoreCase(chartViewFieldDTO.getGroupType(), "d")) {
@@ -1421,9 +1645,15 @@ public class ChartDataBuild {
             for (int ii = 0; ii < view.getExtLabel().size(); ii++) {
                 DynamicValueDTO valueDTO = new DynamicValueDTO();
                 ChartViewFieldDTO chartViewFieldDTO = view.getExtLabel().get(ii);
-                BigDecimal value = StringUtils.isEmpty(row[ii + (size - extSize)]) ? null : new BigDecimal(row[ii + (size - extSize)]);
+                String raw = row[ii + (size - extSize)];
+                if (StringUtils.isNotEmpty(raw)) {
+                    try {
+                        valueDTO.setValue(new BigDecimal(raw));
+                    } catch (NumberFormatException e) {
+                        valueDTO.setStringValue(raw);
+                    }
+                }
                 valueDTO.setFieldId(chartViewFieldDTO.getId());
-                valueDTO.setValue(value);
                 dynamicLabelValue.add(valueDTO);
             }
         }
@@ -1431,9 +1661,15 @@ public class ChartDataBuild {
             for (int ii = 0; ii < view.getExtTooltip().size(); ii++) {
                 DynamicValueDTO valueDTO = new DynamicValueDTO();
                 ChartViewFieldDTO chartViewFieldDTO = view.getExtTooltip().get(ii);
-                BigDecimal value = StringUtils.isEmpty(row[ii + (size - extSize) + view.getExtLabel().size()]) ? null : new BigDecimal(row[ii + (size - extSize) + view.getExtLabel().size()]);
+                String raw = row[ii + (size - extSize) + view.getExtLabel().size()];
+                if (StringUtils.isNotEmpty(raw)) {
+                    try {
+                        valueDTO.setValue(new BigDecimal(raw));
+                    } catch (NumberFormatException e) {
+                        valueDTO.setStringValue(raw);
+                    }
+                }
                 valueDTO.setFieldId(chartViewFieldDTO.getId());
-                valueDTO.setValue(value);
                 dynamicTooltipValue.add(valueDTO);
             }
         }

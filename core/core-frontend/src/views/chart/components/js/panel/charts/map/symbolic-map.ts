@@ -12,10 +12,10 @@ import {
   parseJson,
   svgStrToUrl
 } from '@/views/chart/components/js/util'
-import { deepCopy } from '@/utils/utils'
+import { deepCopy, isMobile } from '@/utils/utils'
 import { Scene } from '@antv/l7-scene'
 import { PointLayer } from '@antv/l7-layers'
-import { LayerPopup, Popup } from '@antv/l7'
+import { LayerPopup } from '@antv/l7'
 import {
   getMapCenter,
   getMapScene,
@@ -155,6 +155,11 @@ export class SymbolicMap extends L7ChartView<Scene, L7Config> {
       chart.container = container
       configCarouselTooltip(chart, symbolicLayer, symbolicLayer.sourceOption.data, scene)
       qqMapRendered(scene)
+      // 提高tooltip层级，避免被地图覆盖
+      const containerElement = document.getElementById(container)
+      containerElement
+        ?.querySelectorAll<HTMLElement>('.l7-marker-container')
+        .forEach(el => (el.style.zIndex = '3'))
     })
     symbolicLayer.on('click', ev => {
       const data = ev.feature
@@ -496,25 +501,9 @@ export class SymbolicMap extends L7ChartView<Scene, L7Config> {
           }
         })
       }
-      pointLayer.on('touchend', e => {
-        if (e.lngLat) {
-          const fieldData = {
-            ...e.feature,
-            ...Object.fromEntries(this.mergeDetailsToMap(e.feature.details ?? []))
-          }
-          const content = this.buildTooltipContent(tooltip, fieldData, showFields)
-          const popup = new Popup({
-            lngLat: e.lngLat,
-            title: '',
-            closeButton: false,
-            closeOnClick: true,
-            html: `${htmlPrefix}${content}${htmlSuffix}`
-          })
-          scene.addPopup(popup)
-        }
-      })
-      return new LayerPopup({
-        anchor: 'top-left',
+      const mobile = isMobile()
+      const layerPopup = new LayerPopup({
+        ...(mobile ? {} : { anchor: 'top-left' }),
         className: 'l7-popup-' + container,
         items: [
           {
@@ -529,8 +518,11 @@ export class SymbolicMap extends L7ChartView<Scene, L7Config> {
             }
           }
         ],
-        trigger: 'hover'
+        trigger: mobile ? 'touchend' : 'hover'
       })
+      // 触摸显示tooltip
+      pointLayer.on('touchend', e => e.lngLat && layerPopup.setLnglat(e.lngLat))
+      return layerPopup
     }
     return undefined
   }

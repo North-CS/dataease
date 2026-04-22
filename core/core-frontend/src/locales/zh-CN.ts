@@ -94,7 +94,8 @@ export default {
     filter: '筛选',
     filter_condition: '筛选条件',
     no_auth_tips: '缺少菜单权限，请联系管理员',
-    no_menu_tips: '未找到资源 401错误'
+    no_menu_tips: '未找到资源 401错误',
+    refresh_success: '刷新成功'
   },
   toolbox: {
     name: '工具箱',
@@ -306,6 +307,7 @@ export default {
     time_function: '时间函数',
     customize: '自定义',
     that_day: '当天',
+    previous_day: '前一天',
     timestamp: '当前时间（时间戳）',
     value: '值',
     name_use_parameters: "可用${'{'}参数名{'}'}，使用参数",
@@ -713,7 +715,7 @@ export default {
     dashboard_configuration: '仪表板配置',
     to_mobile_layout: '切换至移动端布局',
     complete: '完成',
-    pager_color: '分页器配色',
+    pager_color: '分页器',
     title_horizontal_position: '标题水平位置',
     title_display_position: '标题显示位置',
     title_color: '标题颜色',
@@ -731,6 +733,9 @@ export default {
     to_delete_variable: '确定删除 {0} 吗?'
   },
   user: {
+    my: '我的',
+    switch_organization: '切换组织',
+    logout: '注销',
     change_password: '修改密码',
     select_users: '请选择用户',
     account: '账号',
@@ -891,6 +896,7 @@ export default {
       user_source: '用户来源',
       user_label: '用户标签',
       user_email: '邮箱',
+      user_phone: '手机号',
       dept: '组织',
       role: '角色'
     },
@@ -1565,6 +1571,7 @@ export default {
     chart_scatter_bubble: '气泡图',
     chart_scatter: '散点图',
     bubble_size: '气泡大小',
+    lightness: '明暗',
     chart_treemap: '矩形树图',
     drill: '钻取',
     drag_block_treemap_label: '色块标签',
@@ -2097,7 +2104,8 @@ export default {
     liquid_show_border: '显示边框',
     liquid_border_width: '边框宽度',
     liquid_border_distance: '边框间距',
-    top_n_label_tip: '请勿和扇区标签字段数据值重复，否则会导致显示异常'
+    top_n_label_tip: '请勿和扇区标签字段数据值重复，否则会导致显示异常',
+    used_global_map_mapping: '使用全局地名映射'
   },
   dataset: {
     field_value: '字段值',
@@ -3281,6 +3289,9 @@ export default {
     panel_background: '仪表板背景',
     component_color: '组件配色',
     chart_title: '图表标题',
+    chart_label: '图表标签',
+    chart_tooltip: '图表提示',
+    chart_tooltip_bg_color: '背景颜色',
     filter_component: '查询组件',
     enable_refresh_view: '开启刷新',
     enable_view_loading: '图表加载提示',
@@ -4157,6 +4168,11 @@ export default {
     instance_title: '任务日志',
     add_task: '添加任务',
     lark_groups: '飞书群',
+    dingtalk_groups: '钉钉群',
+    dingtalk_groups_tips: '先创建应用机器人并添加到群里',
+    robot_code_place: '默认与 APP Key一致',
+    click_add_chat: '请点击下方按钮添加群聊',
+    add_chat_tips: '仅支持 admin 关联账号在客户端使用',
     larksuite_groups: '国际飞书群',
     send_setting: '发送设置',
     retrying_settings: '发送失败重试设置',
@@ -4528,6 +4544,7 @@ export default {
     notification_user: '通知人',
     notification_email: '邮件通知',
     please_enter_email: '请输入邮箱，回车确认',
+    please_choose_dingtalk_group: '请选择钉钉群',
     please_choose_lark_group: '请选择飞书群',
     notification_content: '通知内容',
     default_msg: '默认消息',
@@ -4666,6 +4683,13 @@ export default {
   },
   security: {
     title: '安全设置'
+  },
+  setting_hmac: {
+    title: 'HMAC 设置',
+    enable: '启用 HMAC 认证',
+    clock_skew: '时钟偏差',
+    clock_skew_tips: '单位：秒，默认为300，即允许请求时间与服务器时间相差5分钟',
+    clock_skew_range: '时钟偏差范围为 1-{0} 秒'
   },
   setting_mfa: {
     title: 'MFA 设置',

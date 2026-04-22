@@ -120,7 +120,7 @@ public class DeSqlparserUtils {
                     } else {
                         value = handleSubstitutedSql(sysVariableId);
                     }
-                    if (value != null) {
+                    if (StringUtils.isNotEmpty(value)) {
                         sqlItem = sqlItem.replace(SysParamsSubstitutedParams + sysVariableId, value);
                         replaceParamItem = true;
                     }
@@ -181,7 +181,7 @@ public class DeSqlparserUtils {
     }
 
     private static boolean isParams(String paramId) {
-        if (Arrays.asList("sysParams.userId", "sysParams.userEmail", "sysParams.userName").contains(paramId)) {
+        if (Arrays.asList("sysParams.userId", "sysParams.userEmail", "sysParams.userName", "sysParams.userPhone").contains(paramId)) {
             return true;
         }
         boolean isLong = false;
@@ -240,6 +240,9 @@ public class DeSqlparserUtils {
             }
             if (sysVariableId.equalsIgnoreCase("sysParams.userName")) {
                 return userEntity.getName();
+            }
+            if (sysVariableId.equalsIgnoreCase("sysParams.userPhone")) {
+                return userEntity.getPhone();
             }
             for (SysVariableValueItem variable : userEntity.getVariables()) {
                 if (!variable.isValid()) {

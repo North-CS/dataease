@@ -93,7 +93,8 @@ export default {
     filter: '篩選',
     filter_condition: '篩選條件',
     no_auth_tips: '缺少選單權限，請聯絡管理員',
-    no_menu_tips: '未找到資源401錯誤'
+    no_menu_tips: '未找到資源401錯誤',
+    refresh_success: '刷新成功'
   },
   toolbox: {
     name: '工具箱',
@@ -305,6 +306,7 @@ export default {
     time_function: '時間函數',
     customize: '自訂',
     that_day: '當天',
+    previous_day: '前一天',
     timestamp: '當前時間（時間戳）',
     value: '值',
     name_use_parameters: "可用${'{'}參數名稱{'}'}，使用參數",
@@ -710,7 +712,7 @@ export default {
     dashboard_configuration: '儀表板配置',
     to_mobile_layout: '切換至行動裝置佈局',
     complete: '完成',
-    pager_color: '分頁器配色',
+    pager_color: '分頁器',
     title_horizontal_position: '標題水平位置',
     title_display_position: '標題顯示位置',
     title_color: '標題顏色',
@@ -728,6 +730,9 @@ export default {
     to_delete_variable: '確定刪除 {0} 嗎?'
   },
   user: {
+    my: '我的',
+    switch_organization: '切換組織',
+    logout: '登出',
     change_password: '修改密碼',
     select_users: '請選擇使用者',
     account: '帳號',
@@ -889,6 +894,7 @@ export default {
       user_source: '使用者來源',
       user_label: '使用者標籤',
       user_email: '信箱',
+      user_phone: '手機號',
       dept: '組織',
       role: '角色'
     },
@@ -1560,6 +1566,7 @@ export default {
     chart_scatter_bubble: '氣泡圖',
     chart_scatter: '散佈圖',
     bubble_size: '氣泡大小',
+    lightness: '明暗',
     chart_treemap: '矩形樹圖',
     drill: '鑽取',
     drag_block_treemap_label: '色塊標籤',
@@ -2091,7 +2098,8 @@ export default {
     liquid_show_border: '顯示邊框',
     liquid_border_width: '邊框寬度',
     liquid_border_distance: '邊框間距',
-    top_n_label_tip: '請勿與扇區標籤欄位的數據值重複，否則會導致顯示異常。'
+    top_n_label_tip: '請勿與扇區標籤欄位的數據值重複，否則會導致顯示異常。',
+    used_global_map_mapping: '使用全域地名對應'
   },
   dataset: {
     field_value: '欄位值',
@@ -3276,6 +3284,9 @@ export default {
     panel_background: '儀表板背景',
     component_color: '組件配色',
     chart_title: '圖表標題',
+    chart_label: '圖表標籤',
+    chart_tooltip: '圖表提示',
+    chart_tooltip_bg_color: '背景顏色',
     filter_component: '查詢組件',
     enable_refresh_view: '開啟刷新',
     enable_view_loading: '圖表加載提示',
@@ -4153,6 +4164,11 @@ export default {
     instance_title: '任務日誌',
     add_task: '新增任務',
     lark_groups: '飛書群',
+    dingtalk_groups: '釘釘群',
+    dingtalk_groups_tips: '先建立應用機器人並添加到群裡',
+    robot_code_place: '默認與 APP Key一致',
+    click_add_chat: '請點擊下方按鈕添加群聊',
+    add_chat_tips: '僅支持 admin 關聯帳號在客戶端使用',
     larksuite_groups: '國際飛書群',
     send_setting: '發送設定',
     retrying_settings: '發送失敗重試設定',
@@ -4519,6 +4535,7 @@ export default {
     notification_user: '通知人',
     notification_email: '郵件通知',
     please_enter_email: '請輸入郵箱，回車確認',
+    please_choose_dingtalk_group: '請選擇釘釘群',
     please_choose_lark_group: '請選擇飛書群',
     notification_content: '通知內容',
     default_msg: '默認消息',
@@ -4657,6 +4674,13 @@ export default {
   },
   security: {
     title: '安全設置'
+  },
+  setting_hmac: {
+    title: 'HMAC 設定',
+    enable: '啟用 HMAC 認證',
+    clock_skew: '時鐘偏差',
+    clock_skew_tips: '單位：秒，默認為300，即允許請求時間與伺服器時間相差5分鐘',
+    clock_skew_range: '時鐘偏差範圍為 1-{0} 秒'
   },
   setting_mfa: {
     title: 'MFA 設置',

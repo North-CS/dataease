@@ -13,7 +13,6 @@ import io.dataease.dataset.manage.PermissionManage;
 import io.dataease.dataset.utils.DatasetUtils;
 import io.dataease.engine.sql.SQLProvider;
 import io.dataease.engine.trans.*;
-import io.dataease.engine.utils.SQLUtils;
 import io.dataease.engine.utils.Utils;
 import io.dataease.exception.DEException;
 import io.dataease.extensions.datasource.api.PluginManageApi;
@@ -157,12 +156,17 @@ public class ChartDataManage {
 
                 boolean hasParameters = false;
                 if (CollectionUtils.isNotEmpty(sqlVariables)) {
-                    for (SqlVariableDetails parameter : Optional.ofNullable(request.getParameters()).orElse(new ArrayList<>())) {
-                        String parameterId = StringUtils.endsWith(parameter.getId(), START_END_SEPARATOR) ? parameter.getId().split(START_END_SEPARATOR)[0] : parameter.getId();
-                        if (sqlVariables.stream().map(SqlVariableDetails::getId).collect(Collectors.toList()).contains(parameterId)) {
-                            hasParameters = true;
+                    if(fieldId.indexOf("|DE|")>-1){
+                        hasParameters = true;
+                    }else{
+                        for (SqlVariableDetails parameter : Optional.ofNullable(request.getParameters()).orElse(new ArrayList<>())) {
+                            String parameterId = StringUtils.endsWith(parameter.getId(), START_END_SEPARATOR) ? parameter.getId().split(START_END_SEPARATOR)[0] : parameter.getId();
+                            if (sqlVariables.stream().map(SqlVariableDetails::getId).collect(Collectors.toList()).contains(parameterId)) {
+                                hasParameters = true;
+                            }
                         }
                     }
+
                 }
 
                 if (hasParameters) {
@@ -345,14 +349,12 @@ public class ChartDataManage {
 
         formatResult.getContext().put("drillAxis", drillAxis);
 
-        //转义特殊字符
+        // 保存原始值，不再在此处预转义，由后面的 sanitizeSqlLiteral 统一负责转义
         extFilterList.forEach(ele -> {
             if (ObjectUtils.isNotEmpty(ele.getValue())) {
-                List<String> collect = ele.getValue().stream().map(SQLUtils::transKeyword).collect(Collectors.toList());
                 if (CollectionUtils.isEmpty(ele.getOriginValue())) {
                     ele.setOriginValue(ele.getValue());
                 }
-                ele.setValue(collect);
             }
         });
         // 视图自定义过滤逻辑
@@ -368,7 +370,6 @@ public class ChartDataManage {
             fieldCustomFilter = customLinkageFilter;
         }
         chartFilterTreeService.searchFieldAndSet(fieldCustomFilter);
-        fieldCustomFilter = chartFilterTreeService.charReplace(fieldCustomFilter);
         // 获取dsMap,union sql
         Map<String, Object> sqlMap = datasetSQLManage.getUnionSQLForEdit(table, chartExtRequest);
         String sql = (String) sqlMap.get("sql");
@@ -763,6 +764,12 @@ public class ChartDataManage {
                 Dimension2SQLObj.dimension2sqlObj(sqlMeta, xFields, transFields(allFields), crossDs, dsMap, Utils.getParams(transFields(allFields)), view.getCalParams(), pluginManage);
                 Quota2SQLObj.quota2sqlObj(sqlMeta, yAxis, transFields(allFields), crossDs, dsMap, Utils.getParams(transFields(allFields)), view.getCalParams(), pluginManage);
                 querySql = SQLProvider.createQuerySQL(sqlMeta, true, needOrder, view);
+            } else if (StringUtils.equalsIgnoreCase(view.getType(), "multi-scatter")) {
+                List<ChartViewFieldDTO> allDimFields = new ArrayList<>();
+                allDimFields.addAll(xAxis);
+                allDimFields.addAll(yAxis);
+                Dimension2SQLObj.dimension2sqlObj(sqlMeta, allDimFields, transFields(allFields), crossDs, dsMap, Utils.getParams(transFields(allFields)), view.getCalParams(), pluginManage);
+                querySql = SQLProvider.createQuerySQL(sqlMeta, false, needOrder, view);
             } else if (StringUtils.containsIgnoreCase(view.getType(), "scatter")) {
                 List<ChartViewFieldDTO> yFields = new ArrayList<>();
                 yFields.addAll(yAxis);

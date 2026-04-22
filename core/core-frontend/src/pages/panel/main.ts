@@ -32,9 +32,9 @@ const getPrefix = (): string => {
       } else if (ele instanceof HTMLScriptElement) {
         url = ele.src
       }
-      if (url.includes(suffix)) {
+      if (url.includes('0.0.0-dataease')) {
         prefix = new URL(url).origin
-        const index = url.indexOf(`/js/div_import_${suffix}`)
+        const index = url.indexOf(`/js/div_import_0.0.0-dataease`)
         if (index > 0) {
           prefix = url.substring(0, index)
         }

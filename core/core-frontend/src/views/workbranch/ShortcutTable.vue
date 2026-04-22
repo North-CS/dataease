@@ -282,7 +282,7 @@ const getEmptyDesc = (): string => {
 
 <template>
   <div
-    class="dashboard-type"
+    class="dashboard-type border-radius-12"
     :class="expand && 'expand'"
     v-if="tablePaneList.length"
     v-loading="loading"
@@ -516,10 +516,10 @@ const getEmptyDesc = (): string => {
 
 <style lang="less" scoped>
 .dashboard-type {
-  padding: 8px 24px 0 24px;
+  padding: 8px 24px 24px 24px;
   background: #fff;
-  border-radius: 4px;
-  height: calc(100% - 280px);
+  border-radius: 6px;
+  min-height: calc(100% - 280px);
   margin-top: 16px;
 
   .select-type-list {
@@ -580,7 +580,7 @@ const getEmptyDesc = (): string => {
       font-size: 18px;
       padding: 3px;
       margin-right: 12px;
-      border-radius: 4px;
+      border-radius: 6px;
       color: #fff;
     }
     .name-star {

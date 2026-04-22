@@ -237,7 +237,7 @@ onBeforeMount(() => {
 }
 
 .preview {
-  border-radius: 4px;
+  border-radius: 6px;
   width: 100%;
   height: 100% !important;
   overflow: hidden;
@@ -482,13 +482,13 @@ span {
 
 .outer-content {
   height: 340px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .padding-lr {
   height: 500px;
   border: 1px solid var(--deCardStrokeColor, #dee0e3);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px;
   box-sizing: border-box;
   margin-left: 12px;
@@ -519,8 +519,8 @@ span {
   color: var(--deTextDisable);
 }
 .outer-content-mirror {
-  border: 1px solid #bbbfc4;
-  border-radius: 4px;
+  border: 1px solid #d9dcdf;
+  border-radius: 6px;
   height: 100%;
   overflow: hidden;
 }

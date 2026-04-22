@@ -52,6 +52,15 @@ export const DEFAULT_COLOR_CASE: DeepPartial<ChartAttr> = {
     tableItemBgColor: '#FFFFFF',
     tableFontColor: '#000000',
     tableItemSubBgColor: '#EEEEEE'
+  },
+  label: {
+    color: '#000000',
+    fontSize: 12
+  },
+  tooltip: {
+    color: '#000000',
+    fontSize: 12,
+    backgroundColor: '#FFFFFF'
   }
 }
 
@@ -104,6 +113,15 @@ export const DEFAULT_COLOR_CASE_LIGHT: DeepPartial<ChartAttr> = {
     tableItemBgColor: '#FFFFFF',
     tableFontColor: '#000000',
     tableItemSubBgColor: '#1E90FF'
+  },
+  label: {
+    color: '#000000',
+    fontSize: 12
+  },
+  tooltip: {
+    color: '#000000',
+    fontSize: 12,
+    backgroundColor: '#FFFFFF'
   }
 }
 
@@ -155,6 +173,15 @@ export const DEFAULT_COLOR_CASE_DARK: DeepPartial<ChartAttr> = {
     tableItemBgColor: '#131E42',
     tableFontColor: '#ffffff',
     tableItemSubBgColor: '#1E90FF'
+  },
+  label: {
+    color: '#FFFFFF',
+    fontSize: 12
+  },
+  tooltip: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    backgroundColor: '#5A5C62'
   }
 }
 
@@ -179,13 +206,15 @@ export const TAB_COMMON_STYLE_DARK = {
 export const SENIOR_STYLE_SETTING_LIGHT = {
   linkageIconColor: '#a6a6a6',
   drillLayerColor: '#a6a6a6',
-  pagerColor: '#a6a6a6'
+  pagerColor: '#a6a6a6',
+  pagerSize: 14
 }
 
 export const SENIOR_STYLE_SETTING_DARK = {
   linkageIconColor: '#ffffff',
   drillLayerColor: '#ffffff',
-  pagerColor: '#ffffff'
+  pagerColor: '#ffffff',
+  pagerSize: 14
 }
 
 export const FILTER_COMMON_STYLE_BASE = {
@@ -1584,6 +1613,13 @@ export const CHART_TYPE_CONFIGS = [
         value: 'circle-packing',
         title: t('chart.chart_circle_packing'),
         icon: 'circle-packing'
+      },
+      {
+        render: 'antv',
+        category: 'distribute',
+        value: 'multi-scatter',
+        title: '多维散点图',
+        icon: 'multi-scatter'
       }
     ]
   },

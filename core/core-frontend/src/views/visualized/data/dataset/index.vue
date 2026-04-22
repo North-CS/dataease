@@ -1197,7 +1197,7 @@ const proxyAllowDrop = throttle((arg1, arg2) => {
     height: 200px;
     width: 100%;
     padding: 16px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid var(--deBorderBase, #dcdfe6);
     overflow: auto;
 
@@ -1208,10 +1208,10 @@ const proxyAllowDrop = throttle((arg1, arg2) => {
   }
 }
 .filter-icon-span {
-  border: 1px solid #bbbfc4;
+  border: 1px solid #d9dcdf;
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: 6px;
   color: #1f2329;
   padding: 8px;
   margin-left: 8px;
@@ -1301,7 +1301,7 @@ const proxyAllowDrop = throttle((arg1, arg2) => {
               position: absolute;
               top: 50%;
               left: 50%;
-              border-radius: 4px;
+              border-radius: 6px;
               transform: translate(-50%, -50%);
             }
           }
@@ -1392,7 +1392,7 @@ const proxyAllowDrop = throttle((arg1, arg2) => {
       padding: 24px;
       margin: 24px;
       background: #fff;
-      border-radius: 4px;
+      border-radius: 6px;
       height: calc(100% - 138px);
     }
 

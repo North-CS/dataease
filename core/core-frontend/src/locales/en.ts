@@ -96,7 +96,8 @@ export default {
     filter: 'Filter',
     filter_condition: 'Filter condition',
     no_auth_tips: 'Missing menu permissions, please contact the administrator',
-    no_menu_tips: 'Resource not found 401 error'
+    no_menu_tips: 'Resource not found 401 error',
+    refresh_success: 'Refresh success'
   },
   toolbox: {
     name: 'Toolbox',
@@ -316,6 +317,7 @@ export default {
     time_function: 'Time function',
     customize: 'Customize',
     that_day: 'That day',
+    previous_day: 'Previous day',
     timestamp: 'current time (timestamp)',
     value: 'Value',
     name_use_parameters: "You can use ${'{'}parameter name{'}'}, use parameters",
@@ -735,7 +737,7 @@ export default {
     dashboard_configuration: 'Dashboard configuration',
     to_mobile_layout: 'Switch to mobile layout',
     complete: 'Complete',
-    pager_color: 'Pager color',
+    pager_color: 'Pager',
     title_horizontal_position: 'Title horizontal position',
     title_display_position: 'Title display position',
     title_color: 'Title color',
@@ -753,6 +755,9 @@ export default {
     to_delete_variable: 'Are you sure you want to delete {0}?'
   },
   user: {
+    my: 'My',
+    switch_organization: 'Switch Organization',
+    logout: 'Logout',
     change_password: 'Change Password',
     select_users: 'Please select a user',
     account: 'Account',
@@ -919,6 +924,7 @@ export default {
       user_source: 'Origin',
       user_label: 'User label',
       user_email: 'Email',
+      user_phone: 'Mobile phone',
       dept: 'Organization',
       role: 'Role'
     },
@@ -1600,6 +1606,7 @@ export default {
     chart_scatter_bubble: 'Bubble chart',
     chart_scatter: 'Scatter chart',
     bubble_size: 'Bubble size',
+    lightness: 'Lightness',
     chart_treemap: 'Rectangular treemap',
     drill: 'Drill',
     drag_block_treemap_label: 'Block label',
@@ -2151,7 +2158,8 @@ export default {
     liquid_border_width: 'Border Width',
     liquid_border_distance: 'Border Distance',
     top_n_label_tip:
-      'Do not duplicate the data value of the sector label field, otherwise it will cause display abnormalities.'
+      'Do not duplicate the data value of the sector label field, otherwise it will cause display abnormalities.',
+    used_global_map_mapping: 'Use global place mapping'
   },
   dataset: {
     field_value: 'Field Value',
@@ -3369,6 +3377,9 @@ export default {
     panel_background: 'Dashboard Background',
     component_color: 'Component Color',
     chart_title: 'Chart Title',
+    chart_label: 'Chart Label',
+    chart_tooltip: 'Chart Tooltip',
+    chart_tooltip_bg_color: 'Background Color',
     filter_component: 'Query',
     enable_refresh_view: 'Enable Refresh',
     enable_view_loading: 'Chart Loading Prompt',
@@ -4272,6 +4283,11 @@ export default {
     instance_title: 'Task log',
     add_task: 'Add task',
     lark_groups: 'Lark group',
+    dingtalk_groups: ' Dingtalk group',
+    dingtalk_groups_tips: 'Create an application robot first and add it to the group',
+    robot_code_place: 'Defaults to the same as APP Key',
+    click_add_chat: 'Please click the button below to add a group chat',
+    add_chat_tips: 'Only supports admin-associated accounts using the client',
     larksuite_groups: 'Larksuite group',
     send_setting: 'Send settings',
     retrying_settings: 'Send failed retry settings',
@@ -4651,6 +4667,7 @@ export default {
     notification_user: 'Notifier',
     notification_email: 'Email notification',
     please_enter_email: 'Please enter email, press Enter to confirm',
+    please_choose_dingtalk_group: 'Please select dingtalk group',
     please_choose_lark_group: 'Please select lark group',
     notification_content: 'Notification content',
     default_msg: 'Default message',
@@ -4801,6 +4818,14 @@ export default {
   },
   security: {
     title: 'Security Settings'
+  },
+  setting_hmac: {
+    title: 'HMAC Settings',
+    enable: 'Enable HMAC Authentication',
+    clock_skew: 'Clock skew',
+    clock_skew_tips:
+      'Unit: seconds, default is 300, which allows a time difference of up to 5 minutes between the request time and server time',
+    clock_skew_range: 'Clock skew range is 1-{0} seconds'
   },
   setting_mfa: {
     title: 'MFA Settings',

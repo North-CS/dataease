@@ -269,7 +269,7 @@ const initOpenHandler = newWindow => {
       methodName: 'initOpenHandler',
       args: newWindow
     }
-    openHandler.value.invokeMethod(pm)
+    openHandler.value?.invokeMethod(pm)
   }
 }
 
@@ -305,7 +305,7 @@ loadShareBase()
 <template>
   <div class="workbranch" v-loading="requestStore.loadingMap[permissionStore.currentPath]">
     <div class="info-quick-creation">
-      <div class="user-info">
+      <div class="user-info border-radius-12">
         <el-icon class="main-color user-icon-container">
           <Icon name="user-img"><userImg class="svg-icon" /></Icon>
         </el-icon>
@@ -331,12 +331,12 @@ loadShareBase()
         </div>
       </div>
 
-      <div class="quick-creation">
+      <div class="quick-creation border-radius-12">
         <span class="label"> {{ t('work_branch.create_quickly') }} </span>
         <div class="item-creation">
           <div
             :key="ele.name"
-            class="item"
+            class="item border-radius-12"
             :class="{
               'quick-create-disabled': !ele['menuAuth'] || !ele['anyManage']
             }"
@@ -360,7 +360,7 @@ loadShareBase()
             </span>
           </div>
           <div
-            class="item item-quick"
+            class="item item-quick border-radius-12"
             :class="{
               'quick-create-disabled': !(havePanelAuth || haveScreenAuth)
             }"
@@ -384,59 +384,64 @@ loadShareBase()
       </div>
     </div>
     <div class="template-market-dashboard">
-      <div class="template-market" :style="{ paddingBottom: expandFold !== 'fold' ? '24px' : 0 }">
-        <div class="label">
-          {{ t('work_branch.template_center') }}
-          <div class="expand-all">
-            <button class="all flex-center" @click="toTemplateMarket">
-              {{ t('work_branch.view_all') }}
-            </button>
-            <el-divider direction="vertical" />
-            <button @click="handleExpandFold" class="expand flex-center">
-              {{ t(`visualization.${expandFold}`) }}
-            </button>
+      <el-scrollbar style="height: 100%">
+        <div
+          class="template-market border-radius-12"
+          :style="{ paddingBottom: expandFold !== 'fold' ? '24px' : 0 }"
+        >
+          <div class="label">
+            {{ t('work_branch.template_center') }}
+            <div class="expand-all">
+              <button class="all flex-center" @click="toTemplateMarket">
+                {{ t('work_branch.view_all') }}
+              </button>
+              <el-divider direction="vertical" />
+              <button @click="handleExpandFold" class="expand flex-center">
+                {{ t(`visualization.${expandFold}`) }}
+              </button>
+            </div>
           </div>
+          <template v-if="expandFold === 'fold'">
+            <div class="tab-btn">
+              <div
+                v-for="ele in tabBtnList"
+                :key="ele.value"
+                :class="activeTabBtn === ele.value && 'active'"
+                @click="activeTabChange(ele.value)"
+                class="main-btn"
+              >
+                {{ ele.name }}
+              </div>
+            </div>
+            <div class="template-list" v-show="state.networkStatus && state.hasResult">
+              <template-branch-item
+                v-for="(template, index) in state.marketTemplatePreviewShowList"
+                v-show="template['showFlag']"
+                :key="index"
+                :template="template"
+                :base-url="state.baseUrl"
+                :create-auth="createAuth"
+                @templateApply="templateApply"
+                @templatePreview="templatePreview"
+              >
+              </template-branch-item>
+            </div>
+            <el-row v-show="state.networkStatus && !state.hasResult" class="template-empty">
+              <div style="text-align: center">
+                <Icon name="no_result" class="no-result"
+                  ><no_result class="svg-icon no-result"
+                /></Icon>
+                <br />
+                <span class="no-result-tips">{{ t('work_branch.relevant_templates_found') }}</span>
+              </div>
+            </el-row>
+            <el-row v-show="!state.networkStatus" class="template-empty">
+              {{ t('visualization.market_network_tips', [state.baseUrl]) }}
+            </el-row>
+          </template>
         </div>
-        <template v-if="expandFold === 'fold'">
-          <div class="tab-btn">
-            <div
-              v-for="ele in tabBtnList"
-              :key="ele.value"
-              :class="activeTabBtn === ele.value && 'active'"
-              @click="activeTabChange(ele.value)"
-              class="main-btn"
-            >
-              {{ ele.name }}
-            </div>
-          </div>
-          <div class="template-list" v-show="state.networkStatus && state.hasResult">
-            <template-branch-item
-              v-for="(template, index) in state.marketTemplatePreviewShowList"
-              v-show="template['showFlag']"
-              :key="index"
-              :template="template"
-              :base-url="state.baseUrl"
-              :create-auth="createAuth"
-              @templateApply="templateApply"
-              @templatePreview="templatePreview"
-            >
-            </template-branch-item>
-          </div>
-          <el-row v-show="state.networkStatus && !state.hasResult" class="template-empty">
-            <div style="text-align: center">
-              <Icon name="no_result" class="no-result"
-                ><no_result class="svg-icon no-result"
-              /></Icon>
-              <br />
-              <span class="no-result-tips">{{ t('work_branch.relevant_templates_found') }}</span>
-            </div>
-          </el-row>
-          <el-row v-show="!state.networkStatus" class="template-empty">
-            {{ t('visualization.market_network_tips', [state.baseUrl]) }}
-          </el-row>
-        </template>
-      </div>
-      <shortcut-table :expand="expandFold === 'expand'" />
+        <shortcut-table :expand="expandFold === 'expand'" />
+      </el-scrollbar>
     </div>
     <de-resource-create-opt-v2 ref="resourceCreateOpt"></de-resource-create-opt-v2>
   </div>
@@ -468,7 +473,7 @@ loadShareBase()
     .user-info {
       padding: 24px 16px 16px 16px;
       background: #fff;
-      border-radius: 4px;
+      border-radius: 6px;
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
@@ -552,7 +557,7 @@ loadShareBase()
     }
 
     .quick-creation {
-      border-radius: 4px;
+      border-radius: 6px;
       background: #fff;
       margin-top: 16px;
       padding: 24px;
@@ -575,7 +580,7 @@ loadShareBase()
           padding: 12px;
           width: 150px;
           margin-top: 16px;
-          border-radius: 4px;
+          border-radius: 6px;
           border: 1px solid #dee0e3;
           display: flex;
           align-items: center;
@@ -588,7 +593,7 @@ loadShareBase()
             font-size: 21.33px;
             padding: 5.33px;
             margin-right: 12px;
-            border-radius: 4px;
+            border-radius: 8px;
             color: #fff;
           }
 
@@ -643,12 +648,11 @@ loadShareBase()
 
   .template-market-dashboard {
     width: calc(100% - 376px);
-    height: 100%;
 
     .template-market {
       padding: 24px 24px 0;
       background: #fff;
-      border-radius: 4px;
+      border-radius: 6px;
       .label {
         color: #1f2329;
         font-feature-settings: 'clig' off, 'liga' off;
@@ -665,7 +669,7 @@ loadShareBase()
           font-size: 14px;
           font-weight: 400;
           line-height: 22px;
-          border-radius: 4px;
+          border-radius: 6px;
 
           button {
             cursor: pointer;
@@ -674,7 +678,7 @@ loadShareBase()
           .flex-center {
             padding: 0 4px;
             color: #646a73;
-            border-radius: 4px;
+            border-radius: 6px;
             height: 26px;
             border: none;
             outline: none;
@@ -696,7 +700,7 @@ loadShareBase()
           color: #1f2329;
           cursor: pointer;
           height: 24px;
-          border-radius: 4px;
+          border-radius: 6px;
           background: rgba(31, 35, 41, 0.1);
           display: inline-flex;
           align-items: center;
@@ -724,8 +728,9 @@ loadShareBase()
       .template-list {
         display: flex;
         margin-left: -16px;
-        overflow-x: auto;
-        padding-bottom: 24px;
+        padding-bottom: 8px;
+        width: calc(100vw - 455px);
+        flex-wrap: wrap;
       }
     }
   }

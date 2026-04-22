@@ -259,7 +259,7 @@ export function getTooltip(chart: Chart) {
             const value = valueFormatter(param.value, t.tooltipFormatter)
             return { name: param.field, value }
           },
-          container: getTooltipContainer(`tooltip-${chart.id}`),
+          container: getTooltipContainer(`tooltip-${chart.id}`, chart.container),
           itemTpl: TOOLTIP_TPL,
           enterable: true
         }
@@ -307,14 +307,17 @@ export function getMultiSeriesTooltip(chart: Chart) {
       head.data.dynamicTooltipValue?.forEach(item => {
         const formatter = formatterMap[item.fieldId]
         if (formatter) {
-          const value = valueFormatter(parseFloat(item.value), formatter.formatterCfg)
+          const value =
+            item.value != null
+              ? valueFormatter(parseFloat(item.value), formatter.formatterCfg)
+              : item.stringValue ?? ''
           const name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
           result.push({ color: 'grey', name, value })
         }
       })
       return result
     },
-    container: getTooltipContainer(`tooltip-${chart.id}`),
+    container: getTooltipContainer(`tooltip-${chart.id}`, chart.container),
     itemTpl: TOOLTIP_TPL,
     enterable: true
   }
@@ -1028,7 +1031,10 @@ export function configL7Tooltip(chart: Chart): TooltipOptions {
       head.dynamicTooltipValue?.forEach(item => {
         const formatter = formatterMap[item.fieldId]
         if (formatter) {
-          const value = valueFormatter(parseFloat(item.value), formatter.formatterCfg)
+          const value =
+            item.value != null
+              ? valueFormatter(parseFloat(item.value), formatter.formatterCfg)
+              : item.stringValue ?? ''
           const name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
           result.push({ color: 'grey', name, value: `${value ?? ''}` })
         }
@@ -1056,7 +1062,15 @@ export function configL7Tooltip(chart: Chart): TooltipOptions {
   }
 }
 
-export function handleGeoJson(geoJson: FeatureCollection, nameMapping?: Record<string, string>) {
+export function handleGeoJson(
+  geoJson: FeatureCollection,
+  nameMapping?: Record<string, string>,
+  useGlobalAreaMapping = false
+) {
+  let mapping = nameMapping
+  if (useGlobalAreaMapping && geoJson?.['deMapping']) {
+    mapping = geoJson['deMapping']
+  }
   geoJson?.features.forEach(item => {
     if (!item.properties['centroid']) {
       if (item.properties['center']) {
@@ -1067,8 +1081,8 @@ export function handleGeoJson(geoJson: FeatureCollection, nameMapping?: Record<s
       }
     }
     let name = item.properties['name']
-    if (nameMapping?.[name]) {
-      name = nameMapping[name]
+    if (mapping?.[name]) {
+      name = mapping[name]
       item.properties['name'] = name
     }
   })
@@ -1171,35 +1185,37 @@ export class CustomZoom extends Zoom {
       container,
       this.zoomIn
     )
+    // 抽出重置事件，方便其他事件（移动端触摸）触发
+    const zoomReset = () => {
+      if (this.mapsService.map?.deMapProvider == 'qq') {
+        if (this.mapsService.map.deMapAutoFit) {
+          this.mapsService.setZoomAndCenter(this.mapsService.map.deMapAutoZoom, [
+            this.mapsService.map.deMapAutoLng,
+            this.mapsService.map.deMapAutoLat
+          ])
+        } else {
+          this.mapsService.setZoomAndCenter(
+            this.controlOption['initZoom'],
+            this.controlOption['center']
+          )
+        }
+      } else {
+        if (this.controlOption['bounds']) {
+          this.mapsService.fitBounds(this.controlOption['bounds'], { animate: true })
+        } else {
+          this.mapsService.setZoomAndCenter(
+            this.controlOption['initZoom'],
+            this.controlOption['center']
+          )
+        }
+      }
+    }
     this['zoomResetButton'] = this['createButton'](
       this.controlOption['resetText'],
       'Reset',
       'l7-button-control',
       container,
-      () => {
-        if (this.mapsService.map?.deMapProvider == 'qq') {
-          if (this.mapsService.map.deMapAutoFit) {
-            this.mapsService.setZoomAndCenter(this.mapsService.map.deMapAutoZoom, [
-              this.mapsService.map.deMapAutoLng,
-              this.mapsService.map.deMapAutoLat
-            ])
-          } else {
-            this.mapsService.setZoomAndCenter(
-              this.controlOption['initZoom'],
-              this.controlOption['center']
-            )
-          }
-        } else {
-          if (this.controlOption['bounds']) {
-            this.mapsService.fitBounds(this.controlOption['bounds'], { animate: true })
-          } else {
-            this.mapsService.setZoomAndCenter(
-              this.controlOption['initZoom'],
-              this.controlOption['center']
-            )
-          }
-        }
-      }
+      () => zoomReset()
     )
     if (this.controlOption.showZoom) {
       this['zoomNumDiv'] = this['createButton'](
@@ -1223,6 +1239,13 @@ export class CustomZoom extends Zoom {
     }
     setStyle(elements, 'border-bottom', 'none')
     this['updateDisabled']()
+    // 腾讯地图需要监听移动端的触摸事件
+    if (this.mapsService.map?.deMapProvider === 'qq') {
+      const handlers = [zoomReset, () => this.zoomIn(), () => this.zoomOut()]
+      elements.forEach((el, i) => {
+        el.addEventListener('touchend', handlers[i])
+      })
+    }
   }
   public getDefault(option: Partial<IZoomControlOption>) {
     const { buttonColor } = option as any
@@ -1257,18 +1280,11 @@ export function configL7Zoom(
   if (zoomOption) {
     scene.removeControl(zoomOption)
   }
-  if (shouldHideZoom(basicStyle)) {
-    // 当地图未加载完成时，无法配置控制项，需要监听loaded事件
-    if (!scene.loaded) {
-      scene.once('loaded', () => {
-        updateMapStatusOption(mapKey.mapType, scene, false)
-      })
-    } else {
-      updateMapStatusOption(mapKey.mapType, scene, false)
-    }
+  const hideZoom = shouldHideZoom(basicStyle)
+  onlineMapStatusOption(chart, mapKey?.mapType, scene, !hideZoom)
+  if (hideZoom) {
     return
   }
-  updateMapStatusOption(mapKey.mapType, scene, true)
   if (!scene?.getControlByName('zoom')) {
     if (!scene.map) {
       scene.once('loaded', () => {
@@ -1394,8 +1410,24 @@ export function calculateBounds(coordinates: number[][]): {
   ]
 }
 
+function mobileEv(chart: Chart, plot: L7Plot<PlotOptions>) {
+  if (!isMobile()) return
+  const containerDiv = document.getElementById(chart.container)
+  const active = containerDiv?.getAttribute('de-chart-active') === 'true'
+  const setTouchAction = () => {
+    const sceneEl = plot.scene
+      .getServiceContainer?.()
+      .sceneService?.getSceneContainer() as HTMLElement | null
+    if (sceneEl) {
+      sceneEl.style.pointerEvents = active ? 'none' : 'auto'
+    }
+  }
+  plot.scene.loaded ? setTouchAction() : plot.scene.once('loaded', setTouchAction)
+}
+
 export function configL7PlotZoom(chart: Chart, plot: L7Plot<PlotOptions>) {
   const { basicStyle } = parseJson(chart.customAttr)
+  mobileEv(chart, plot)
   if (shouldHideZoom(basicStyle)) {
     // amap
     plot.scene.map['zoomEnable']?.disable()
@@ -1671,7 +1703,7 @@ function shouldHideZoom(basicStyle: any): boolean {
 }
 
 const G2_TOOLTIP_WRAPPER = 'g2-tooltip-wrapper'
-export function getTooltipContainer(id) {
+export function getTooltipContainer(id, chartContainer?: string) {
   let wrapperDom = document.getElementById(G2_TOOLTIP_WRAPPER)
   if (!wrapperDom) {
     wrapperDom = document.createElement('div')
@@ -1695,6 +1727,14 @@ export function getTooltipContainer(id) {
   g2Tooltip.style.position = 'fixed'
   g2Tooltip.style.left = '0px'
   g2Tooltip.style.top = '0px'
+  if (chartContainer) {
+    const chartDom = document.getElementById(chartContainer)
+    if (chartDom) {
+      const rect = chartDom.getBoundingClientRect()
+      g2Tooltip.style.left = rect.x + 'px'
+      g2Tooltip.style.top = rect.y + 'px'
+    }
+  }
   const g2TooltipTitle = document.createElement('div')
   g2TooltipTitle.classList.add('g2-tooltip-title')
   g2Tooltip.appendChild(g2TooltipTitle)
@@ -1824,21 +1864,35 @@ export function configPlotTooltipEvent<O extends PickOptions, P extends Plot<O>>
     plot.options.tooltip.showMarkers = isCarousel ? true : false
     const wrapperDom = document.getElementById(G2_TOOLTIP_WRAPPER)
     wrapperDom.style.zIndex = isCarousel && wrapperDom ? carousel_zIndex : '9999'
-    if (tooltipCtl.tooltip) {
-      // 处理视图放大后再关闭 tooltip 的 dom 被清除
-      const container = tooltipCtl.tooltip.cfg.container
+    // 处理视图放大后再关闭 tooltip 的 dom 被清除
+    const container = plot.chart.getOptions().tooltip?.container
+    if (container) {
       // 当下拉菜单不显示时，移除tooltip的hidden-tooltip样式
       if (viewTrackBarElement?.getAttribute('aria-expanded') === 'false') {
         container.classList.toggle('hidden-tooltip', false)
       }
       container.style.display = 'block'
-      const dom = document.getElementById(container.id)
+      let dom = document.getElementById(container.id)
+      if (dom?.style.display === 'none') {
+        dom = undefined
+      }
       if (!dom) {
         const full = document.getElementsByClassName('fullscreen')
         if (full.length) {
           full.item(0).appendChild(container)
         } else {
           const wrapperDom = document.getElementById(G2_TOOLTIP_WRAPPER)
+          const existing = document.querySelectorAll(`#${container.id}`)
+          // 移除所有不是当前 container 的同 id 元素
+          existing.forEach(el => {
+            if (el !== container) {
+              el.parentNode?.removeChild(el)
+            }
+          })
+          if (event) {
+            container.style.left = event.clientX + 'px'
+            container.style.top = event.clientY + 'px'
+          }
           wrapperDom.appendChild(container)
         }
       }
@@ -1872,7 +1926,7 @@ export function configPlotTooltipEvent<O extends PickOptions, P extends Plot<O>>
       if (!tooltipCtl) {
         return
       }
-      const container = tooltipCtl.tooltip?.cfg.container
+      const container = plot.chart.getOptions().tooltip?.container
       for (const ele of wrapperDom.children) {
         if (!container || container.id !== ele.id) {
           ele.style.display = 'none'
@@ -2077,6 +2131,83 @@ export function configAxisLabelLengthLimit(chart, plot, triggerObjName = 'axis-l
 
     // 如果 tooltip 存在，隐藏它
     if (labelTooltipDom) labelTooltipDom.style.visibility = 'hidden'
+  })
+}
+
+export function configXAxisLengthLimit(chart: any, chartObj: any): void {
+  const xAxis = parseJson(chart.customStyle).xAxis
+  if (!xAxis.show || !xAxis.axisLabel?.show) {
+    return
+  }
+  let hideTimer
+  const { tooltip } = parseJson(chart.customAttr)
+  chartObj?.on('axis-label:mousemove', e => {
+    const showText = e.target?.attrs?.text
+    if (!showText?.endsWith('...')) {
+      return
+    }
+    hideTimer && clearTimeout(hideTimer)
+    const originText = e.target?.cfg?.delegateObject?.item?.name
+    const parentContainer: HTMLDivElement = e.view?.ele
+    let axisLabelDom = parentContainer.getElementsByClassName(
+      'g2-axis-label-tooltip'
+    )[0] as HTMLDivElement
+    if (!axisLabelDom) {
+      axisLabelDom = document.createElement('div')
+      _.merge(axisLabelDom.style, {
+        left: '0px',
+        top: '0px',
+        display: 'none',
+        position: 'absolute',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        zIndex: '1',
+        cursor: 'default',
+        pointerEvents: 'none',
+        transition:
+          'left 0.4s cubic-bezier(0.23, 1, 0.32, 1), top 0.4s cubic-bezier(0.23, 1, 0.32, 1)',
+        boxShadow: 'rgba(0, 0, 0, 0.1) 0px 4px 8px 0px',
+        color: tooltip.color,
+        fontSize: `${tooltip.fontSize}px`,
+        backgroundColor: tooltip.backgroundColor
+      })
+      axisLabelDom.className = 'g2-axis-label-tooltip'
+      parentContainer.appendChild(axisLabelDom)
+    }
+    const { width: labelWidth, height: labelHeight } = axisLabelDom.getBoundingClientRect()
+    let left = e.x - (tooltip.fontSize * originText.length) / 2 - 10
+    let top = e.y - tooltip.fontSize - 18
+    if (labelWidth) {
+      if (e.x - labelWidth < 10) {
+        left = 0
+      } else {
+        left = e.x - labelWidth - 10
+      }
+    }
+    if (labelHeight) {
+      if (e.y < labelHeight) {
+        top = e.y + 10
+      } else {
+        top = e.y - labelHeight - 10
+      }
+    }
+    axisLabelDom.style.left = `${left}px`
+    axisLabelDom.style.top = `${top}px`
+    axisLabelDom.innerText = originText
+    if (axisLabelDom.style.display !== 'block') {
+      axisLabelDom.style.display = 'block'
+    }
+  })
+  chartObj?.on('axis-label:mouseleave', e => {
+    const parentContainer: HTMLDivElement = e.view?.ele
+    const axisLabelDom = parentContainer.getElementsByClassName(
+      'g2-axis-label-tooltip'
+    )[0] as HTMLDivElement
+    if (axisLabelDom) {
+      hideTimer = setTimeout(() => {
+        axisLabelDom.style.display = 'none'
+      }, 200)
+    }
   })
 }
 
@@ -2487,6 +2618,12 @@ export const configRoundAngle = (chart: Chart, styleName: string, callBack?: (da
     }
   }
 }
+function onlineMapStatusOption(chart: Chart, mapType: string, scene: Scene, enable = false) {
+  if (!scene.loaded) {
+    return scene.once('loaded', () => setMapStatusOption(chart, mapType, scene, enable))
+  }
+  setMapStatusOption(chart, mapType, scene, enable)
+}
 
 /**
  * 更新地图交互配置
@@ -2494,23 +2631,17 @@ export const configRoundAngle = (chart: Chart, styleName: string, callBack?: (da
  * @param scene
  * @param enable
  */
-function updateMapStatusOption(mapType: string, scene: Scene, enable = false) {
+function setMapStatusOption(chart: Chart, mapType: string, scene: Scene, enable = false) {
   switch (mapType) {
-    case 'tianditu':
-      if (enable) {
-        scene.map?.enableDrag()
-        scene.map?.enableScrollWheelZoom()
-        scene.map?.enableDoubleClickZoom()
-        scene.map?.enableKeyboard()
-        scene.map?.enablePinchToZoom()
-      } else {
-        scene.map?.disableDrag()
-        scene.map?.disableScrollWheelZoom()
-        scene.map?.disableDoubleClickZoom()
-        scene.map?.disableKeyboard()
-        scene.map?.disablePinchToZoom()
-      }
+    case 'tianditu': {
+      const method = enable ? 'enable' : 'disable'
+      scene.map?.[`${method}Drag`]()
+      scene.map?.[`${method}ScrollWheelZoom`]()
+      scene.map?.[`${method}DoubleClickZoom`]()
+      scene.map?.[`${method}Keyboard`]()
+      scene.map?.[`${method}PinchToZoom`]()
       break
+    }
     case 'qq':
       scene.map?.setDraggable(enable)
       scene.map?.setScrollable(enable)
@@ -2529,5 +2660,14 @@ function updateMapStatusOption(mapType: string, scene: Scene, enable = false) {
         scrollWheel: enable,
         touchZoom: false
       } as any)
+  }
+  if (!isMobile()) return
+  const isSpecialMap = mapType === 'qq' || mapType === 'tianditu'
+  const baseSceneEl = scene
+    .getServiceContainer?.()
+    .sceneService?.getSceneContainer() as HTMLElement | null
+  const sceneEl = isSpecialMap ? document.getElementById(chart.container) : baseSceneEl
+  if (sceneEl) {
+    sceneEl.style.pointerEvents = isSpecialMap ? 'none' : 'auto'
   }
 }

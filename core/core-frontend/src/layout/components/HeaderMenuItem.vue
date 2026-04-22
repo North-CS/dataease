@@ -52,7 +52,7 @@ export default HeaderMenuItem
   }
   .popper-class-menu {
     min-width: 152px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid #dee0e3 !important;
 
     .ed-menu--popup {
@@ -61,6 +61,10 @@ export default HeaderMenuItem
       .ed-menu-item {
         padding-left: 11px !important;
       }
+    }
+
+    .ed-menu--popup .ed-menu-item.is-active.is-active:not(:hover) {
+      background-color: transparent;
     }
   }
 }

@@ -539,7 +539,7 @@ const initOpenHandler = newWindow => {
       methodName: 'initOpenHandler',
       args: newWindow
     }
-    openHandler.value.invokeMethod(pm)
+    openHandler.value?.invokeMethod(pm)
   }
 }
 
@@ -744,7 +744,7 @@ defineExpose({
   cursor: pointer;
 
   &.hover-icon_custom {
-    border-radius: 4px;
+    border-radius: 6px;
     color: #646a73;
 
     &[aria-expanded='true'] {

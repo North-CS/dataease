@@ -115,6 +115,9 @@
         <div v-else class="geo-content-container">
           <div class="geo-content-top">
             <span>{{ selectedData.name }}</span>
+            <el-button text @click="editPlaceNameMapping()">{{
+              t('chart.place_name_mapping')
+            }}</el-button>
           </div>
           <div class="geo-content-middle">
             <div class="geo-area">
@@ -262,6 +265,11 @@
       </div>
     </template>
   </el-dialog>
+  <place-name-mapping
+    ref="placeNameMappingRef"
+    :selectedData="selectedData"
+    @onPlaceNameMappingChange="onPlaceNameMappingChange"
+  />
 </template>
 
 <script lang="ts" setup>
@@ -295,6 +303,8 @@ import { ChoroplethOptions, TextLayer } from '@antv/l7plot/dist/esm'
 import { nextTick } from 'vue'
 import { centroid } from '@turf/centroid'
 import { FeatureCollection } from '@antv/l7plot/dist/esm/plots/choropleth/types'
+import { useMapStoreWithOut } from '@/store/modules/map'
+import PlaceNameMapping from '@/views/system/parameter/map/PlaceNameMapping.vue'
 const { wsCache } = useCache()
 const { t } = useI18n()
 const keyword = ref('')
@@ -342,6 +352,9 @@ const delHandler = data => {
           selectedData.value = null
         }
         ElMessage.success(t('common.delete_success'))
+        // 删除后清除缓存
+        const mapStore = useMapStoreWithOut()
+        mapStore.mapCache[data.id] = null
         loadTreeData(false)
       })
     })
@@ -713,6 +726,23 @@ const debounceRender = debounce(renderMap, 500)
 onBeforeMount(() => {
   mapInstance?.destroy()
 })
+const placeNameMappingRef = ref()
+const editPlaceNameMapping = () => {
+  placeNameMappingRef?.value.init()
+}
+const onPlaceNameMappingChange = (mappingForm: any) => {
+  if (showGeoJson.value) {
+    const id = selectedData.value['id']
+    const url = '/geometry/' + id + '/mapping'
+    request.post({ url, data: mappingForm }).then(() => {
+      ElMessage.success(t('common.save_success'))
+      const mapStore = useMapStoreWithOut()
+      mapStore.mapCache[id] = null
+      loadTreeData(false)
+      handleNodeClick(selectedData.value)
+    })
+  }
+}
 </script>
 
 <style lang="less" scoped>
@@ -754,6 +784,9 @@ onBeforeMount(() => {
     height: 24px;
     line-height: 24px;
     margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     span {
       font-weight: 500;
       font-size: 16px;

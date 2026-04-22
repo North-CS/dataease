@@ -13,6 +13,7 @@ import CarouselSetting from '@/custom-component/common/CarouselSetting.vue'
 import CommonBorderSetting from '@/custom-component/common/CommonBorderSetting.vue'
 import CollapseSwitchItem from '../../components/collapse-switch-item/src/CollapseSwitchItem.vue'
 import TabBackgroundOverall from '@/custom-component/de-tabs/TabBackgroundOverall.vue'
+import CustomTabsSortSide from '@/custom-component/de-tabs/CustomTabsSortSide.vue'
 const snapshotStore = snapshotStoreWithOut()
 
 const { t } = useI18n()
@@ -193,7 +194,9 @@ onMounted(() => {
       <collapse-switch-item
         v-if="tabTitleShow"
         v-model="element.style.showTabTitle"
-        @modelChange="val => onStyleAttrChange({ key: 'showTabTitle', value: val })"
+        @modelChange="
+          () => onStyleAttrChange({ key: 'showTabTitle', value: element.style.showTabTitle })
+        "
         :themes="themes"
         :title="t('visualization.tab_title')"
         name="tabTitle"
@@ -204,6 +207,7 @@ onMounted(() => {
           :themes="themes"
           :element="element"
         ></common-style-set>
+        <CustomTabsSortSide :themes="themes" :config="element"></CustomTabsSortSide>
       </collapse-switch-item>
       <el-collapse-item
         v-if="styleShow"
@@ -230,7 +234,9 @@ onMounted(() => {
       <collapse-switch-item
         v-if="element && borderSettingShow"
         v-model="element.style.borderActive"
-        @modelChange="val => onStyleAttrChange({ key: 'borderActive', value: val })"
+        @modelChange="
+          () => onStyleAttrChange({ key: 'borderActive', value: element.style.borderActive })
+        "
         :themes="themes"
         :title="t('visualization.board')"
         name="borderSetting"
@@ -431,7 +437,7 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 6px;
   padding-top: 4px;
 
   color: #1f2329;

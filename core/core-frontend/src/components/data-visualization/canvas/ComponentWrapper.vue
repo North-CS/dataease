@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { getStyle } from '@/utils/style'
 import eventBus from '@/utils/eventBus'
-import { ref, toRefs, computed, nextTick } from 'vue'
+import { ref, toRefs, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import findComponent from '@/utils/components'
-import { downloadCanvas2, imgUrlTrans } from '@/utils/imgUtils'
+import { downloadCanvas2 } from '@/utils/imgUtils'
 import ComponentEditBar from '@/components/visualization/ComponentEditBar.vue'
 import ComponentSelector from '@/components/visualization/ComponentSelector.vue'
 import { useEmitt } from '@/hooks/web/useEmitt'
@@ -11,13 +11,18 @@ import Board from '@/components/de-board/Board.vue'
 import { dvMainStoreWithOut } from '@/store/modules/data-visualization/dvMain'
 import { activeWatermarkCheckUser, removeActiveWatermark } from '@/components/watermark/watermark'
 import { isMobile } from '@/utils/utils'
-import { isDashboard, isMainCanvas } from '@/utils/canvasUtils'
+import { isMainCanvas } from '@/utils/canvasUtils'
 import { XpackComponent } from '@/components/plugin'
 import DePreviewPopDialog from '@/components/visualization/DePreviewPopDialog.vue'
 import Icon from '../../icon-custom/src/Icon.vue'
 import replaceOutlined from '@/assets/svg/icon_replace_outlined.svg'
-import { CommonBackground } from '@/components/visualization/component-background/Types'
-import { ShorthandMode } from '@/Types'
+import { useI18n } from '@/hooks/web/useI18n'
+import {
+  isBlurBgEnabled,
+  getBlurBgStyle,
+  getComponentBackgroundStyle
+} from '@/utils/backgroundStyleUtils'
+const { t } = useI18n()
 
 const componentWrapperInnerRef = ref(null)
 const componentEditBarRef = ref(null)
@@ -157,7 +162,7 @@ const htmlToImage = () => {
   setTimeout(() => {
     const vueDom = document.getElementById(viewDemoInnerId.value)
     activeWatermarkCheckUser(viewDemoInnerId.value, 'canvas-main', scale.value / 100)
-    downloadCanvas2('img', vueDom, '图表', () => {
+    downloadCanvas2('img', vueDom, t('chart.chart'), () => {
       // do callback
       removeActiveWatermark(viewDemoInnerId.value)
       downLoading.value = false
@@ -215,77 +220,21 @@ const onMouseEnter = () => {
   eventBus.emit('v-hover', config.value.id)
 }
 
+const blurBgEnable = computed(() => {
+  return isBlurBgEnabled(config.value.commonBackground)
+})
+
+const blurBgStyle = computed(() => {
+  return getBlurBgStyle(config.value.commonBackground, deepScale.value)
+})
+
 const componentBackgroundStyle = computed(() => {
   if (config.value.commonBackground) {
-    const {
-      backdropFilterEnable,
-      backdropFilter,
-      backgroundColorSelect,
-      backgroundColor,
-      backgroundImageEnable,
-      backgroundType,
-      outerImage,
-      innerPadding,
-      borderRadius
-    } = config.value.commonBackground
-    const commonBackground = config.value.commonBackground as CommonBackground
-    const innerPaddingTarget = ['Group'].includes(config.value.component) ? 0 : innerPadding
-    let innerPaddingStyle = innerPaddingTarget * deepScale.value + 'px'
-    const paddingMode = commonBackground.innerPadding?.mode
-    if (paddingMode === ShorthandMode.Uniform) {
-      innerPaddingStyle = `${commonBackground.innerPadding?.top * deepScale.value}px`
-    } else if (paddingMode === ShorthandMode.Axis) {
-      innerPaddingStyle = `${commonBackground.innerPadding?.top * deepScale.value}px ${
-        commonBackground.innerPadding?.left * deepScale.value
-      }px`
-    } else if (paddingMode === ShorthandMode.PerEdge) {
-      innerPaddingStyle = `${commonBackground.innerPadding?.top * deepScale.value}px ${
-        commonBackground.innerPadding?.right * deepScale.value
-      }px ${commonBackground.innerPadding?.bottom * deepScale.value}px ${
-        commonBackground.innerPadding?.left * deepScale.value
-      }px`
-    }
-
-    let borderRadiusStyle = borderRadius + 'px'
-    const borderRadiusMode = commonBackground.borderRadius?.mode
-    if (borderRadiusMode === ShorthandMode.Uniform) {
-      borderRadiusStyle = `${commonBackground.borderRadius?.topLeft * deepScale.value}px`
-    } else if (borderRadiusMode === ShorthandMode.Axis) {
-      borderRadiusStyle = `${commonBackground.borderRadius?.topLeft * deepScale.value}px ${
-        commonBackground.borderRadius?.bottomLeft * deepScale.value
-      }px`
-    } else if (borderRadiusMode === ShorthandMode.PerEdge) {
-      borderRadiusStyle = `${commonBackground.borderRadius?.topLeft * deepScale.value}px ${
-        commonBackground.borderRadius?.topRight * deepScale.value
-      }px ${commonBackground.borderRadius?.bottomRight * deepScale.value}px ${
-        commonBackground.borderRadius?.bottomLeft * deepScale.value
-      }px`
-    }
-
-    let style = {
-      padding: innerPaddingStyle,
-      borderRadius: borderRadiusStyle
-    }
-    let colorRGBA = ''
-    if (backgroundColorSelect && backgroundColor) {
-      colorRGBA = backgroundColor
-    }
-    if (backgroundImageEnable) {
-      if (backgroundType === 'outerImage' && typeof outerImage === 'string') {
-        style['background'] = `url(${imgUrlTrans(outerImage)}) no-repeat ${colorRGBA}`
-      } else {
-        style['background-color'] = colorRGBA
-      }
-    } else {
-      style['background-color'] = colorRGBA
-    }
-    if (config.value.component !== 'UserView') {
-      style['overflow'] = 'hidden'
-    }
-    if (backdropFilterEnable) {
-      style['backdrop-filter'] = 'blur(' + backdropFilter + 'px)'
-    }
-    return style
+    return getComponentBackgroundStyle(config.value.commonBackground, {
+      scale: deepScale.value,
+      isUserView: config.value.component === 'UserView',
+      forceNoPadding: ['Group'].includes(config.value.component)
+    })
   }
   return {}
 })
@@ -378,9 +327,6 @@ const onWrapperClick = e => {
           }
         } else {
           initOpenHandler(window.open(url, jumpType))
-          if (isDashboard() && isMobile()) {
-            window.location.reload()
-          }
         }
       } catch (e) {
         console.warn('url 格式错误:' + url)
@@ -408,7 +354,8 @@ const initOpenHandler = newWindow => {
   }
 }
 const deepScale = computed(() => scale.value / 100)
-const showActive = computed(() => props.popActive || (dvMainStore.mobileInPc && props.active))
+//const showActive = computed(() => props.popActive || (dvMainStore.mobileInPc && props.active))
+const showActive = false
 
 const freezeFlag = computed(() => {
   return (
@@ -444,6 +391,45 @@ const updateFromMobile = (e, type) => {
 const showPositionActive = computed(() =>
   showPosition.value === 'edit-preview' ? 'preview' : showPosition.value
 )
+const isIntersecting = ref(false)
+const observer = ref<IntersectionObserver | null>(null)
+// 移动端懒加载开关
+const isMobileLazyLoadEnabled = computed(() => {
+  return isMobile() || dvMainStore.inMobile || dvMainStore.mobileInPc
+})
+// 初始化IntersectionObserver
+onMounted(() => {
+  if (isMobileLazyLoadEnabled.value) {
+    const wrapperInner = componentWrapperInnerRef.value
+    if (wrapperInner) {
+      observer.value = new IntersectionObserver(
+        entries => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              isIntersecting.value = true
+              // 一旦加载完成，不再监听
+              if (observer.value) {
+                observer.value.unobserve(entry.target)
+              }
+            }
+          })
+        },
+        {
+          rootMargin: '200px 0px', // 提前200px开始加载
+          threshold: 0.1
+        }
+      )
+      observer.value.observe(wrapperInner)
+    }
+  }
+})
+
+// 清理Observer
+onBeforeUnmount(() => {
+  if (observer.value) {
+    observer.value.disconnect()
+  }
+})
 </script>
 
 <template>
@@ -459,7 +445,7 @@ const showPositionActive = computed(() =>
     @mousedown="handleInnerMouseDown"
     @mouseenter="onMouseEnter"
     v-loading="downLoading"
-    element-loading-text="导出中..."
+    :element-loading-text="$t('visualization.export_loading')"
     element-loading-background="rgba(255, 255, 255, 1)"
   >
     <div
@@ -499,6 +485,7 @@ const showPositionActive = computed(() =>
       :id="viewDemoInnerId"
       :style="componentBackgroundStyle"
     >
+      <div v-if="blurBgEnable" class="blur-bg" :style="blurBgStyle"></div>
       <div
         class="wrapper-inner-adaptor"
         :style="slotStyle"
@@ -506,6 +493,7 @@ const showPositionActive = computed(() =>
         @mousedown="onWrapperClickCur"
       >
         <component
+          v-if="isIntersecting || !isMobileLazyLoadEnabled"
           :is="findComponent(config['component'])"
           :view="viewInfo"
           ref="component"
@@ -577,6 +565,12 @@ const showPositionActive = computed(() =>
     width: 100%;
     height: 100%;
   }
+}
+
+.blur-bg {
+  width: 100%;
+  height: 100%;
+  background-size: 100% 100% !important;
 }
 
 .wrapper-edit-bar-active {

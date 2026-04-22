@@ -10,6 +10,8 @@ import { ElMessage } from 'element-plus-secondary'
 import { snapshotStoreWithOut } from '@/store/modules/data-visualization/snapshot'
 import QueryConditionConfiguration from './QueryConditionConfiguration.vue'
 import type { ComponentInfo } from '@/api/chart'
+import { getDynamicRange, getCustomTime } from '@/custom-component/v-query/time-format'
+import { getCustomRange } from '@/custom-component/v-query/time-format-dayjs'
 import { infoFormat } from './options'
 import {
   onBeforeUnmount,
@@ -32,6 +34,7 @@ import { dvMainStoreWithOut } from '@/store/modules/data-visualization/dvMain'
 import { comInfo } from './com-info'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import StyleInject from './StyleInject.vue'
+import { getKeyList, reRenderAll } from '@/custom-component/v-query/QueryUtils'
 const props = defineProps({
   view: {
     type: Object,
@@ -356,29 +359,6 @@ const releaseSelect = id => {
   unMountSelect.value = unMountSelect.value.filter(ele => ele !== id)
 }
 
-const getKeyList = next => {
-  let checkedFieldsMapArr = Object.entries(next.checkedFieldsMap).filter(ele =>
-    next.checkedFields.includes(ele[0])
-  )
-  if (next.displayType === '9') {
-    checkedFieldsMapArr = (
-      next.treeCheckedList?.length
-        ? next.treeCheckedList.filter((_, index) => index < next.treeFieldList.length)
-        : next.treeFieldList.map(() => {
-            return {
-              checkedFields: [...next.checkedFields],
-              checkedFieldsMap: cloneDeep(next.checkedFieldsMap)
-            }
-          })
-    )
-      .map(item =>
-        Object.entries(item.checkedFieldsMap).filter(ele => item.checkedFields.includes(ele[0]))
-      )
-      .flat()
-  }
-  return checkedFieldsMapArr.filter(ele => !!ele[1]).map(ele => ele[0])
-}
-
 const fillRequireVal = arr => {
   element.value.propValue?.forEach(next => {
     if (arr.some(itx => next.checkedFields.includes(itx)) && next.required) {
@@ -678,20 +658,6 @@ const addCriteriaConfigOut = () => {
   queryConfig.value.setConditionOut()
 }
 
-const reRenderAll = (oldArr, newArr) => {
-  const newArrIds = newArr.map(ele => ele.id)
-  const emitterList = (oldArr || []).reduce((pre, next) => {
-    if (newArrIds.includes(next.id)) return pre
-    const keyList = getKeyList(next)
-    pre = [...new Set([...keyList, ...pre])]
-    return pre
-  }, [])
-  if (!emitterList.length) return
-  emitterList.forEach(ele => {
-    emitter.emit(`query-data-${ele}`)
-  })
-}
-
 const delQueryConfig = index => {
   const com = cloneDeep(unref(list))
   list.value.splice(index, 1)
@@ -726,6 +692,57 @@ const resetData = () => {
         next.mapValue = Array.isArray(next.defaultMapValue)
           ? [...next.defaultMapValue]
           : next.defaultMapValue
+      }
+
+      if (
+        next.defaultValueCheck &&
+        [1, 7].includes(+next.displayType) &&
+        next.timeType === 'dynamic'
+      ) {
+        if (+next.displayType === 1) {
+          let selectValue = getDynamicRange(next) || []
+          next.defaultValue = new Date(selectValue[0])
+          next.selectValue = new Date(selectValue[0])
+        } else {
+          const {
+            timeNum,
+            relativeToCurrentType,
+            around,
+            relativeToCurrentRange,
+            arbitraryTime,
+            timeGranularity,
+            timeNumRange,
+            relativeToCurrentTypeRange,
+            aroundRange,
+            timeGranularityMultiple,
+            arbitraryTimeRange
+          } = next
+
+          let startTime = getCustomTime(
+            timeNum,
+            relativeToCurrentType,
+            timeGranularity,
+            around,
+            arbitraryTime,
+            timeGranularityMultiple,
+            'start-panel'
+          )
+          let endTime = getCustomTime(
+            timeNumRange,
+            relativeToCurrentTypeRange,
+            timeGranularity,
+            aroundRange,
+            arbitraryTimeRange,
+            timeGranularityMultiple,
+            'end-panel'
+          )
+
+          if (!!relativeToCurrentRange && relativeToCurrentRange !== 'custom') {
+            ;[startTime, endTime] = getCustomRange(relativeToCurrentRange)
+          }
+          next.defaultValue = [startTime, endTime]
+          next.selectValue = [startTime, endTime]
+        }
       }
 
       ;(props.element.cascade || []).forEach(ele => {
@@ -1253,7 +1270,7 @@ const autoStyle = computed(() => {
             padding: 4px 8px;
             height: 26px;
             width: 58px;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid #dee0e3;
             background: #fff;
             box-shadow: 0px 4px 8px 0px rgba(31, 35, 41, 0.1);
@@ -1306,7 +1323,7 @@ const autoStyle = computed(() => {
             padding: 4px 8px;
             height: 26px;
             width: 58px;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid #dee0e3;
             background: #fff;
             box-shadow: 0px 4px 8px 0px rgba(31, 35, 41, 0.1);

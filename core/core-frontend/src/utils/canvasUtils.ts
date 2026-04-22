@@ -310,6 +310,8 @@ export function historyAdaptor(
   //历史字段适配
   canvasStyleResult.component['seniorStyleSetting'] =
     canvasStyleResult.component['seniorStyleSetting'] || deepCopy(SENIOR_STYLE_SETTING_LIGHT)
+  canvasStyleResult.component['seniorStyleSetting']['pagerSize'] =
+    canvasStyleResult.component['seniorStyleSetting']['pagerSize'] || 14
   canvasStyleResult['fontFamily'] = canvasStyleResult['fontFamily'] || 'PingFang'
   canvasStyleResult.dashboard['showGrid'] = canvasStyleResult.dashboard['showGrid'] || false
   canvasStyleResult.dashboard['matrixBase'] = canvasStyleResult.dashboard['matrixBase'] || 4
@@ -343,6 +345,21 @@ export function historyAdaptor(
 
   canvasStyleResult['component']['formatterItem'] =
     canvasStyleResult['component']['formatterItem'] || deepCopy(formatterItem)
+
+  canvasStyleResult.component.chartColor = {
+    ...canvasStyleResult.component.chartColor,
+    label: {
+      color: '#000000',
+      fontSize: 12,
+      ...(canvasStyleResult.component.chartColor?.label || {})
+    },
+    tooltip: {
+      color: '#000000',
+      fontSize: 12,
+      backgroundColor: '#FFFFFF',
+      ...(canvasStyleResult.component.chartColor?.tooltip || {})
+    }
+  }
 
   canvasDataResult.forEach(componentItem => {
     historyItemAdaptor(componentItem, reportFilterInfo, attachInfo, canvasVersion, canvasInfo)
@@ -553,6 +570,13 @@ export function initCanvasDataMobile(dvId, params, callBack) {
         ele.style = mStyle || style
         ele.events = mEvents || events
         ele.commonBackground = mCommonBackground || commonBackground
+        if (ele.component === 'VQuery') {
+          ele.propValue?.forEach(queryItem => {
+            queryItem.placeholder = queryItem.mPlaceholder || queryItem.placeholder
+            queryItem.queryConditionWidth =
+              queryItem.mQueryConditionWidth || queryItem.queryConditionWidth
+          })
+        }
         if (ele.component === 'DeTabs') {
           ele.propValue?.forEach(tabItem => {
             tabItem.componentData?.forEach(tabComponent => {

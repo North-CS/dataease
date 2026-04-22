@@ -27,6 +27,7 @@
           :lazy="isEditMode"
           :label="tabItem.title"
           :name="tabItem.name"
+          v-if="!tabItem.hidden"
         >
           <template #label>
             <div class="custom-tab-title" @mousedown.stop>
@@ -90,33 +91,35 @@
         v-for="(tabItem, index) in element.propValue"
         :class="{ 'switch-hidden': element.editableTabsValue !== tabItem.name }"
       >
-        <de-canvas
-          v-if="isEdit && !mobileInPc"
-          :ref="'tabCanvas_' + index"
-          :component-data="tabItem.componentData"
-          :canvas-style-data="canvasStyleData"
-          :canvas-view-info="canvasViewInfo"
-          :canvas-id="element.id + '--' + tabItem.name"
-          :class="moveActive ? 'canvas-move-in' : ''"
-          :canvas-position="'tab'"
-          :canvas-active="element.editableTabsValue === tabItem.name"
-          :font-family="fontFamily"
-        ></de-canvas>
-        <de-preview
-          v-else
-          :ref="'dashboardPreview'"
-          :dv-info="dvInfo"
-          :cur-gap="curPreviewGap"
-          :component-data="tabItem.componentData"
-          :canvas-style-data="{}"
-          :canvas-view-info="canvasViewInfo"
-          :canvas-id="element.id + '--' + tabItem.name"
-          :preview-active="element.editableTabsValue === tabItem.name"
-          :show-position="showPosition"
-          :outer-scale="scale"
-          :font-family="fontFamily"
-          :outer-search-count="searchCount"
-        ></de-preview>
+        <template v-if="!tabItem.hidden">
+          <de-canvas
+            v-if="isEdit && !mobileInPc"
+            :ref="'tabCanvas_' + index"
+            :component-data="tabItem.componentData"
+            :canvas-style-data="canvasStyleData"
+            :canvas-view-info="canvasViewInfo"
+            :canvas-id="element.id + '--' + tabItem.name"
+            :class="moveActive ? 'canvas-move-in' : ''"
+            :canvas-position="'tab'"
+            :canvas-active="element.editableTabsValue === tabItem.name"
+            :font-family="fontFamily"
+          ></de-canvas>
+          <de-preview
+            v-else
+            :ref="'dashboardPreview'"
+            :dv-info="dvInfo"
+            :cur-gap="curPreviewGap"
+            :component-data="tabItem.componentData"
+            :canvas-style-data="{}"
+            :canvas-view-info="canvasViewInfo"
+            :canvas-id="element.id + '--' + tabItem.name"
+            :preview-active="element.editableTabsValue === tabItem.name"
+            :show-position="showPosition"
+            :outer-scale="scale"
+            :font-family="fontFamily"
+            :outer-search-count="searchCount"
+          ></de-preview>
+        </template>
       </div>
     </de-custom-tab>
     <el-dialog
@@ -176,6 +179,7 @@ import { debounce } from 'lodash-es'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import { CommonBackground } from '@/components/visualization/component-background/Types'
 import { ShorthandMode } from '@/Types'
+import { checkFilterRemove } from '@/custom-component/v-query/QueryUtils'
 const dvMainStore = dvMainStoreWithOut()
 const snapshotStore = snapshotStoreWithOut()
 const { tabMoveInActiveId, bashMatrixInfo, editMode, mobileInPc } = storeToRefs(dvMainStore)
@@ -328,8 +332,10 @@ const calcTabLength = () => {
       const containerDom = document.getElementById(
         'tab-' + element.value.propValue[element.value.propValue.length - 1].name
       )
-      tabsAreaScroll.value =
-        containerDom.parentNode.clientWidth > tabComponentRef.value.clientWidth - 100
+      if (containerDom) {
+        tabsAreaScroll.value =
+          containerDom?.parentNode?.clientWidth > tabComponentRef.value.clientWidth - 100
+      }
     } else {
       tabsAreaScroll.value = false
     }
@@ -359,6 +365,7 @@ function addTab() {
   const newTab = {
     name: newName,
     title: t('visualization.new_tab'),
+    hidden: false,
     componentData: [],
     closable: true
   }
@@ -372,6 +379,7 @@ function deleteCur(param) {
   let len = element.value.propValue.length
   while (len--) {
     if (element.value.propValue[len].name === param.name) {
+      const deletedTab = element.value.propValue[len]
       element.value.propValue.splice(len, 1)
       const activeIndex =
         (len - 1 + element.value.propValue.length) % element.value.propValue.length
@@ -379,6 +387,9 @@ function deleteCur(param) {
       state.tabShow = false
       nextTick(() => {
         state.tabShow = true
+        deletedTab.componentData?.forEach(tabComponent => {
+          checkFilterRemove(tabComponent)
+        })
       })
     }
   }
@@ -697,15 +708,20 @@ const initCarousel = () => {
   if (!isEditMode.value) {
     if (element.value.carousel?.enable) {
       const switchTime = (element.value.carousel.time || 5) * 1000
+      // 过滤出可见的标签页
+      const visibleTabs = element.value.propValue.filter(tab => !tab.hidden)
+
+      // 如果没有可见的标签页，则不启动轮播
+      if (visibleTabs.length === 0) return
       let switchCount = 1
       // 轮播定时器
       carouselTimer = setInterval(() => {
         // 鼠标移入时 停止轮播
         if (!state.hoverFlag) {
-          const nowIndex = switchCount % element.value.propValue.length
+          const nowIndex = switchCount % visibleTabs.length
           switchCount++
           nextTick(() => {
-            element.value.editableTabsValue = element.value.propValue[nowIndex].name
+            element.value.editableTabsValue = visibleTabs[nowIndex].name
           })
         }
       }, switchTime)
@@ -723,6 +739,8 @@ onMounted(() => {
     eventBus.on('onTabMoveIn-' + element.value.id, componentMoveIn)
     eventBus.on('onTabMoveOut-' + element.value.id, componentMoveOut)
     eventBus.on('onTabSortChange-' + element.value.id, reShow)
+    eventBus.on('onTabDelete-' + element.value.id, deleteCur)
+    eventBus.on('onTabCopy-' + element.value.id, copyCur)
   }
   currentInstance = getCurrentInstance()
   initCarousel()
@@ -749,6 +767,8 @@ onBeforeUnmount(() => {
     eventBus.off('onTabMoveIn-' + element.value.id, componentMoveIn)
     eventBus.off('onTabMoveOut-' + element.value.id, componentMoveOut)
     eventBus.off('onTabSortChange-' + element.value.id, reShow)
+    eventBus.off('onTabDelete-' + element.value.id, deleteCur)
+    eventBus.off('onTabCopy-' + element.value.id, copyCur)
   }
 })
 onBeforeMount(() => {

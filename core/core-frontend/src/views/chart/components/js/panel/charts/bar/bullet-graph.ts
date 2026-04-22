@@ -14,10 +14,10 @@ import {
 import { useI18n } from '@/hooks/web/useI18n'
 import { flow, parseJson } from '@/views/chart/components/js/util'
 import { BulletOptions } from '@antv/g2plot'
-import { isEmpty } from 'lodash-es'
+import { defaults, isEmpty } from 'lodash-es'
 import {
-  configAxisLabelLengthLimit,
   configPlotTooltipEvent,
+  configXAxisLengthLimit,
   getPadding,
   getTooltipContainer,
   TOOLTIP_TPL
@@ -131,7 +131,7 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
       action(actionParams)
     })
     configPlotTooltipEvent(chart, newChart)
-    configAxisLabelLengthLimit(chart, newChart, null)
+    configXAxisLengthLimit(chart, newChart)
     return newChart
   }
 
@@ -224,6 +224,15 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
     }
 
     xAxis.label.style = style
+    if (tmpOptions.xAxis.label) {
+      const x = parseJson(chart.customStyle).xAxis
+      const { lengthLimit } = x.axisLabel
+      defaults(tmpOptions.xAxis.label, {
+        formatter: value => {
+          return value?.length > lengthLimit ? value.substring(0, lengthLimit) + '...' : value
+        }
+      })
+    }
     return tmpOptions
   }
 
@@ -323,15 +332,40 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
       createLegendItem(
         'measure',
         measureName || chart.yAxis[0]?.name,
-        'square',
+        bullet.bar.ranges.symbol,
         [].concat(bullet.bar.measures.fill)[0],
         bullet.bar.ranges.symbolSize
       )
     )
 
+    const legendSize = bullet.bar.ranges.symbolSize ?? customStyleLegend.size ?? 4
     return {
       ...options,
-      legend: { custom: true, position: baseLegend.position, layout: baseLegend.layout, items }
+      legend: {
+        ...baseLegend,
+        custom: true,
+        position: baseLegend.position,
+        layout: baseLegend.layout,
+        items,
+        itemHeight:
+          (customStyleLegend.fontSize > legendSize * 2
+            ? customStyleLegend.fontSize
+            : legendSize * 2) + 4,
+        pageNavigator: {
+          marker: {
+            style: {
+              fill: 'rgba(0,0,0,0.65)',
+              size: legendSize * 2
+            }
+          },
+          text: {
+            style: {
+              fill: customStyleLegend.color,
+              fontSize: customStyleLegend.fontSize
+            }
+          }
+        }
+      }
     }
   }
 
@@ -340,9 +374,11 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
     const tooltipAttr = customAttr.tooltip
     const { bullet } = parseJson(chart.customAttr).misc
     if (!tooltipAttr.show) return { ...options, tooltip: false }
-
+    const customStyleLegend = parseJson(chart.customStyle).legend
     const formatterMap = tooltipAttr.seriesTooltipFormatter
-      ?.filter(i => i.show)
+      ?.filter(
+        i => i.show && ['-yAxis', '-yAxisExt', 'extBubble'].some(k => i.seriesId.includes(k))
+      )
       .reduce((pre, next, _index) => {
         switch (next.axisType) {
           case 'yAxis':
@@ -358,7 +394,6 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
             return pre
         }
       }, {}) as Record<string, SeriesFormatter>
-
     const tooltip = {
       shared: true,
       showMarkers: true,
@@ -369,7 +404,6 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
         const result = []
         const data = options.data.find(item => item.title === originalItems[0].title)
         Object.keys(formatterMap).forEach((key, _index) => {
-          if (key === '记录数*') return
           const formatter = formatterMap[key]
           if (formatter) {
             let name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
@@ -396,28 +430,33 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
         const ranges = data.ranges
         const rangeFormatterCfg =
           formatterMap['ranges']?.formatterCfg ?? rangeFormatter?.formatterCfg
-        ranges.forEach((range, index) => {
-          const value = isDynamic
-            ? valueFormatter(parseFloat(data.minRanges[0]), rangeFormatterCfg)
-            : (range as string)
-          let name = ''
-          let color: string | string[]
-          if (bullet.bar.ranges.showType === 'dynamic') {
-            name = isEmpty(rangeFormatter.chartShowName)
-              ? rangeFormatter.name
-              : rangeFormatter.chartShowName
-            color = bullet.bar['ranges'].fill
-          } else {
-            const customRange = bullet.bar.ranges.fixedRange[index].name
-            name = customRange
-              ? customRange
-              : isEmpty(rangeFormatter.chartShowName)
-              ? rangeFormatter.name
-              : rangeFormatter.chartShowName
-            color = bullet.bar['ranges'].fixedRange[index].fill
-          }
-          result.push({ ...originalItems[0], color, name, value })
-        })
+        const shouldShowRanges = isDynamic
+          ? Boolean(formatterMap['ranges'])
+          : customStyleLegend.showRange
+        if (shouldShowRanges) {
+          ranges.forEach((range, index) => {
+            const value = isDynamic
+              ? valueFormatter(parseFloat(data.minRanges[0]), rangeFormatterCfg)
+              : (range as string)
+            let name = ''
+            let color: string | string[]
+            if (bullet.bar.ranges.showType === 'dynamic') {
+              name = isEmpty(rangeFormatter.chartShowName)
+                ? rangeFormatter.name
+                : rangeFormatter.chartShowName
+              color = bullet.bar['ranges'].fill
+            } else {
+              const customRange = bullet.bar.ranges.fixedRange[index].name
+              name = customRange
+                ? customRange
+                : isEmpty(rangeFormatter.chartShowName)
+                ? rangeFormatter.name
+                : rangeFormatter.chartShowName
+              color = bullet.bar['ranges'].fixedRange[index].fill
+            }
+            result.push({ ...originalItems[0], color, name, value })
+          })
+        }
         const dynamicTooltipValue = chart.data.data.find(
           d => d.field === originalItems[0]['title']
         )?.dynamicTooltipValue
@@ -434,7 +473,7 @@ export class BulletGraph extends G2PlotChartView<G2BulletOptions, G2Bullet> {
         result.sort((a, b) => (a.color === 'grey' ? 1 : b.color === 'grey' ? -1 : 0))
         return result
       },
-      container: getTooltipContainer(`tooltip-${chart.id}`),
+      container: getTooltipContainer(`tooltip-${chart.id}`, chart.container),
       itemTpl: TOOLTIP_TPL,
       enterable: true
     }

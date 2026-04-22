@@ -17,6 +17,7 @@ import { configHandler } from './refresh'
 import { isMobile, getLocale } from '@/utils/utils'
 import { useRequestStoreWithOut } from '@/store/modules/request'
 import { clearCache } from '@/utils/cacheUtil'
+import { securityConfig } from './hmac'
 
 type AxiosErrorWidthLoading<T> = T & {
   config: {
@@ -100,6 +101,7 @@ service.interceptors.request.use(
     if (config instanceof Promise) {
       config = await config
     }
+    await securityConfig(config, service.getUri(config))
     if (
       config.method === 'post' &&
       (config.headers as AxiosRequestHeaders)['Content-Type'] ===
@@ -271,7 +273,7 @@ service.interceptors.response.use(
       router.push(`/login?redirect=${queryRedirectPath}`)
     }
     if (header.has('DE-FORBIDDEN-FLAG')) {
-      showMsg('当前用户权限配置已变更，请刷新页面', '-changed-')
+      showMsg('当前权限不允许访问，请联系管理员', '-changed-')
     }
     /* if ([400, 401].includes(error?.response.status)) {
       return Promise.reject(error)

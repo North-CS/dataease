@@ -1,5 +1,5 @@
 <template>
-  <div class="template">
+  <div class="template border-radius-12">
     <div class="photo">
       <div class="img" :style="classBackground"></div>
     </div>
@@ -77,13 +77,15 @@ const templateInnerPreview = () => {
 .template {
   overflow: hidden;
   border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   flex-wrap: wrap;
   min-width: 181px;
+  width: calc(20% - 16px);
   height: 141px;
   margin-left: 16px;
   position: relative;
+  margin-bottom: 16px;
 
   .photo {
     padding: 4px;

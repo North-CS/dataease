@@ -401,7 +401,7 @@ const queryList = computed(() => {
 
 const quotaData = computed(() => {
   let result = JSON.parse(JSON.stringify(state.quota))
-  if (view.value?.type === 'table-info') {
+  if (view.value?.type === 'table-info' || view.value?.type === 'multi-scatter') {
     result = result?.filter(item => item.id !== '-1')
   }
   if (state.searchField) {
@@ -422,7 +422,7 @@ const dimensionData = computed(() => {
 })
 const realQuota = computed(() => {
   let result = JSON.parse(JSON.stringify(state.quota))
-  if (view.value?.type === 'table-info') {
+  if (view.value?.type === 'table-info' || view.value?.type === 'multi-scatter') {
     result = result?.filter(item => item.id !== '-1')
   }
   return result
@@ -494,7 +494,10 @@ const quotaItemRemove = item => {
   recordSnapshotInfo('calcData')
   let axisType: AxisType = item.removeType
   let axis
-  if (item.removeType === 'quota') {
+  if (item.removeType === 'dimension') {
+    axisType = 'xAxis'
+    axis = view.value.xAxis.splice(item.index, 1)
+  } else if (item.removeType === 'quota') {
     axisType = 'yAxis'
     axis = view.value.yAxis.splice(item.index, 1)
   } else if (item.removeType === 'quotaExt') {
@@ -734,6 +737,25 @@ const addAxis = (e, axis: AxisType) => {
         if (list[i].groupType === 'd' && list[i].deType === 1) {
           list[i].sort = 'asc'
         }
+        if (!(list[i].groupType === 'q' || (list[i].groupType === 'd' && list[i].deType === 1))) {
+          list.splice(i, 1)
+          valid = false
+        }
+      }
+      if (!valid) {
+        ElMessage({
+          message: t('chart.error_d_not_time_2_q'),
+          type: 'warning'
+        })
+      }
+      typeValid = valid
+    }
+  } else if (view.value.type === 'multi-scatter' && axis === 'xAxis') {
+    // 多维散点图 xAxis 只接受指标或时间维度
+    const list = view.value[axis]
+    if (list && list.length > 0) {
+      let valid = true
+      for (let i = 0; i < list.length; i++) {
         if (!(list[i].groupType === 'q' || (list[i].groupType === 'd' && list[i].deType === 1))) {
           list.splice(i, 1)
           valid = false
@@ -1042,11 +1064,7 @@ const onTypeChange = (render, type) => {
         emitter.emit('removeAxis', { axisType: 'yAxis', axis, editType: 'remove' })
       }
     }
-    if (
-      view.value.type === 'liquid' ||
-      view.value.type === 'gauge' ||
-      view.value.type === 'indicator'
-    ) {
+    if (['liquid', 'gauge', 'indicator', 'multi-scatter', 't-heatmap'].includes(view.value.type)) {
       removeItems('drillFields')
     }
     if (!['line', 'area', 'bar', 'bar-group'].includes(view.value.type)) {
@@ -1265,8 +1283,9 @@ const onThresholdChange = val => {
   }
 }
 
-const onMapMappingChange = val => {
+const onMapMappingChange = (val, useGlobalAreaMapping = false) => {
   view.value.senior.areaMapping = val
+  view.value.senior.useGlobalAreaMapping = useGlobalAreaMapping
   renderChart(view.value)
 }
 
@@ -1394,6 +1413,8 @@ const saveRename = ref => {
           view.value.yAxis[index].chartShowName = chartShowName
           break
         case 'dimension':
+          axisType = 'xAxis'
+          axis = view.value.xAxis[index]
           view.value.xAxis[index].chartShowName = chartShowName
           break
         case 'quotaExt':
@@ -2270,71 +2291,72 @@ const chartStyleScroll = (val: any) => {
                           </div>
                         </el-row>
                         <!--xAxis-->
-                        <el-row v-if="showAxis('xAxis')" class="padding-lr drag-data">
-                          <div class="form-draggable-title">
-                            <span>
-                              {{ chartViewInstance.axisConfig.xAxis.name }}
-                              <i
-                                v-if="!chartViewInstance.axisConfig.xAxis?.allowEmpty"
-                                class="required"
-                              ></i>
-                            </span>
-                            <el-tooltip
-                              :effect="toolTip"
-                              placement="top"
-                              :content="t('common.delete')"
-                            >
-                              <el-icon
-                                class="remove-icon"
-                                :class="{ 'remove-icon--dark': themes === 'dark' }"
-                                size="14px"
-                                @click="removeItems('xAxis')"
+                        <template v-if="view.type !== 'multi-scatter'">
+                          <el-row v-if="showAxis('xAxis')" class="padding-lr drag-data">
+                            <div class="form-draggable-title">
+                              <span>
+                                {{ chartViewInstance.axisConfig.xAxis.name }}
+                                <i
+                                  v-if="!chartViewInstance.axisConfig.xAxis?.allowEmpty"
+                                  class="required"
+                                ></i>
+                              </span>
+                              <el-tooltip
+                                :effect="toolTip"
+                                placement="top"
+                                :content="t('common.delete')"
                               >
-                                <Icon class-name="inner-class" name="icon_delete-trash_outlined"
-                                  ><icon_deleteTrash_outlined class="svg-icon inner-class"
-                                /></Icon>
-                              </el-icon>
-                            </el-tooltip>
-                          </div>
-                          <div
-                            class="qw"
-                            @drop="$event => drop($event)"
-                            @dragenter="dragEnter"
-                            @dragover="$event => dragOver($event)"
-                          >
-                            <draggable
-                              :list="view.xAxis"
-                              :move="onMove"
-                              item-key="id"
-                              group="drag"
-                              animation="300"
-                              class="drag-block-style"
-                              :class="{ dark: themes === 'dark' }"
-                              @add="addXaxis"
+                                <el-icon
+                                  class="remove-icon"
+                                  :class="{ 'remove-icon--dark': themes === 'dark' }"
+                                  size="14px"
+                                  @click="removeItems('xAxis')"
+                                >
+                                  <Icon class-name="inner-class" name="icon_delete-trash_outlined"
+                                    ><icon_deleteTrash_outlined class="svg-icon inner-class"
+                                  /></Icon>
+                                </el-icon>
+                              </el-tooltip>
+                            </div>
+                            <div
+                              class="qw"
+                              @drop="$event => drop($event)"
+                              @dragenter="dragEnter"
+                              @dragover="$event => dragOver($event)"
                             >
-                              <template #item="{ element, index }">
-                                <dimension-item
-                                  :dimension-data="state.dimension"
-                                  :quota-data="state.quota"
-                                  :chart="view"
-                                  :item="element"
-                                  :index="index"
-                                  :themes="props.themes"
-                                  type="dimension"
-                                  @onDimensionItemChange="dimensionItemChange"
-                                  @onDimensionItemRemove="dimensionItemRemove"
-                                  @onNameEdit="showRename"
-                                  @onCustomSort="onCustomSort"
-                                  @valueFormatter="valueFormatter"
-                                  @onToggleHide="onToggleHide"
-                                  @editSortPriority="editSortPriority"
-                                />
-                              </template>
-                            </draggable>
-                            <drag-placeholder :themes="themes" :drag-list="view.xAxis" />
-                          </div>
-                        </el-row>
-
+                              <draggable
+                                :list="view.xAxis"
+                                :move="onMove"
+                                item-key="id"
+                                group="drag"
+                                animation="300"
+                                class="drag-block-style"
+                                :class="{ dark: themes === 'dark' }"
+                                @add="addXaxis"
+                              >
+                                <template #item="{ element, index }">
+                                  <dimension-item
+                                    :dimension-data="state.dimension"
+                                    :quota-data="state.quota"
+                                    :chart="view"
+                                    :item="element"
+                                    :index="index"
+                                    :themes="props.themes"
+                                    type="dimension"
+                                    @onDimensionItemChange="dimensionItemChange"
+                                    @onDimensionItemRemove="dimensionItemRemove"
+                                    @onNameEdit="showRename"
+                                    @onCustomSort="onCustomSort"
+                                    @valueFormatter="valueFormatter"
+                                    @onToggleHide="onToggleHide"
+                                    @editSortPriority="editSortPriority"
+                                  />
+                                </template>
+                              </draggable>
+                              <drag-placeholder :themes="themes" :drag-list="view.xAxis" />
+                            </div>
+                          </el-row>
+                        </template>
                         <!--xAxisExt-->
                         <el-row v-if="showAxis('xAxisExt')" class="padding-lr drag-data">
                           <div class="form-draggable-title">
@@ -2590,7 +2612,7 @@ const chartStyleScroll = (val: any) => {
                             <drag-placeholder :drag-list="view.extStack" />
                           </div>
                         </el-row>
-
+                        <!--extColor-->
                         <el-row v-if="showAxis('extColor')" class="padding-lr drag-data">
                           <div class="form-draggable-title">
                             <span>
@@ -2655,7 +2677,89 @@ const chartStyleScroll = (val: any) => {
                             <drag-placeholder :themes="themes" :drag-list="view.extColor" />
                           </div>
                         </el-row>
-
+                        <!--xAxis multi-scatter-->
+                        <template v-if="view.type == 'multi-scatter'">
+                          <el-row v-if="showAxis('xAxis')" class="padding-lr drag-data">
+                            <div class="form-draggable-title">
+                              <span>
+                                {{ chartViewInstance.axisConfig.xAxis.name }}
+                                <i
+                                  v-if="!chartViewInstance.axisConfig.xAxis?.allowEmpty"
+                                  class="required"
+                                ></i>
+                              </span>
+                              <el-tooltip
+                                :effect="toolTip"
+                                placement="top"
+                                :content="t('common.delete')"
+                              >
+                                <el-icon
+                                  class="remove-icon"
+                                  :class="{ 'remove-icon--dark': themes === 'dark' }"
+                                  size="14px"
+                                  @click="removeItems('xAxis')"
+                                >
+                                  <Icon class-name="inner-class" name="icon_delete-trash_outlined"
+                                    ><icon_deleteTrash_outlined class="svg-icon inner-class"
+                                  /></Icon>
+                                </el-icon>
+                              </el-tooltip>
+                            </div>
+                            <div
+                              @drop="$event => drop($event, 'xAxis')"
+                              @dragenter="dragEnter"
+                              @dragover="$event => dragOver($event)"
+                            >
+                              <draggable
+                                :list="view.xAxis"
+                                :move="onMove"
+                                item-key="id"
+                                group="drag"
+                                animation="300"
+                                class="drag-block-style"
+                                :class="{ dark: themes === 'dark' }"
+                                @add="addXaxis"
+                                @change="e => onAxisChange(e, 'xAxis')"
+                              >
+                                <template #item="{ element, index }">
+                                  <dimension-item
+                                    v-if="element.groupType === 'd'"
+                                    :dimension-data="state.dimension"
+                                    :quota-data="state.quota"
+                                    :chart="view"
+                                    :item="element"
+                                    :index="index"
+                                    :themes="props.themes"
+                                    type="dimension"
+                                    @onDimensionItemChange="dimensionItemChange"
+                                    @onDimensionItemRemove="dimensionItemRemove"
+                                    @onNameEdit="showRename"
+                                    @onCustomSort="onExtCustomSort"
+                                    @editSortPriority="editSortPriority"
+                                  />
+                                  <quota-item
+                                    v-else-if="element.groupType === 'q'"
+                                    :dimension-data="state.dimension"
+                                    :quota-data="state.quota"
+                                    :chart="view"
+                                    :item="element"
+                                    :index="index"
+                                    type="dimension"
+                                    :themes="props.themes"
+                                    @onQuotaItemChange="item => quotaItemChange(item, 'xAxis')"
+                                    @onQuotaItemRemove="quotaItemRemove"
+                                    @onNameEdit="showRename"
+                                    @editItemFilter="showQuotaEditFilter"
+                                    @editItemCompare="showQuotaEditCompare"
+                                    @valueFormatter="valueFormatter"
+                                    @editSortPriority="editSortPriority"
+                                  />
+                                </template>
+                              </draggable>
+                              <drag-placeholder :drag-list="view.xAxis" />
+                            </div>
+                          </el-row>
+                        </template>
                         <template v-if="view.type !== 'bar-range'">
                           <!--yAxis-->
                           <el-row v-if="showAxis('yAxis')" class="padding-lr drag-data">
@@ -4153,7 +4257,7 @@ const chartStyleScroll = (val: any) => {
     .items {
       width: 100%;
       height: 28px;
-      border-radius: 4px;
+      border-radius: 6px;
       border: 1px solid transparent;
       color: #a6a6a6;
       font-size: 12px;
@@ -4542,7 +4646,7 @@ span {
     white-space: nowrap;
     text-overflow: ellipsis;
     position: relative;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid transparent;
 
     font-size: 12px;
@@ -4691,7 +4795,7 @@ span {
     padding: 2px 0 0 0;
     width: 100%;
     min-height: 32px;
-    border-radius: 4px;
+    border-radius: 6px;
     overflow-x: hidden;
     overflow-y: hidden;
     display: block;
@@ -4739,7 +4843,7 @@ span {
       margin-top: 8px;
       background: #fff;
       height: 28px;
-      border-radius: 4px;
+      border-radius: 6px;
       border: 1px solid #dcdfe6;
       display: flex;
       color: #cccccc;
@@ -4910,7 +5014,7 @@ span {
         position: absolute;
         width: 24px;
         height: 24px;
-        border-radius: 4px;
+        border-radius: 6px;
         top: -4px;
         left: -4px;
         background: rgba(31, 35, 41, 0.1);
@@ -5330,7 +5434,7 @@ span {
     width: 100%;
     outline: none;
     border: 1px solid #295acc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 0 4px;
     height: 100%;
   }
@@ -5345,7 +5449,7 @@ span {
     background-color: #050e21;
     outline: none;
     border: 1px solid #295acc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 0 4px;
     height: 100%;
   }

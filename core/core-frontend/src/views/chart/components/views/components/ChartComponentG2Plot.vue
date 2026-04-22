@@ -7,7 +7,8 @@ import {
   reactive,
   ref,
   shallowRef,
-  toRefs
+  toRefs,
+  watch
 } from 'vue'
 import { getData } from '@/api/chart'
 import { ChartLibraryType } from '@/views/chart/components/js/panel/types'
@@ -360,6 +361,7 @@ const renderG2Plot = async (chart, chartView: G2PlotChartView<any, any>) => {
       // 在这里清理掉之前图表的空dom
       configEmptyDataStyle([1], containerId)
       myChart?.destroy()
+      chart.container = containerId
       myChart = await chartView.drawChart({
         chartObj: myChart,
         container: containerId,
@@ -399,6 +401,9 @@ const renderL7Plot = async (chart: ChartObj, chartView: L7PlotChartView<any, any
   }
   mapTimer && clearTimeout(mapTimer)
   mapTimer = setTimeout(async () => {
+    if (myChart?.tooltip && typeof myChart.tooltip.destroy !== 'function') {
+      myChart.tooltip = null
+    }
     myChart?.destroy()
     if (chartContainer.value) {
       chartContainer.value.textContent = ''
@@ -421,6 +426,7 @@ let mapL7Timer: number
 const renderL7 = async (chart: ChartObj, chartView: L7ChartView<any, any>, callback) => {
   mapL7Timer && clearTimeout(mapL7Timer)
   mapL7Timer = setTimeout(async () => {
+    chart.container = containerId
     myChart = await chartView.drawChart({
       chartObj: myChart,
       container: containerId,
@@ -569,6 +575,9 @@ const trackClick = trackAction => {
   let quotaList = state.pointParam.data.quotaList
   if (['bar-range', 'bullet-graph'].includes(curView.type)) {
     quotaList = state.pointParam.data.dimensionList
+  } else if (curView.type === 'multi-scatter') {
+    // 多维散点图 dimensionList 包含颜色维度+横轴+纵轴的值
+    quotaList = []
   } else {
     quotaList[0]['value'] = state.pointParam.data.value
   }
@@ -795,7 +804,10 @@ onMounted(() => {
       return
     }
     if (entry.intersectionRatio <= 0) {
-      myChart?.emit('tooltip:hidden')
+      // G2Plot 图表使用 emit，L7/L7Plot 图表没有 emit 方法
+      if (myChart && typeof myChart.emit === 'function') {
+        myChart.emit('tooltip:hidden')
+      }
     }
   })
   intersectionObserver.observe(containerDom)
@@ -820,6 +832,32 @@ onBeforeUnmount(() => {
     console.warn(e)
   }
 })
+
+/**
+ * 监听图表选中状态,处理地图在移动端的交互
+ * active = true 时：图表选中 → 事件穿透画布容器，不拦截，能够直接与画布交互
+ * active = false 时：图表未选中 → 画布容器正常响应事件，能够滑动页面
+ */
+watch(
+  () => props.active,
+  newVal => {
+    if (!MAP_CHARTS.includes(view.value.type) || !isMobile()) return
+    const containerDiv = document.getElementById(containerId)
+    if (!containerDiv) return
+    // 腾讯 / 天地图：容器配置 pointer-events
+    const isQQOrTianMap = !!containerDiv.style.pointerEvents
+    const containerEvents = newVal ? 'auto' : 'none'
+    const sceneEvents = isQQOrTianMap ? containerEvents : newVal ? 'none' : 'auto'
+    if (isQQOrTianMap) {
+      containerDiv.style.pointerEvents = containerEvents
+    }
+    containerDiv
+      .querySelectorAll<HTMLElement>('.l7-scene')
+      .forEach(el => (el.style.pointerEvents = sceneEvents))
+    // 容器添加活跃标识，方便后续样式调整
+    containerDiv.setAttribute('de-chart-active', String(newVal))
+  }
+)
 </script>
 
 <template>

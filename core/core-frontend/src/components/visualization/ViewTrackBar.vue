@@ -2,11 +2,13 @@
   <div>
     <el-dropdown
       :id="'view-track-bar-' + chartId"
-      :teleported="false"
+      :teleported="true"
       trigger="click"
+      placement="bottom"
+      popper-class="track_bar_custom"
       @visible-change="visibleChange"
     >
-      <input id="input" ref="trackButton" type="button" hidden />
+      <input id="input" style="opacity: 0" ref="trackButton" type="button" />
       <template #dropdown>
         <div :class="{ 'data-mobile': isDataVMobile }">
           <el-dropdown-menu
@@ -79,9 +81,7 @@ const visibleChange = () => {
 const chartId = ref(null)
 const trackButtonClick = (id?: string) => {
   chartId.value = id
-  setTimeout(() => {
-    trackButton.value.click()
-  }, 50)
+  trackButton.value.click()
 }
 
 const trackMenuClick = menu => {
@@ -92,6 +92,12 @@ defineExpose({
   trackButtonClick
 })
 </script>
+
+<style lang="less">
+.track_bar_custom {
+  transform: translate(50px, -30px) !important;
+}
+</style>
 
 <style lang="less" scoped>
 .menu-item {

@@ -19,7 +19,7 @@
     </parent>
 
     <properties>
-        <dataease.version>2.10.20</dataease.version>
+        <dataease.version>2.10.22</dataease.version>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-cloud-alibaba.version>2023.0.1.0</spring-cloud-alibaba.version>
@@ -30,7 +30,7 @@
         <mybatis-plus.version>3.5.6</mybatis-plus.version>
         <h2.version>2.2.220</h2.version>
         <knife4j.version>4.4.0</knife4j.version>
-        <calcite-core.version>1.35.24</calcite-core.version>
+        <calcite-core.version>1.35.28</calcite-core.version>
         <commons-dbcp2.version>2.6.0</commons-dbcp2.version>
         <antlr.version>3.5.2</antlr.version>
         <java-jwt.version>3.12.1</java-jwt.version>
@@ -54,7 +54,7 @@
         <flexmark.version>0.62.2</flexmark.version>
         <mybatis-spring.version>3.0.3</mybatis-spring.version>
         <commons-compress.version>1.26.2</commons-compress.version>
-        <jsch.version>0.1.55</jsch.version>
+        <jsch.version>0.2.26</jsch.version>
     </properties>
 
     <dependencyManagement>
