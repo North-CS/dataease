@@ -16,9 +16,10 @@ const interactiveStore = interactiveStoreWithOut()
 export const logoutHandler = (justClean?: boolean, save_platform_status = false) => {
   // alert("退出入口！")
   const ticket = getSsoTicket()
+  console.log("开始退出")
   //request.post({ url: '/sso/logout',data:{ ticket } })
   request.post({ url: '/sso/logout', data: { ticket } })
-  document.cookie = `sso.jd.com=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+  document.cookie = `sso.jd.com=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;domain=.jd.com;`
   userStore.clear()
   userStore.$reset()
   permissionStore.clear()

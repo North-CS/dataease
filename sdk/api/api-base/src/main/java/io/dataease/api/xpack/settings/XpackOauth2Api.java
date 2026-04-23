@@ -25,6 +25,7 @@ public interface XpackOauth2Api {
 
 //    @PostMapping("/token")
 //    XpackOauthTokenVO oauth2Token(@RequestBody XpackOauth2TokenRequest request);
+
     @PostMapping("/token")
     XpackOauthTokenVO oauth2Token(@RequestBody Map<String,String> ssoServiceTicket,
                                   HttpServletRequest request,
@@ -32,6 +33,7 @@ public interface XpackOauth2Api {
 
 //    @PostMapping("/logout")
 //    void oauth2Logout(String ticket,HttpServletRequest request);
+
     @PostMapping("/tokenWithSameDomain")
     XpackOauthTokenVO oauth2TokenWithSameDomain(@RequestBody Map<String,String> ssoServiceTicket,
                                             HttpServletRequest request,

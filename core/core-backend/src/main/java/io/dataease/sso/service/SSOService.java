@@ -8,7 +8,9 @@ import io.dataease.auth.bo.TokenUserBO;
 import io.dataease.auth.vo.TokenVO;
 import io.dataease.sso.client.SSOClient;
 import io.dataease.sso.exception.SSOException;
+import io.dataease.utils.LogUtil;
 import io.dataease.utils.Md5Utils;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -109,32 +111,46 @@ public class SSOService {
      * @param request 原始请求（用于获取JWT或票据）
      * @param response HttpServletResponse（用于清除Cookie）
      */
-    public Map<String, Object> ssoLogout(String ticket,HttpServletRequest request, HttpServletResponse response) {
+    public Map<String, Object> ssoLogout(HttpServletRequest request, HttpServletResponse response) {
         Map<String, Object> result = new HashMap<>();
         try {
             // 1. 从请求中获取系统JWT token（例如从Authorization头）
-            String jwtToken = extractJwtFromRequest(request);
-            System.out.println("退出逻辑开始"+ ticket);
+//            String jwtToken = extractJwtFromRequest(request);
+            LogUtil.info("退出逻辑开始");
+            String ssoCookieName = "sso.jd.com";
+            LogUtil.info("Cookie中的name:"+ ssoCookieName);
+            String ticket = extractCookieValue(request, ssoCookieName);
+            LogUtil.info("Cookie中的Ticket:"+ ticket);
             // 2. 根据JWT找到关联的SSO正式票据（如果之前存储过）
 //            String ssoTicket = getSsoTicketByJwt(jwtToken); // 从Redis查询
-
             if (ticket != null) {
                 // 3. 调用SSO登出接口
-
                 ssoClient.logout(ticket, request);
                 // 4. 删除本地存储的关联
                 // redisTemplate.delete("SSO:" + jwtToken);
             }
-
-            // 5. 清除本地Cookie（如果有）
-//             CookieUtil.deleteCookie(response, "SSO_TICKET");
-
             result.put("success", true);
         } catch (Exception e) {
             result.put("success", false);
             result.put("message", e.getMessage());
         }
         return result;
+    }
+
+    private String extractCookieValue(HttpServletRequest request, String cookieName) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            LogUtil.info("Cookie为空");
+            return null;
+        }
+
+        for (Cookie cookie : cookies) {
+            if (cookieName.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        LogUtil.info("未查询至指定Cookie");
+        return null;
     }
 
     // 生成JWT的方法（保持不变）
