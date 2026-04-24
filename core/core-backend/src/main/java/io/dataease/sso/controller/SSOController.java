@@ -42,6 +42,6 @@ public class SSOController {
                                          HttpServletResponse response) {
         String ticket = params.get("ticket");
         System.out.println(ticket);
-        return ssoService.ssoLogout(ticket, request, response);
+        return ssoService.ssoLogout(request, response);
     }
 }
