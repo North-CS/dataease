@@ -3896,7 +3896,7 @@ export default {
     description: '描述',
     tips: '提示',
     replication: 'BE 複本數',
-    replication_tip: 'BE 節點數量'
+    replication_tip: '未填寫時預設使用 1'
   },
   sync_summary: {
     summary: '概覽',

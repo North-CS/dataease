@@ -4007,7 +4007,7 @@ export default {
     description: 'Description',
     tips: 'Tips',
     replication: 'BACKEND Replicas',
-    replication_tip: 'Number of BE Nodes'
+    replication_tip: 'Defaults to 1 when empty'
   },
   sync_summary: {
     summary: 'Overview',

@@ -3899,7 +3899,7 @@ export default {
     description: '描述',
     tips: '提示',
     replication: 'BE 副本数',
-    replication_tip: 'BE 节点数量'
+    replication_tip: '未填写时默认使用 1'
   },
   sync_summary: {
     summary: '概览',
