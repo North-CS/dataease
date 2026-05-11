@@ -3762,6 +3762,7 @@ export default {
     host: 'SMTP主機',
     port: 'SMTP連接埠',
     account: 'SMTP帳號',
+    sender: '發件人',
     pwd: 'SMTP密碼',
     reci: '測試收件者',
     ssl: 'SSL',
