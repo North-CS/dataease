@@ -24,10 +24,7 @@
   </div>
 
   <!-- 修复：将两个 xpack-component 标签改为多行缩进格式 -->
-  <xpack-component
-    jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy"
-    @loaded="addTable"
-  />
+  <xpack-component jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy" @loaded="addTable" />
   <xpack-component
     jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvQ2xvdWRTb3JhZ2VIYW5kbGVy"
     @loaded="addTable"
