@@ -22,8 +22,12 @@
       <third-party v-if="activeName === 'third_party'" />
     </div>
   </div>
-  <xpack-component jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy" @loaded="addTable" />
-  <xpack-component jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvQ2xvdWRTdG9yYWdlSGFuZGxlcg==" @loaded="addTable" />
+  <xpack-component
+    jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy"
+    @loaded="addTable" />
+  <xpack-component
+    jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvQ2xvdWRTdG9yYWdlSGFuZGxlcg=="
+    @loaded="addTable" />
 </template>
 
 <script lang="ts" setup>
