@@ -24,10 +24,12 @@
   </div>
   <xpack-component
     jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy"
-    @loaded="addTable" />
+    @loaded="addTable"
+  />
   <xpack-component
     jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvQ2xvdWRTdG9yYWdlSGFuZGxlcg=="
-    @loaded="addTable" />
+    @loaded="addTable"
+  />
 </template>
 
 <script lang="ts" setup>
