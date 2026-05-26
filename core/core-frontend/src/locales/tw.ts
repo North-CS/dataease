@@ -3796,6 +3796,18 @@ export default {
     ssl: 'SSL',
     tsl: 'TSL'
   },
+  setting_cos: {
+    title: '雲端儲存設定',
+    enabled: '開啟雲端儲存',
+    region: '地域',
+    region_tip: '如：ap-beijing、ap-shanghai、ap-guangzhou',
+    secretId: 'SecretId',
+    secretKey: 'SecretKey',
+    secret_tip: '在騰訊雲存取管理控制台取得',
+    bucketName: 'Bucket名稱',
+    urlExpireHours: '連結有效期(小時)',
+    expire_tip: '產生的預簽名URL有效期，預設24小時'
+  },
   sync_manage: {
     title: '同步管理',
     ds_search_placeholder: '搜尋名稱,描述'

@@ -3537,6 +3537,18 @@ export default {
     ssl: 'SSL',
     tsl: 'TSL'
   },
+  setting_cos: {
+    title: 'Cloud Storage',
+    enabled: 'Enable Cloud Storage',
+    region: 'Region',
+    region_tip: 'e.g., ap-beijing, ap-shanghai, ap-guangzhou',
+    secretId: 'SecretId',
+    secretKey: 'SecretKey',
+    secret_tip: 'Get from Tencent Cloud Console',
+    bucketName: 'Bucket Name',
+    urlExpireHours: 'URL Expire Hours',
+    expire_tip: 'Presigned URL expiration time, default 24 hours'
+  },
   sync_manage: {
     title: 'Synchronous management',
     ds_search_placeholder: 'Search name, description'

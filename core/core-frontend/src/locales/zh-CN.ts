@@ -3802,6 +3802,18 @@ export default {
     ssl: 'SSL',
     tsl: 'TSL'
   },
+  setting_cos: {
+    title: '云存储设置',
+    enabled: '开启云存储',
+    region: '地域',
+    region_tip: '如：ap-beijing、ap-shanghai、ap-guangzhou',
+    secretId: 'SecretId',
+    secretKey: 'SecretKey',
+    secret_tip: '在腾讯云访问管理控制台获取',
+    bucketName: 'Bucket名称',
+    urlExpireHours: '链接有效期(小时)',
+    expire_tip: '生成的预签名URL有效期，默认24小时'
+  },
   sync_manage: {
     title: '同步管理',
     ds_search_placeholder: '搜索名称,描述'

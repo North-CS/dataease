@@ -15,10 +15,15 @@
         jsname="L21lbnUvc2V0dGluZy9lbWFpbC9pbmRleA=="
         v-if="activeName === 'email'"
       />
+      <xpack-component
+        jsname="L21lbnUvc2V0dGluZy9jbG91ZHN0b3JhZ2UvaW5kZXg="
+        v-if="activeName === 'cloudstorage'"
+      />
       <third-party v-if="activeName === 'third_party'" />
     </div>
   </div>
   <xpack-component jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy" @loaded="addTable" />
+  <xpack-component jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvQ2xvdWRTdG9yYWdlSGFuZGxlcg==" @loaded="addTable" />
 </template>
 
 <script lang="ts" setup>
