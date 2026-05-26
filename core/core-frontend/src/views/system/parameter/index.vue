@@ -22,14 +22,11 @@
       <third-party v-if="activeName === 'third_party'" />
     </div>
   </div>
-  <xpack-component
-    jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy"
-    @loaded="addTable"
-  />
-  <xpack-component
-    jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvQ2xvdWRTdG9yYWdlSGFuZGxlcg=="
-    @loaded="addTable"
-  />
+
+  <!-- 就这里！必须写成一行！ -->
+  <xpack-component jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvRW1haWxIYW5kbGVy" @loaded="addTable" />
+  <xpack-component jsname="L2NvbXBvbmVudC9tZW51LWhhbmRsZXIvQ2xvdWRTb3JhZ2VIYW5kbGVy" @loaded="addTable" />
+
 </template>
 
 <script lang="ts" setup>
@@ -41,7 +38,7 @@ import ThirdParty from './third-party/index.vue'
 import EngineInfo from '@/views/system/parameter/engine/EngineInfo.vue'
 import { XpackComponent } from '@/components/plugin'
 import { isDesktop } from '@/utils/ModelUtil'
-/* import EmailInfo from './email/EmailInfo.vue' */
+
 const { t } = useI18n()
 
 const desktop = isDesktop()
@@ -58,7 +55,7 @@ const tabArray = ref([
 const activeName = ref('basic')
 
 const addTable = tab => {
-  if (!tabArray.value.some(item => item.name === tab['name'])) {
+  if (!tabArray.value.some(item => item.name === tab.name)) {
     tabArray.value.splice(1, 0, tab)
   }
 }
@@ -67,7 +64,7 @@ onMounted(() => {
   if (desktop) {
     let len = tabArray.value.length
     while (len--) {
-      if (tabArray.value[len]['name'] === 'third_party') {
+      if (tabArray.value[len].name === 'third_party') {
         tabArray.value.splice(len, 1)
         break
       }
@@ -75,6 +72,7 @@ onMounted(() => {
   }
 })
 </script>
+
 <style lang="less">
 .router-title {
   color: #1f2329;
