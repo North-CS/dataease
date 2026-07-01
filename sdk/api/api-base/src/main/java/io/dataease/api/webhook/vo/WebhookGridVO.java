@@ -24,9 +24,4 @@ public class WebhookGridVO implements Serializable {
     private String contentType;
 
     private Boolean ssl;
-
-    @JsonSerialize(using= ToStringSerializer.class)
-    private Long oid;
-
-    private Long createTime;
 }

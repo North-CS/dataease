@@ -15,6 +15,8 @@ import { valueFormatter } from '@/views/chart/components/js/formatter'
 import { storeToRefs } from 'pinia'
 import { isDashboard, trackBarStyleCheck } from '@/utils/canvasUtils'
 import ViewTrackBar from '@/components/visualization/ViewTrackBar.vue'
+import { hasNextDrillLevel } from '@/views/chart/components/views/util/drill'
+import { ElMessage } from 'element-plus-secondary'
 
 const props = defineProps({
   // 公共参数集
@@ -75,6 +77,7 @@ const viewTrack = ref(null)
 const indicatorRef = ref(null)
 const errMsg = ref('')
 const isError = ref(false)
+const drillFilters = ref([])
 const state = reactive({
   pointParam: null,
   data: null,
@@ -390,6 +393,7 @@ const calcData = (view, callback) => {
           errMsg.value = res.msg
         } else {
           chartData.value = res?.data as Partial<Chart['data']>
+          drillFilters.value = res?.drillFilters || []
           emit('onDrillFilters', res?.drillFilters)
 
           dvMainStore.setViewDataDetails(view.id, res)
@@ -398,9 +402,11 @@ const calcData = (view, callback) => {
         callback?.()
       })
       .catch(() => {
+        drillFilters.value = []
         callback?.()
       })
   } else {
+    drillFilters.value = []
     callback?.()
   }
 }
@@ -487,12 +493,23 @@ const trackMenu = computed(() => {
       jumpCount++
     }
   })
+  if (view.value?.drillFields && view.value?.drillFilters && view.value.drillFilters.length > 0) {
+    const lastItem = view.value?.drillFields[view.value.drillFilters.length]
+    const sourceInfo = view.value.id + '#' + lastItem.id
+    if (nowPanelTrackInfo.value[sourceInfo]) {
+      linkageCount++
+    }
+    if (nowPanelJumpInfo.value[sourceInfo]) {
+      jumpCount++
+    }
+  }
   jumpCount &&
     view.value?.jumpActive &&
     (!mobileInPc.value || inMobile.value) &&
     trackMenuInfo.push('jump')
   linkageCount && view.value?.linkageActive && trackMenuInfo.push('linkage')
-  view.value.drillFields.length && trackMenuInfo.push('drill')
+  hasNextDrillLevel(view.value.drillFields, drillFilters.value.length) &&
+    trackMenuInfo.push('drill')
   // 如果同时配置jump linkage drill 切配置联动时同时下钻 在实际只显示两个 '跳转' '联动和下钻'
   if (trackMenuInfo.length === 3 && props.element.actionSelection.linkageActive === 'auto') {
     trackMenuInfo = ['jump', 'linkageAndDrill']
@@ -525,6 +542,10 @@ const action = param => {
   pointClickTrans()
   // 联动 跳转
   if (trackMenu.value.length < 2) {
+    if (view.value.drillFields.length > 0 && trackMenu.value.length === 0) {
+      ElMessage.error(t('chart.last_layer'))
+      return
+    }
     // 只有一个事件直接调用
     trackClick(trackMenu.value[0])
   } else {
@@ -578,7 +599,9 @@ const onPointClick = event => {
 
 defineExpose({
   calcData,
-  renderChart
+  renderChart,
+  // 父层标题栏读取操作菜单用于展示动作图标
+  trackMenu
 })
 </script>
 

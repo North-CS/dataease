@@ -19,6 +19,7 @@ import io.dataease.extensions.datasource.api.PluginManageApi;
 import io.dataease.extensions.datasource.dto.DatasetTableFieldDTO;
 import io.dataease.extensions.datasource.dto.DatasourceRequest;
 import io.dataease.extensions.datasource.dto.DatasourceSchemaDTO;
+import io.dataease.extensions.datasource.dto.TableFieldWithValue;
 import io.dataease.extensions.datasource.factory.ProviderFactory;
 import io.dataease.extensions.datasource.model.SQLMeta;
 import io.dataease.extensions.datasource.provider.Provider;
@@ -91,6 +92,8 @@ public class ChartDataManage {
             view.setChartExtRequest(chartExtRequest);
         }
 
+        chartViewManege.checkLinkChart(view);
+
         //excel导出，如果是从仪表板获取图表数据，则仪表板的查询模式，查询结果的数量，覆盖图表对应的属性
         if (view.getIsExcelExport()) {
             view.setResultMode(ChartConstants.VIEW_RESULT_MODE.CUSTOM);
@@ -98,6 +101,8 @@ public class ChartDataManage {
             view.setResultMode(chartExtRequest.getResultMode());
             view.setResultCount(chartExtRequest.getResultCount());
         }
+        // tooltip 关闭时动态提示字段不参与数据计算
+        clearDisabledTooltipFields(view);
 
         AbstractChartPlugin chartHandler;
         if (BooleanUtils.isTrue(view.getIsPlugin())) {
@@ -423,6 +428,29 @@ public class ChartDataManage {
         return chartHandler.buildChart(view, calcResult, formatResult, filterResult);
     }
 
+    private void clearDisabledTooltipFields(ChartViewDTO view) {
+        if (isTooltipEnabled(view)) {
+            return;
+        }
+        view.setExtTooltip(Collections.emptyList());
+    }
+
+    private boolean isTooltipEnabled(ChartViewDTO view) {
+        Map<String, Object> customAttr = view.getCustomAttr();
+        if (MapUtils.isEmpty(customAttr)) {
+            return true;
+        }
+        Object tooltipObj = customAttr.get("tooltip");
+        if (!(tooltipObj instanceof Map<?, ?> tooltip)) {
+            return true;
+        }
+        Object show = tooltip.get("show");
+        if (show instanceof Boolean showTooltip) {
+            return showTooltip;
+        }
+        return !StringUtils.equalsIgnoreCase(String.valueOf(show), "false");
+    }
+
     private List<ChartViewFieldDTO> getSizeField(ChartViewDTO view) throws Exception {
         List<ChartViewFieldDTO> list = new ArrayList<>();
         Map<String, Object> customAttr = view.getCustomAttr();
@@ -727,6 +755,10 @@ public class ChartDataManage {
         DatasourceRequest datasourceRequest = new DatasourceRequest();
         datasourceRequest.setDsList(dsMap);
         datasourceRequest.setIsCross(crossDs);
+        List<TableFieldWithValue> tableFieldWithValues = (List<TableFieldWithValue>) sqlMap.get("tableFieldWithValues");
+        if (CollectionUtils.isNotEmpty(tableFieldWithValues)) {
+            datasourceRequest.setTableFieldWithValues(tableFieldWithValues.stream().map(TableFieldWithValue::copy).toList());
+        }
 
         Provider provider;
         if (crossDs) {

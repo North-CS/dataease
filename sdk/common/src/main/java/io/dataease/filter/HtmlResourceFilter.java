@@ -37,6 +37,9 @@ public class HtmlResourceFilter implements Filter, Ordered {
             httpResponse.setHeader(HttpHeaders.PRAGMA, "no-cache");
             httpResponse.setHeader(HttpHeaders.EXPIRES, "0");
         }
+        httpResponse.setHeader("Content-Security-Policy", "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors *");
+        httpResponse.setHeader("X-Content-Type-Options", "nosniff");
+        httpResponse.setHeader("X-XSS-Protection", "1; mode=block");
         // 继续执行过滤器链
         try {
             filterChain.doFilter(servletRequest, httpResponse);

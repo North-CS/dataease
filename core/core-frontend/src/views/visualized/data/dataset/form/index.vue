@@ -1343,7 +1343,7 @@ onMounted(async () => {
   isEdit.value = false
   await new Promise(r => (p = r))
   await initEdite()
-  getDatasource(isEdit.value ? 0 : 2)
+  getDatasource(2)
   window.addEventListener('resize', handleResize)
   getSqlResultHeight()
   quotaTableHeight.value = sqlResultHeight.value - 242
@@ -3175,6 +3175,10 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
             float: right;
             height: 100%;
             width: calc(100% - 260px);
+
+            :deep(.ed-table__header-wrapper) {
+              border-top: none;
+            }
 
             :deep(.ed-table-v2__header-cell) {
               background-color: #f5f6f7 !important;

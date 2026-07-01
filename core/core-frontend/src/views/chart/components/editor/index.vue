@@ -4705,7 +4705,7 @@ span {
     color: #646a73;
 
     &.dark {
-      color: #a6a6a6;
+      color: #ebebeb;
     }
   }
 
@@ -5099,6 +5099,7 @@ span {
 :deep(.ed-collapse) {
   width: 100%;
   border-top: unset;
+  border-bottom: unset;
 }
 :deep(.ed-form-item) {
   .ed-radio.ed-radio--small .ed-radio__inner {

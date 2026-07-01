@@ -37,7 +37,7 @@ useEmitt({
 })
 const emit = defineEmits(['onLegendChange', 'onMiscChange'])
 const toolTip = computed(() => {
-  return props.themes === 'dark' ? 'light' : 'dark'
+  return props.themes || 'dark'
 })
 watch(
   () => props.chart.customStyle,
@@ -233,9 +233,9 @@ const changeLegendCustomType = (prop?) => {
  * 改变自定义区间个数
  * @param prop
  */
-const changeLegendNumber = (prop?) => {
+const changeLegendNumber = (prop?, oldValue?) => {
   if (!state.legendForm.miscForm.mapLegendNumber) {
-    return
+    state.legendForm.miscForm.mapLegendNumber = oldValue ?? DEFAULT_MISC.mapLegendNumber
   }
   calcMapCustomRange()
   prop ? changeMisc(prop) : ''
@@ -513,7 +513,7 @@ onMounted(() => {
                   :step="1"
                   :controls="true"
                   controls-position="right"
-                  @change="changeLegendNumber('mapLegendNumber')"
+                  @change="(_, oldValue) => changeLegendNumber('mapLegendNumber', oldValue)"
                 />
               </el-form-item>
             </el-col>

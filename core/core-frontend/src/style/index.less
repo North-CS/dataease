@@ -17,6 +17,7 @@
 
 body {
   background: #ffffff;
+  color: rgb(31, 35, 41);
 }
 
 * {
@@ -206,6 +207,17 @@ body {
   background: @side-content-background !important;
   padding: 0px 4px 0 4px !important;
   border: 1px solid @side-outline-border-color !important;
+  .li-custom {
+    color: #a6a6a6;
+  }
+
+  .label-content {
+    color: #a6a6a6;
+  }
+
+  .item8 .item-top .item-top-icon {
+    color: rgb(166, 166, 166) !important;
+  }
 }
 
 .custom-popover-light {
@@ -213,6 +225,12 @@ body {
   background: @side-content-background-light !important;
   padding: 0px 4px 0 4px !important;
   border: 1px solid @side-outline-border-color-light !important;
+  .li-custom {
+    color: #646a73;
+  }
+  .label-content {
+    color: #646a73;
+  }
 }
 
 .custom-row {
@@ -247,9 +265,12 @@ body {
 }
 
 .chart-type-style-dark {
+  padding: 4px !important;
   background: @side-content-background !important;
   border: 1px solid #434343 !important;
-
+  .ul-custom .li-custom {
+    color: #a6a6a6;
+  }
   .ed-popper__arrow {
     display: none !important;
   }
@@ -257,6 +278,10 @@ body {
 
 .chart-type-style-light {
   background: @side-content-background-light !important;
+  padding: 4px !important;
+  .ul-custom .li-custom {
+    color: #646a73;
+  }
 
   .ed-popper__arrow {
     display: none !important;
@@ -346,15 +371,10 @@ body {
   fill: var(--ed-color-primary, #3370ff);
 }
 
-// .ed-drawer__footer {
-//   height: 64px !important;
-//   padding: 0px !important;
-//   box-shadow: 0 -1px 0px #d7d7d7 !important;
-// }
-
-// .ed-drawer__body {
-//   padding: 0 0 64px 0 !important;
-// }
+.svg-primary-color_b50 {
+  color: var(--ed-color-primary_b50, #ebf1ff);
+  fill: var(--ed-color-primary_b50, #ebf1ff);
+}
 
 .ed-tree-node.is-current > .ed-tree-node__content:not(.is-menu):after {
   display: none;
@@ -776,12 +796,6 @@ strong {
   transform: translateY(-8px);
 }
 
-.new-folder_tip {
-  .ed-popper__arrow {
-    transform: translate(46px, 0px) !important;
-  }
-}
-
 .skeleton-loading {
   .ed-loading-spinner {
     margin-top: 0 !important;
@@ -852,4 +866,81 @@ strong {
 
 .ed-dialog__headerbtn {
   border-radius: 6px !important;
+}
+
+.ed-dropdown__popper {
+  .ed-dropdown-menu__item {
+    border-radius: 6px;
+    padding-left: 8px;
+    &:not(.is-disabled):hover,
+    &:not(.is-disabled):focus {
+      background-color: #1f23291a;
+    }
+  }
+
+  .ed-dropdown-menu {
+    padding: 4px;
+
+    .ed-dropdown-menu__item--divided {
+      width: calc(100% + 8px);
+      margin-left: -4px;
+    }
+  }
+}
+.login-form-center {
+  /* 针对 Webkit 浏览器的自动填充样式重置 */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    /* 1. 使用足够大的内阴影来覆盖背景色，把 #ffffff 替换成你输入框原本的背景色 */
+    -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+
+    /* 2. 由于常规的 color 属性也会失效，需要用这个属性修改文字颜色 */
+    -webkit-text-fill-color: #333333 !important;
+
+    /* 3. 保留光标的正常颜色 */
+    caret-color: #333333;
+  }
+}
+
+.ed-tree-node__content {
+  border-radius: 4px;
+}
+
+.ed-popper.is-light .ed-popper__arrow {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.ed-collapse-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+.ed-color-picker.is-custom.ed-color-picker.is-custom {
+  border-radius: 6px;
+}
+
+.ed-popper.is-pure:has(.ed-select-dropdown) {
+  padding: 0 !important;
+  .ed-select-dropdown {
+    padding: 0 4px !important;
+  }
+
+  .ed-select-dropdown__list.ed-vl__window {
+    margin: 4px 0 !important;
+  }
+
+  .ed-select-dropdown:has(.ed-vl__wrapper) {
+    padding: 0 !important;
+    .ed-select-dropdown__list {
+      .ed-select-dropdown__item {
+        left: 4px !important;
+        width: calc(100% - 8px) !important;
+      }
+    }
+  }
+}
+
+.threshold-senior .ed-collapse-item__content .inner-container .label {
+  color: @canvas-main-font-color;
 }

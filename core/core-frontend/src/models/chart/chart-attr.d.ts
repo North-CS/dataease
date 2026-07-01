@@ -393,6 +393,14 @@ declare interface ChartBasicStyle {
    * 透视表行头宽度百分比
    */
   tableRowHeaderWidthPercent: number
+  /**
+   * 表格空数据提示字体颜色
+   */
+  tableEmptyFontColor: string
+  /**
+   * 表格空数据提示字体大小
+   */
+  tableEmptyFontSize: number
 }
 /**
  * 表头属性
@@ -1115,6 +1123,10 @@ declare interface ChartTooltipAttr {
    * 格式化
    */
   tooltipFormatter: BaseFormatter
+  /**
+   * 是否显示指标值
+   */
+  showQuota?: boolean
   /**
    * 背景颜色
    */

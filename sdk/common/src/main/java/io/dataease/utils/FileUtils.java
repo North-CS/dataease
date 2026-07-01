@@ -1,6 +1,8 @@
 package io.dataease.utils;
 
 import io.dataease.exception.DEException;
+import io.dataease.i18n.Translator;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.NonNull;
 import org.springframework.util.Assert;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,6 +16,26 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class FileUtils {
+
+    public static void validateUploadFilename(String filename) {
+        if (StringUtils.isBlank(filename)
+                || filename.indexOf('/') >= 0
+                || filename.indexOf('\\') >= 0
+                || filename.contains("..")
+                || filename.indexOf('\0') >= 0
+                || containsControlCharacter(filename)) {
+            DEException.throwException(Translator.get("i18n_invalid_file_name"));
+        }
+    }
+
+    private static boolean containsControlCharacter(String filename) {
+        for (int i = 0; i < filename.length(); i++) {
+            if (Character.isISOControl(filename.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public static void createIfAbsent(@NonNull Path path) throws IOException {
         Assert.notNull(path, "Path must not be null");
@@ -52,8 +74,8 @@ public class FileUtils {
         return filename;
     }
 
-    public static void validateExist(String path) {
-        File dir = new File(path);
+    public static void validateExist(String path) throws IOException {
+        File dir = new File(path).getCanonicalFile();
         if (dir.exists()) return;
         dir.mkdirs();
     }
@@ -268,25 +290,5 @@ public class FileUtils {
         }
 
         return bytes;
-    }
-
-
-    public static boolean deleteDirectoryRecursively(String directoryPath) {
-        File directory = new File(directoryPath);
-        if (!directory.exists()) {
-            return true;
-        }
-
-        File[] files = directory.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteDirectoryRecursively(file.getAbsolutePath());
-                } else {
-                    boolean deletionSuccess = file.delete();
-                }
-            }
-        }
-        return directory.delete();
     }
 }
