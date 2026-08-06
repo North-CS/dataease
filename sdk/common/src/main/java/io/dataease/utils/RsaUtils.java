@@ -12,7 +12,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -22,8 +21,6 @@ import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
-
-import static io.dataease.constant.CacheConstant.UserCacheConstant.Symmetric_Key;
 
 @Component
 public class RsaUtils {
@@ -43,6 +40,12 @@ public class RsaUtils {
     private static final String PK_SEPARATOR = "-pk_separator-";
 
     private static RsaManage rsaManage;
+
+    private static String staticAesKey;
+
+    public static void initAesKey(String aesKey) {
+        RsaUtils.staticAesKey = aesKey;
+    }
 
     @Resource
     public void setRsaManage(RsaManage rsaManage) {
@@ -180,23 +183,35 @@ public class RsaUtils {
         return pk + separator + aesKey;
     }
 
-    public static final String IV_KEY = "0000000000000000";
-
     private static String generateAesKey() {
         return RandomStringUtils.randomAlphanumeric(16);
     }
 
+    private static byte[] deriveIv(String key) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(key.getBytes(StandardCharsets.UTF_8));
+            byte[] iv = new byte[16];
+            System.arraycopy(hash, 0, iv, 0, 16);
+            return iv;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static String ascEncrypt(String message, String key) {
-        Cipher cipher = null;
         try {
             byte[] baseKey = key.getBytes(StandardCharsets.UTF_8);
-            byte[] ivBytes = IV_KEY.getBytes(StandardCharsets.UTF_8);
             byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
-            cipher = Cipher.getInstance("AES/CBC/PKCS7Padding");
-            SecretKey keySpec = new SecretKeySpec(baseKey, "AES");
+
+            byte[] ivBytes = deriveIv(key);
             IvParameterSpec ivps = new IvParameterSpec(ivBytes);
+
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS7Padding");
+            SecretKey keySpec = new SecretKeySpec(baseKey, "AES");
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivps);
             byte[] data = cipher.doFinal(messageBytes);
+
             return Base64.getEncoder().encodeToString(data);
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
@@ -207,33 +222,26 @@ public class RsaUtils {
 
 
     private static final String ALGORITHM = "AES";
-    public static String symmetricKey = "symmetricKey";
-    private static final int KEY_SIZE = 128;
-
 
     public static String generateSymmetricKey() {
-        try {
-            if (!CacheUtils.keyExist(Symmetric_Key, symmetricKey)) {
-                KeyGenerator keyGenerator = KeyGenerator.getInstance(ALGORITHM);
-                keyGenerator.init(KEY_SIZE, new SecureRandom());
-                SecretKey secretKey = keyGenerator.generateKey();
-                CacheUtils.put(Symmetric_Key, symmetricKey, Base64.getEncoder().encodeToString(secretKey.getEncoded()));
-            }
-            return CacheUtils.get(Symmetric_Key, symmetricKey).toString();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return Base64.getEncoder().encodeToString(staticAesKey.getBytes(StandardCharsets.UTF_8));
     }
 
     public static String symmetricEncrypt(String data) {
         try {
-            byte[] iv = IV_KEY.getBytes(StandardCharsets.UTF_8);
+            byte[] iv = new byte[16];
+            new SecureRandom().nextBytes(iv);
             IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            SecretKeySpec secretKeySpec = new SecretKeySpec(Base64.getDecoder().decode(generateSymmetricKey()), ALGORITHM);
+            SecretKeySpec secretKeySpec = new SecretKeySpec(staticAesKey.getBytes(StandardCharsets.UTF_8), ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, ivParameterSpec);
             byte[] ciphertext = cipher.doFinal(data.getBytes("UTF-8"));
-            return Base64.getEncoder().encodeToString(ciphertext);
+
+            byte[] ivAndCipher = new byte[iv.length + ciphertext.length];
+            System.arraycopy(iv, 0, ivAndCipher, 0, iv.length);
+            System.arraycopy(ciphertext, 0, ivAndCipher, iv.length, ciphertext.length);
+
+            return Base64.getEncoder().encodeToString(ivAndCipher);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -241,13 +249,19 @@ public class RsaUtils {
 
     public static String symmetricDecrypt(String data) {
         try {
-            byte[] iv = IV_KEY.getBytes(StandardCharsets.UTF_8);
-            IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
-            SecretKeySpec secretKeySpec = new SecretKeySpec(Base64.getDecoder().decode(generateSymmetricKey()), ALGORITHM);
+            byte[] decoded = Base64.getDecoder().decode(data);
+
+            byte[] ivBytes = new byte[16];
+            System.arraycopy(decoded, 0, ivBytes, 0, 16);
+            IvParameterSpec ivParameterSpec = new IvParameterSpec(ivBytes);
+
+            byte[] ciphertext = new byte[decoded.length - 16];
+            System.arraycopy(decoded, 16, ciphertext, 0, ciphertext.length);
+
+            SecretKeySpec secretKeySpec = new SecretKeySpec(staticAesKey.getBytes(StandardCharsets.UTF_8), ALGORITHM);
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec);
-            byte[] decodedCiphertext = Base64.getDecoder().decode(data);
-            byte[] decryptedText = cipher.doFinal(decodedCiphertext);
+            byte[] decryptedText = cipher.doFinal(ciphertext);
             return new String(decryptedText, "UTF-8");
         } catch (Exception e) {
             throw new RuntimeException(e);
