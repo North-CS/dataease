@@ -3966,7 +3966,7 @@ export default {
     please_choose_incremental_field: '請選擇增量欄位',
     please_enter_table_name: '請輸入表名',
     input_limit_64: '長度不能超過64個字元',
-    must_be_met_the_table_name: '必須以字母開頭，並且只能包含字母、數字、底線',
+    must_be_met_the_table_name: '必須以字母或中文開頭，並且只能包含中文、字母、數字、底線',
     please_choose_partition_type: '請選擇分割區類型',
     please_enter_end_offset: '請輸入結束偏移度',
     please_choose_partition_interval_unit: '請選擇分區間隔的單位',

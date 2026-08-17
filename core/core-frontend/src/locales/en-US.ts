@@ -3734,7 +3734,7 @@ export default {
     please_enter_table_name: 'Please enter the table name',
     input_limit_64: 'The length cannot exceed 64 characters',
     must_be_met_the_table_name:
-      'Must start with a letter and can only contain letters, numbers, and underscores',
+      'Must start with a letter or Chinese character and can only contain Chinese characters, letters, numbers, and underscores',
     please_choose_partition_type: 'Please select the partition type',
     please_enter_end_offset: 'Please enter the end offset',
     please_choose_partition_interval_unit: 'Please select the unit of the partition interval',

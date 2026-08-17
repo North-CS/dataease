@@ -3974,7 +3974,7 @@ export default {
     please_choose_incremental_field: '请选择增量字段',
     please_enter_table_name: '请输入表名',
     input_limit_64: '长度不能超过64个字符',
-    must_be_met_the_table_name: '必须以字母开头，并且只能包含字母、数字、下划线',
+    must_be_met_the_table_name: '必须以字母或中文开头，并且只能包含中文、字母、数字、下划线',
     please_choose_partition_type: '请选择分区类型',
     please_enter_end_offset: '请输入结束偏移度',
     please_choose_partition_interval_unit: '请选择分区间隔的单位',
