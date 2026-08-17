@@ -3790,6 +3790,7 @@ export default {
     confirm_batch_delete_target_ds: '確定刪除{0}個目標資料來源嗎？ ',
     confirm_batch_delete_source_ds: '確定刪除{0}個來源資料來源嗎？ ',
     recently_created: '最近創建',
+    all: '全部',
     has_running_task_msg:
       '執行中的任務完成後，將繼續使用修改先前的配置進行同步，需手動對任務進行重新儲存。 ',
     edit_datasource: '編輯資料來源',

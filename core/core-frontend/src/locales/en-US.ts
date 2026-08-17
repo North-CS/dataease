@@ -3559,6 +3559,7 @@ export default {
     confirm_batch_delete_target_ds: 'Are you sure you want to delete {0} target Datasources? ',
     confirm_batch_delete_source_ds: 'Are you sure you want to delete {0} source Datasources? ',
     recently_created: 'Recently created',
+    all: 'All',
     has_running_task_msg:
       'After the task in progress is completed, the configuration before the modification will continue to be used for synchronization, and the task needs to be manually saved again. ',
     edit_datasource: 'Edit Datasource',

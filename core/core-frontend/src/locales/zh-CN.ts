@@ -3796,6 +3796,7 @@ export default {
     confirm_batch_delete_target_ds: '确定删除{0}个目标数据源吗？',
     confirm_batch_delete_source_ds: '确定删除{0}个源数据源吗？',
     recently_created: '最近创建',
+    all: '全部',
     has_running_task_msg:
       '执行中的任务完成后，将继续使用修改之前的配置进行同步，需手动对任务进行重新保存。',
     edit_datasource: '编辑数据源',

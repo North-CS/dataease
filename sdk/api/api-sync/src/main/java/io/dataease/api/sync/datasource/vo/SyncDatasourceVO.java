@@ -29,6 +29,11 @@ public class SyncDatasourceVO {
     private String type;
 
     /**
+     * 数据源角色：source / target
+     */
+    private String dsRole;
+
+    /**
      * 详细信息
      */
     private String configuration;
