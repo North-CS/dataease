@@ -7,7 +7,7 @@ import dvDelete from '@/assets/svg/dv-delete.svg'
 import dvMove from '@/assets/svg/dv-move.svg'
 import dvCancelPublish from '@/assets/svg/icon_undo_outlined.svg'
 import { treeDraggbleChart } from '@/utils/treeDraggbleChart'
-import { throttle } from 'lodash-es'
+import { cloneDeep, filter, forEach, throttle, union } from 'lodash-es'
 import dvRename from '@/assets/svg/dv-rename.svg'
 import dvDashboardSpine from '@/assets/svg/dv-dashboard-spine.svg'
 import dvDashboardSpineDisabled from '@/assets/svg/dv-dashboard-spine-disabled.svg'
@@ -45,7 +45,6 @@ import { useShareStoreWithOut } from '@/store/modules/share'
 const shareStore = useShareStoreWithOut()
 const interactiveStore = interactiveStoreWithOut()
 import { useI18n } from '@/hooks/web/useI18n'
-import _ from 'lodash'
 import DeResourceCreateOptV2 from '@/views/common/DeResourceCreateOptV2.vue'
 import { useCache } from '@/hooks/web/useCache'
 import { findParentIdByChildIdRecursive, onInitReady } from '@/utils/canvasUtils'
@@ -81,7 +80,7 @@ const props = defineProps({
 const defaultProps = {
   children: 'children',
   label: 'name',
-  disabled: (data: any) => data.extraFlag1 === 0
+  disabled: (data: any) => data.extraFlag1 === 0 || data.weight === 0
 }
 const mounted = ref(false)
 const rootManage = ref(false)
@@ -349,16 +348,16 @@ const getTree = async (notOpen = false) => {
 }
 
 const flattedTree = computed<BusiTreeNode[]>(() => {
-  return _.filter(flatTree(state.resourceTree), node => node.leaf)
+  return filter(flatTree(state.resourceTree), node => node.leaf)
 })
 
 const hasData = computed<boolean>(() => flattedTree.value.length > 0)
 
 function flatTree(tree: BusiTreeNode[]) {
-  let result = _.cloneDeep(tree)
-  _.forEach(tree, node => {
+  let result = cloneDeep(tree)
+  forEach(tree, node => {
     if (node.children && node.children.length > 0) {
-      result = _.union(result, flatTree(node.children))
+      result = union(result, flatTree(node.children))
     }
   })
   return result
@@ -688,9 +687,7 @@ defineExpose({
             offset="14"
             :content="t('work_branch.new_folder')"
             placement="top"
-            popper-class="new-folder_tip"
             effect="dark"
-            arrow-offset="10"
           >
             <el-icon
               class="custom-icon btn"
@@ -787,7 +784,10 @@ defineExpose({
         draggable
       >
         <template #default="{ node, data }">
-          <span class="custom-tree-node" :class="{ 'node-disabled-custom': data.extraFlag1 === 0 }">
+          <span
+            class="custom-tree-node"
+            :class="{ 'node-disabled-custom': data.extraFlag1 === 0 || data.weight === 0 }"
+          >
             <el-icon style="font-size: 18px" v-if="!data.leaf">
               <Icon name="dv-folder"><dvFolder class="svg-icon" /></Icon>
             </el-icon>
@@ -817,8 +817,12 @@ defineExpose({
               <el-tooltip
                 class="box-item"
                 effect="dark"
-                :content="t('visualization.publish_tips1')"
-                :disabled="data.extraFlag1"
+                :content="
+                  data.weight === 0
+                    ? t('visualization.no_permission_tips')
+                    : t('visualization.publish_tips1')
+                "
+                :disabled="data.extraFlag1 && data.weight > 0"
                 placement="top-start"
               >
                 {{ node.label }}
@@ -986,17 +990,22 @@ defineExpose({
   align-items: center;
   box-sizing: content-box;
   padding-right: 4px;
+  position: relative;
 
   .label-tooltip {
-    width: 100%;
+    width: calc(100% - 40px);
     margin-left: 8.75px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 18px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
   .icon-more {
     margin-left: auto;
-    display: none;
+    opacity: 0;
   }
 
   &:hover {
@@ -1005,12 +1014,12 @@ defineExpose({
     }
 
     .icon-more {
-      display: inline-flex;
+      opacity: 1;
     }
   }
 
   .icon-screen-new {
-    border-radius: 4px;
+    border-radius: 6px;
     color: #fff;
     padding: 3px;
   }
@@ -1030,7 +1039,7 @@ defineExpose({
   }
 
   .ed-icon {
-    border-radius: 4px;
+    border-radius: 6px;
   }
 }
 

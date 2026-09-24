@@ -386,7 +386,6 @@ onMounted(() => {
   width: 100%;
   height: calc(100vh - 200px);
   overflow-x: hidden;
-  //overflow-y: auto;
   :deep(.ed-collapse) {
     --ed-collapse-header-font-size: 14px !important;
   }
@@ -397,7 +396,7 @@ onMounted(() => {
 }
 
 .template-main {
-  border-radius: 4px;
+  border-radius: 6px;
   box-shadow: 0 0 2px 0 rgba(31, 31, 31, 0.15), 0 1px 2px 0 rgba(31, 31, 31, 0.15);
   border: solid 2px #fff;
   padding-bottom: 24px;
@@ -480,7 +479,6 @@ onMounted(() => {
 
 .main-area {
   width: 100%;
-  //padding: 24px;
   text-align: center;
   height: calc(100vh - 56px);
   transition: 0.5s;
@@ -609,7 +607,6 @@ onMounted(() => {
 }
 .img-main {
   display: inherit;
-  //border-radius: 4px;
   background: #0f1114;
   overflow-x: auto;
   overflow-y: hidden;
@@ -685,7 +682,7 @@ onMounted(() => {
     height: 100%;
     transform: translate(-50%, -50%);
     display: none;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   &:hover {

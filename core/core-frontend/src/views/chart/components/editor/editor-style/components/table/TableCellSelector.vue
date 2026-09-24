@@ -559,6 +559,8 @@ onMounted(() => {
             "
             :min="0"
             :max="100"
+            :step="1"
+            :precision="0"
             @change="changeTableCell('tableColumnFreezeHead')"
           />
         </el-form-item>
@@ -580,6 +582,8 @@ onMounted(() => {
             "
             :min="0"
             :max="100"
+            :step="1"
+            :precision="0"
             @change="changeTableCell('tableRowFreezeHead')"
           />
         </el-form-item>
@@ -648,7 +652,7 @@ onMounted(() => {
   height: 24px;
   text-align: center;
   vertical-align: middle;
-  border-radius: 4px;
+  border-radius: 6px;
   padding-top: 4px;
 
   color: #1f2329;

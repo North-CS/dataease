@@ -167,7 +167,6 @@ const beforeDatePattern = type => {
 const showRename = () => {
   item.value.index = props.index
   item.value.renameType = props.type
-  // item.value.dsFieldName = getOriginFieldName(props.dimensionData, props.quotaData, item.value)
   emit('onNameEdit', item.value)
 }
 
@@ -188,6 +187,9 @@ const valueFormatter = () => {
 }
 const showCustomSort = item => {
   if (props.chart.type === 'symbolic-map' || props.chart.type === 'flow-map') {
+    return false
+  }
+  if (item.groupType === 'q') {
     return false
   }
   return !item.chartId && (item.deType === 0 || item.deType === 5)
@@ -741,7 +743,7 @@ onMounted(() => {
   height: 28px;
   line-height: 28px;
   display: flex;
-  border-radius: 4px;
+  border-radius: 6px;
   box-sizing: border-box;
   white-space: nowrap;
   width: 100%;
@@ -914,6 +916,11 @@ span {
 <style lang="less">
 .data-dropdown_popper_mr9 {
   margin-left: -9px !important;
+}
+.ed-dropdown__popper {
+  :nth-child(1).ed-dropdown-menu__item--divided {
+    display: none !important;
+  }
 }
 .menu-item-padding {
   span {

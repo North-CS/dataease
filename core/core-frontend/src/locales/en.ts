@@ -1,4 +1,15 @@
 export default {
+  share_visitor: {
+    no_permission: 'You do not have this permission',
+    title: 'Visitor permissions',
+    hint: 'New links are view-only by default. These permissions apply only to this public link.',
+    details: 'Allow viewing details',
+    data: 'Allow exporting data',
+    image: 'Allow exporting images / PDF',
+    buttons_hint:
+      'Shared pages respect dashboard and screen button visibility. Allowing an action does not reveal hidden buttons.',
+    save_copy: 'Save and copy link'
+  },
   common: {
     display_formats: 'Display Formats',
     dropdown_display: 'Drop-down Display',
@@ -30,6 +41,15 @@ export default {
     other_levels:
       'Except for level 1, no query condition configuration is required for other levels',
     tree_structure: 'The drop-down tree structure cannot be empty',
+    timeout_tips: 'Request timed out. Please try again later.',
+    secret_changed_tips:
+      'The secret information has been changed. Please refresh the page and try again.',
+    file_size_exceed_tips:
+      'The file size exceeds the limit. Please modify the relevant configuration file.',
+    permission_denied_tips: 'You are not allowed to access. Please contact the administrator.',
+    resource_not_exist_tips: 'Resource does not exist or has been deleted',
+    system_upgrade_tips: 'The system has been upgraded. Please click to refresh the page.',
+    refresh: 'Refresh',
     component: {
       input: 'Input',
       textarea: 'Textarea',
@@ -602,6 +622,9 @@ export default {
     incorrect_please_re_enter: 'The callback domain name format is incorrect, please re-enter',
     cas_settings: 'CAS settings',
     callback_domain_name: 'Callback domain name',
+    logout_redirect_url: 'Logout redirect URL',
+    logout_redirect_url_placeholder:
+      'The URL to redirect to after CAS logout. If empty, stays on CAS logout success page',
     authentication_settings: 'Authentication Settings',
     be_turned_on: 'After the test connection is valid, it can be turned on',
     platform_information_first: 'Please save the platform information first',
@@ -739,7 +762,7 @@ export default {
     complete: 'Complete',
     pager_color: 'Pager',
     title_horizontal_position: 'Title horizontal position',
-    title_display_position: 'Title display position',
+    title_display_position: 'Label display position',
     title_color: 'Title color',
     label_color: 'Label color',
     input_box_style: 'Input box style',
@@ -778,7 +801,11 @@ export default {
     reset_pwd: 'Reset password',
     reset_confirm: 'Do you want to restore to the initial password? ',
     reset_success: 'Reset successful',
+    unlock_user: 'Unlock',
+    confirm_unlock: 'Are you sure to unlock this user?',
+    unlock_user_success: 'Unlocked successfully',
     modify_cur_pwd: 'You need to log in again after modifying the current user password',
+    password_changed_relogin: 'Password changed, please login again',
     switch_success: 'Switch successful',
     user_name_pattern_error:
       "Only numbers and letters and {'@'}._- are allowed, and must start with a number or letter",
@@ -988,6 +1015,7 @@ export default {
     config: 'Datasource configuration',
     table: 'Datasource table',
     table_name: 'Table name',
+    table_remarks: 'Table remarks',
     remark: 'Remark',
     column_name: 'Field name',
     field_type: 'Field type',
@@ -1179,6 +1207,9 @@ export default {
     simple_cron: 'Simple repetition',
     manual: 'Manual update',
     cron_config: 'Expression setting',
+    preview_next_exec_times: 'Execution times preview',
+    next_five_exec_times: 'Next five execution times',
+    no_next_exec_time: 'No execution time available',
     no_limit: 'Unlimited',
     set_end_time: 'Set end time',
     exec_time: 'Execution time',
@@ -1422,6 +1453,8 @@ export default {
     filter_empty: 'Empty string',
     filter_not_empty: 'Not empty string',
     filter_include: 'Include',
+    filter_start_with: 'Start with',
+    filter_end_with: 'End with',
     filter_not_include: 'Not included',
     rose_type: 'Rose diagram mode',
     radius_mode: 'Radius',
@@ -1456,6 +1489,7 @@ export default {
     table_col_freeze_tip: 'First n col',
     table_row_freeze_tip: 'First n row',
     table_freeze: 'Freeze',
+    table_empty_font_color: 'No data tip',
     stripe: 'Zebra stripe',
     start_angle: 'Starting angle',
     end_angle: 'Ending angle',
@@ -1484,6 +1518,35 @@ export default {
     chart_bar_stack_horizontal: 'Stacked bar chart',
     chart_percentage_bar_stack_horizontal: 'Percentage bar chart',
     chart_bar_range: 'Interval bar chart',
+    chart_box_plot: 'Box plot',
+    box_plot_low: 'Lower whisker (lowest non-outlier)',
+    box_plot_q1: 'First quartile (Q1)',
+    box_plot_median: 'Median',
+    box_plot_quartile_range: 'Quartile range (Q1–Q3)',
+    box_plot_q3: 'Third quartile (Q3)',
+    box_plot_high: 'Upper whisker (highest non-outlier)',
+    box_plot_metric: 'Metric',
+    box_plot_metric_statistic: '{metric} ({statistic})',
+    box_plot_group_statistic: '{groupName}: {groupValue} · {statistic}',
+    box_plot_outlier: 'Outlier',
+    box_plot_count: 'Valid sample count',
+    box_plot_samples: '{count} sample | {count} samples',
+    box_plot_more_outliers: 'and {count} more',
+    box_plot_outlier_count: 'Outlier count',
+    box_plot_show_details: 'Show statistical details',
+    box_plot_details_tip:
+      'When off, show the median, quartile range, and outlier count; when on, show the full five-number summary, outlier count, and outlier values',
+    box_plot_show_outliers: 'Show outliers',
+    box_plot_outlier_tip:
+      'Outliers are raw values below Q1 - 1.5×IQR or above Q3 + 1.5×IQR, where IQR = Q3 - Q1.\nExample: if Q1 = 10 and Q3 = 20, IQR = 10 and the normal range is -5 to 35; values below -5 or above 35 are shown as outlier points.',
+    box_plot_outlier_color: 'Outlier color',
+    box_plot_outlier_follow_series: 'Follow series',
+    box_plot_outlier_custom_color: 'Custom color',
+    box_plot_outlier_size: 'Outlier size',
+    box_plot_category_tip: 'Create one box for each category to compare distributions',
+    box_plot_group_tip: 'Optional; split each category into multiple boxes for comparison',
+    box_plot_value_tip:
+      'Calculate quartiles from valid detail values without sum or average aggregation',
     chart_bidirectional_bar: 'Symmetric bar chart',
     chart_progress_bar: 'Progress bar',
     chart_line: 'Basic line chart',
@@ -2137,6 +2200,7 @@ export default {
     map_type_tianditu: 'Tianditu',
     map_type_baidu: 'Baidu Map',
     map_type_tencent: 'Tencent Map',
+    map_type_custom_tile: 'Custom Map',
     bullet_chart: 'Bullet Chart',
     range_bg: 'Range Background',
     legend_name: 'Legend Name',
@@ -2859,7 +2923,8 @@ export default {
     char_count_limit: 'Cannot exceed {count} characters'
   },
   sql_variable: {
-    variable_mgm: 'Parameter settings'
+    variable_mgm: 'Parameter settings',
+    variable_name_empty: 'Parameter name cannot be empty'
   },
   v_query: {
     display_sort: 'Display fields and sort fields are inconsistent, custom sorting is not possible',
@@ -2878,8 +2943,10 @@ export default {
     last_6_months: 'Last 6 months',
     last_12_months: 'Last 12 months',
     last_3_days: 'Last 3 days',
+    last_month_full: 'Last month (start to end of month)',
     month_to_date: 'Month to date',
     year_to_date: 'Year to date',
+    year_to_last_month_end: 'Year to end of last month',
     exact_match: 'Exact',
     fuzzy_match: 'Fuzzy',
     option_type: 'Option type',
@@ -2974,6 +3041,8 @@ export default {
     column_name: 'Field name'
   },
   visualization: {
+    hover_button_tips: 'Display chart action buttons',
+    preview_effect: 'Takes effect in preview mode',
     img_can_not_null: 'Image cannot be empty',
     outer_params_type_tips1:
       "When the type is 'filter', it only applies to text dropdown, text tree, and number dropdown. For text tree filtering format, separate multiple levels with '-de-'",
@@ -3006,6 +3075,7 @@ export default {
     to_top: 'Pin to Top',
     publish_recover: 'Revert Publish',
     publish_tips1: 'Visible after publication',
+    no_permission_tips: 'No permission',
     publish_tips2: 'Available after publication {0}',
     cancel_publish_tips: 'Successfully unpublished',
     resource_not_published: 'Resource not published',
@@ -3301,10 +3371,12 @@ export default {
     selected_view: 'Selected View',
     used_dataset: 'Used Dataset',
     to_select_view: 'Select View',
+    to_select_field: 'Select Field',
     show_selected_only: 'Show Selected Only',
     same_dataset: 'Same Dataset',
     diff_dataset: 'Different Dataset',
     no_available_view: 'No available views currently',
+    no_available_chart: 'No selectable charts currently',
     linkage_setting_tips1: 'Configure the field association relationship between charts',
     current_chart_source_field: 'Current Chart Source Field',
     add_linkage_dependency_fields: 'Add Linkage Dependency Fields',
@@ -3690,6 +3762,8 @@ export default {
     play_circle: 'Loop Play',
     video_links: 'Video Links',
     web_url: 'Web URL',
+    app_embed: 'Embed Mode',
+    app_embed_code: 'Embed Code',
     video_add_tips: 'Please configure video information...',
     link_add_tips_pre: 'Please configure web information..',
     web_add_tips_suf: 'Add web information...',
@@ -3859,7 +3933,53 @@ export default {
   online_map: {
     geometry: 'Geographic information',
     onlinemap: 'Online map',
-    empty_desc: 'Please enter information on the left and save'
+    empty_desc: 'Please enter information on the left and save',
+    service_type: 'Service type',
+    raster_tile_url: 'Raster tile URL',
+    vector_style_json: 'Vector map Style JSON',
+    tile_url: 'Tile URL',
+    tile_url_placeholder: 'For example: http://localhost:18080/{z}/{x}/{y}.png',
+    tile_url_tip: 'Supports standard {z}/{x}/{y} URL templates and TMS through tile scheme',
+    style_url: 'Style JSON URL',
+    style_url_placeholder: 'For example: http://localhost:18081/styles/basic-preview/style.json',
+    style_url_tip:
+      'Enter a complete MapLibre Style JSON URL. Referenced tiles, fonts, and sprites must allow cross-origin access',
+    tile_scheme: 'Tile scheme',
+    tile_size: 'Tile size',
+    min_zoom: 'Minimum zoom',
+    max_zoom: 'Maximum zoom',
+    zoom_tip:
+      'Limits the interactive zoom range and does not add map detail unavailable from the service',
+    show_attribution: 'Show attribution',
+    attribution: 'Attribution',
+    raster_attribution_tip: 'Optional. Leave blank to hide custom attribution',
+    vector_attribution_tip:
+      'Optional. Replaces attribution from Style sources when set; leave blank to keep it',
+    map_load_error:
+      'Failed to load the map. Check the URL, CORS, referenced resources, and network settings',
+    map_network_offline_error:
+      'The browser is offline. Restore the network connection and try again',
+    map_mixed_content_error:
+      'This page uses HTTPS, so the browser blocked the HTTP map resource. Switch the map service to HTTPS',
+    map_localhost_error:
+      'The map URL uses localhost, which points to each visitor’s computer. Start the local service or use a server URL accessible from the browser',
+    map_style_request_error:
+      'Unable to access the Style JSON. Check the URL, network connection, or CORS settings',
+    map_style_http_error:
+      'The Style JSON request failed (HTTP {status}). Check the URL and service status',
+    map_style_json_error: 'The Style JSON response is not valid JSON',
+    map_style_format_error:
+      'The Style JSON is incomplete. It must contain version 8, sources, and layers',
+    map_tile_http_error:
+      'The map tile request failed (HTTP {status}). Check the URL template, available zoom levels, and service status',
+    map_tile_load_error:
+      'Failed to load map tiles. Check the URL template, available zoom levels, and CORS settings',
+    map_glyph_load_error: 'Failed to load map fonts. Check the glyphs URL and CORS settings',
+    map_sprite_load_error: 'Failed to load map icons. Check the sprite URL and CORS settings',
+    map_resource_http_error:
+      'The map resource request failed (HTTP {status}). Check the resource URLs in the Style',
+    map_resource_load_error:
+      'Failed to load a map resource. Check the resource URLs in the Style and CORS settings'
   },
   setting_basic: {
     default_open_tips: 'Interface for creating and editing resources like dashboards and screen',
@@ -3882,6 +4002,9 @@ export default {
     sharePeRequire: 'Sharing validity period password required',
     defaultSort: 'Default resource sorting method',
     defaultOpen: 'Page opening method',
+    embeddedExportMode: 'Embedded data export mode',
+    exportModeSync: 'Synchronous',
+    exportModeAsync: 'Asynchronous',
     loginLimit: 'Limit login',
     loginLimitRate: 'Limit login failure times (times)',
     loginLimitTime: 'Limit login failure time (minutes)',
@@ -3904,6 +4027,7 @@ export default {
     port: 'SMTP port',
     account: 'SMTP account',
     pwd: 'SMTP password',
+    from: 'Sender address',
     reci: 'Test recipient',
     ssl: 'SSL',
     tsl: 'TSL'
@@ -4048,7 +4172,7 @@ export default {
     description: 'Description',
     tips: 'Tips',
     replication: 'BACKEND Replicas',
-    replication_tip: 'Number of BE Nodes'
+    replication_tip: 'Defaults to 1 when empty'
   },
   sync_summary: {
     summary: 'Overview',
@@ -4337,13 +4461,15 @@ export default {
       show_water_mask: 'Show Watermark',
       format: 'Format',
       view_data: 'Chart Data',
+      all_data: 'All Data',
       pixel: 'Dashboard Resolution',
       reci_setting: 'Receiving Settings',
       retrying: 'Retry on Failure',
       retrying_rate: 'Retry Interval (minutes)',
       please_input_positive_int: 'Please input a positive integer for {0}',
       rate: 'Sending frequency',
-      ext_wait_time: 'additional waiting time(s)'
+      ext_wait_time: 'timeout(s)',
+      render_time: 'render time(s)'
     },
     filter: {
       title: 'Set Query Component Default Values',
@@ -4495,6 +4621,9 @@ export default {
       bind_complete: 'Already bound',
       option_value: 'Option value',
       add_option: 'Add option value',
+      msg_title: 'You Have a New Data Reporting Task',
+      msg_content_1: 'You have a new data reporting task: ',
+      msg_content_2: ', please complete the reporting promptly',
       form_name_cannot_none: 'Form name cannot be empty',
       form_update_rule_none: 'Please configure update rules',
       form_components_cannot_null: 'Please add form components',
@@ -4833,7 +4962,11 @@ export default {
   },
   setting_hmac: {
     title: 'HMAC Settings',
-    enable: 'Enable HMAC Authentication'
+    enable: 'Enable HMAC Authentication',
+    clock_skew: 'Clock skew',
+    clock_skew_tips:
+      'Unit: seconds, default is 300, which allows a time difference of up to 5 minutes between the request time and server time',
+    clock_skew_range: 'Clock skew range is 1-{0} seconds'
   },
   setting_mfa: {
     title: 'MFA Settings',
@@ -4884,6 +5017,8 @@ export default {
     add: 'Add Webhook',
     search_placeholder: 'Search by name',
     content_type: 'Content Type',
+    msg_template: 'Message Template',
+    msg_template_tips: 'Available placeholders: {t0}, {t1}, {t2}',
     del_confirm: 'Are you sure you want to delete this Webhook?',
     batch_del_confirm: 'Are you sure you want to delete {0} Webhooks?'
   },

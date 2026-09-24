@@ -19,6 +19,11 @@
             <version>${commons-net.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
@@ -39,8 +44,9 @@
             <version>${dataease.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>${mariadb.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -121,10 +127,9 @@
                     </exclusions>
                 </dependency>
                 <dependency>
-                    <groupId>com.itextpdf</groupId>
-                    <artifactId>itext7-core</artifactId>
-                    <version>${itextpdf.version}</version>
-                    <type>pom</type>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf</artifactId>
+                    <version>${openpdf.version}</version>
                 </dependency>
                 <dependency>
                     <groupId>com.vladsch.flexmark</groupId>

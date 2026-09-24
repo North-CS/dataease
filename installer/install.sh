@@ -109,7 +109,7 @@ function prepare_de_run_base() {
    env | grep DE_ >.env
 
    mkdir -p ${DE_RUN_BASE}/{cache,logs,conf}
-   mkdir -p ${DE_RUN_BASE}/data/{mysql,static-resource,map,etcd_data,geo,appearance,exportData,plugin,font,i18n}
+   mkdir -p ${DE_RUN_BASE}/data/{mysql,static-resource,map,etcd_data,geo,appearance,exportData,plugin,font,i18n,report}
    mkdir -p ${DE_RUN_BASE}/apisix/logs
    mkdir -p ${DE_RUN_BASE}/task/logs
    chmod 777 ${DE_RUN_BASE}/apisix/logs ${DE_RUN_BASE}/data/etcd_data ${DE_RUN_BASE}/task/logs
@@ -134,10 +134,7 @@ function prepare_de_run_base() {
       fi
    done
 
-   log_content "复制地图文件"
-   if [ -d ${DE_RUN_BASE}/data/map ] || [ -d ${DE_RUN_BASE}/mapFiles ]; then
-      mv ${DE_RUN_BASE}/mapFiles/* ${DE_RUN_BASE}/data/map/
-   fi
+   # 内置地图由镜像 map-origin 提供，持久化 map 仅保存用户覆盖文件
 }
 
 function update_dectl() {

@@ -19,6 +19,7 @@ import io.dataease.extensions.datasource.api.PluginManageApi;
 import io.dataease.extensions.datasource.dto.DatasetTableFieldDTO;
 import io.dataease.extensions.datasource.dto.DatasourceRequest;
 import io.dataease.extensions.datasource.dto.DatasourceSchemaDTO;
+import io.dataease.extensions.datasource.dto.TableFieldWithValue;
 import io.dataease.extensions.datasource.factory.ProviderFactory;
 import io.dataease.extensions.datasource.model.SQLMeta;
 import io.dataease.extensions.datasource.provider.Provider;
@@ -91,6 +92,8 @@ public class ChartDataManage {
             view.setChartExtRequest(chartExtRequest);
         }
 
+        chartViewManege.checkLinkChart(view);
+
         //excel导出，如果是从仪表板获取图表数据，则仪表板的查询模式，查询结果的数量，覆盖图表对应的属性
         if (view.getIsExcelExport()) {
             view.setResultMode(ChartConstants.VIEW_RESULT_MODE.CUSTOM);
@@ -98,6 +101,8 @@ public class ChartDataManage {
             view.setResultMode(chartExtRequest.getResultMode());
             view.setResultCount(chartExtRequest.getResultCount());
         }
+        // tooltip 关闭时动态提示字段不参与数据计算
+        clearDisabledTooltipFields(view);
 
         AbstractChartPlugin chartHandler;
         if (BooleanUtils.isTrue(view.getIsPlugin())) {
@@ -249,7 +254,6 @@ public class ChartDataManage {
         if (ObjectUtils.isNotEmpty(chartExtRequest.getWebParamsFilters())) {
             filters.addAll(chartExtRequest.getWebParamsFilters());
         }
-
 
         //联动过滤条件和外部参数过滤条件全部加上
         if (ObjectUtils.isNotEmpty(filters)) {
@@ -421,6 +425,29 @@ public class ChartDataManage {
 
         ChartCalcDataResult calcResult = chartHandler.calcChartResult(view, formatResult, filterResult, sqlMap, sqlMeta, provider);
         return chartHandler.buildChart(view, calcResult, formatResult, filterResult);
+    }
+
+    private void clearDisabledTooltipFields(ChartViewDTO view) {
+        if (isTooltipEnabled(view)) {
+            return;
+        }
+        view.setExtTooltip(Collections.emptyList());
+    }
+
+    private boolean isTooltipEnabled(ChartViewDTO view) {
+        Map<String, Object> customAttr = view.getCustomAttr();
+        if (MapUtils.isEmpty(customAttr)) {
+            return true;
+        }
+        Object tooltipObj = customAttr.get("tooltip");
+        if (!(tooltipObj instanceof Map<?, ?> tooltip)) {
+            return true;
+        }
+        Object show = tooltip.get("show");
+        if (show instanceof Boolean showTooltip) {
+            return showTooltip;
+        }
+        return !StringUtils.equalsIgnoreCase(String.valueOf(show), "false");
     }
 
     private List<ChartViewFieldDTO> getSizeField(ChartViewDTO view) throws Exception {
@@ -651,6 +678,8 @@ public class ChartDataManage {
                 || StringUtils.equalsIgnoreCase(view.getType(), "flow-map")
                 || StringUtils.equalsIgnoreCase(view.getType(), "t-heatmap")
                 || StringUtils.equalsIgnoreCase(view.getType(), "sankey")
+                // 箱线图的子类别位于 xAxisExt，自定义排序取值时必须按维度列参与查询
+                || StringUtils.equalsIgnoreCase(view.getType(), "box-plot")
         ) {
             xAxis.addAll(xAxisExt);
         }
@@ -727,6 +756,10 @@ public class ChartDataManage {
         DatasourceRequest datasourceRequest = new DatasourceRequest();
         datasourceRequest.setDsList(dsMap);
         datasourceRequest.setIsCross(crossDs);
+        List<TableFieldWithValue> tableFieldWithValues = (List<TableFieldWithValue>) sqlMap.get("tableFieldWithValues");
+        if (CollectionUtils.isNotEmpty(tableFieldWithValues)) {
+            datasourceRequest.setTableFieldWithValues(tableFieldWithValues.stream().map(TableFieldWithValue::copy).toList());
+        }
 
         Provider provider;
         if (crossDs) {
@@ -822,9 +855,6 @@ public class ChartDataManage {
                 }
             });
             // 阈值告警处理 统一在发布时处理
-//            if (CollectionUtils.isNotEmpty(disuseChartIdList)) {
-//                chartViewManege.disuse(disuseChartIdList);
-//            }
         }
     }
 

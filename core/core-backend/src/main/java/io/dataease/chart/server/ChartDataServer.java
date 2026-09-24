@@ -61,6 +61,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/chartData")
 public class ChartDataServer implements ChartDataApi {
     @Resource
+    private io.dataease.share.manage.ShareVisitorPermissionManage shareVisitorPermissionManage;
+
+    @Resource
     private ChartDataManage chartDataManage;
     @Resource
     private ExportCenterManage exportCenterManage;
@@ -78,7 +81,6 @@ public class ChartDataServer implements ChartDataApi {
     @Value("${dataease.export.page.size:50000}")
     private Integer extractPageSize;
     private final Long sheetLimit = 1000000L;
-
 
     @DeLinkPermit("#p0.sceneId")
     @Override
@@ -127,15 +129,7 @@ public class ChartDataServer implements ChartDataApi {
                     }
                 });
             }
-            int curLimit = Math.toIntExact(ExportCenterUtils.getExportLimit("view"));
-            int curDsLimit = Math.toIntExact(ExportCenterUtils.getExportLimit("dataset"));
-            int viewLimit = Math.min(curLimit, curDsLimit);
-            if (ChartConstants.VIEW_RESULT_MODE.CUSTOM.equals(viewDTO.getResultMode())) {
-                Integer limitCount = viewDTO.getResultCount();
-                viewDTO.setResultCount(Math.min(viewLimit, limitCount));
-            } else {
-                viewDTO.setResultCount(viewLimit);
-            }
+            viewDTO.setResultCount(getExcelExportLimit(request.getDownloadType()));
             if (CommonConstants.VIEW_DATA_FROM.TEMPLATE.equalsIgnoreCase(viewDTO.getDataFrom())) {
                 chartViewInfo = extendDataManage.getChartDataInfo(viewDTO.getId(), viewDTO);
             } else {
@@ -148,6 +142,7 @@ public class ChartDataServer implements ChartDataApi {
                 request.setHeader(dsHeader);
                 request.setExcelTypes(dsTypes);
             }
+            viewDTO.setData(chartViewInfo.getData());
             request.setDetails(tableRow);
             request.setData(chartViewInfo.getData());
         } catch (Exception e) {
@@ -156,6 +151,14 @@ public class ChartDataServer implements ChartDataApi {
         return chartViewInfo;
     }
 
+    private int getExcelExportLimit(String downloadType) {
+        long viewLimit = ExportCenterUtils.getExportLimit("view");
+        if ("dataset".equals(downloadType)) {
+            long datasetLimit = ExportCenterUtils.getExportLimit("dataset");
+            return Math.toIntExact(Math.min(viewLimit, datasetLimit));
+        }
+        return Math.toIntExact(viewLimit);
+    }
 
     public static String valueFormatter(BigDecimal value, FormatterCfgDTO formatter) {
         if (value == null) {
@@ -224,7 +227,6 @@ public class ChartDataServer implements ChartDataApi {
         return sb.toString();
     }
 
-
     private static String addThousandSeparator(String numStr, Pattern pattern) {
         Matcher matcher = pattern.matcher(numStr);
         StringBuffer sb = new StringBuffer();
@@ -235,14 +237,15 @@ public class ChartDataServer implements ChartDataApi {
         return sb.toString();
     }
 
-
     @DeLinkPermit("#p0.dvId")
     @Override
     public void innerExportDetails(ChartExcelRequest request, HttpServletResponse response) throws Exception {
+        shareVisitorPermissionManage.require(io.dataease.share.manage.ShareVisitorPermissionManage.EXPORT_DATA);
         HttpServletRequest httpServletRequest = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String linkToken = httpServletRequest.getHeader(AuthConstant.LINK_TOKEN_KEY);
         LogUtil.info(request.getViewInfo().getId() + " " + StringUtils.isNotEmpty(linkToken) + " " + request.isDataEaseBi());
-        if ((StringUtils.isNotEmpty(linkToken) && !request.isDataEaseBi()) || (request.isDataEaseBi() && StringUtils.isEmpty(linkToken))) {
+        boolean embeddedSyncExport = request.isDataEaseBi() && StringUtils.isEmpty(linkToken) && !StringUtils.equalsIgnoreCase(exportCenterManage.singleValue(XpackSettingConstants.EMBEDDED_EXPORT_MODE), "async"); ;
+        if ((StringUtils.isNotEmpty(linkToken) && !request.isDataEaseBi()) || embeddedSyncExport) {
             OutputStream outputStream = response.getOutputStream();
             try {
                 Workbook wb = new SXSSFWorkbook();
@@ -298,21 +301,9 @@ public class ChartDataServer implements ChartDataApi {
 
                             detailsSheet = wb.createSheet("数据" + sheetIndex);
                             Integer[] excelTypes = request.getExcelTypes();
-                            List<ChartViewFieldDTO> xAxis = new ArrayList<>();
-                            xAxis.addAll(request.getViewInfo().getXAxis());
-                            xAxis.addAll(request.getViewInfo().getYAxis());
-                            xAxis.addAll(request.getViewInfo().getXAxisExt());
-                            xAxis.addAll(request.getViewInfo().getYAxisExt());
-                            xAxis.addAll(request.getViewInfo().getExtStack());
-                            Object[] header = Arrays.stream(request.getHeader()).filter(item -> xAxis.stream().map(d -> StringUtils.isNotBlank(d.getChartShowName()) ? d.getChartShowName() : d.getName()).toList().contains(item)).collect(Collectors.toList()).toArray();
+                            Object[] header = filterExportHeader(request.getHeader(), request.getViewInfo());
                             details.add(0, header);
-                            List<Integer> columnIndexs = new ArrayList<>();
-                            for (int i1 = 0; i1 < xAxis.size(); i1++) {
-                                ChartViewFieldDTO xAxi = xAxis.get(i1);
-                                if (xAxi.isHide()) {
-                                    columnIndexs.add(i1);
-                                }
-                            }
+                            List<Integer> columnIndexs = getHiddenExportColumnIndexes(header, request.getViewInfo());
                             ExportCenterDownLoadManage.removeColumn(details, columnIndexs);
                             ViewDetailField[] detailFields = request.getDetailFields();
                             ChartDataServer.setExcelData(detailsSheet, cellStyle, header, details, detailFields, excelTypes, request.getViewInfo(), wb);
@@ -382,27 +373,22 @@ public class ChartDataServer implements ChartDataApi {
         setExcelData(detailsSheet, cellStyle, header, details, detailFields, excelTypes, null, viewInfo, wb);
     }
 
-
     public static void setExcelData(Sheet detailsSheet, CellStyle cellStyle, Object[] header, List<Object[]> details, ViewDetailField[] detailFields, Integer[] excelTypes, Comment comment, ChartViewDTO viewInfo, Workbook wb) {
         List<CellStyle> styles = new ArrayList<>();
-        List<ChartViewFieldDTO> xAxis = new ArrayList<>();
-
-        xAxis.addAll(viewInfo.getXAxis());
-        xAxis.addAll(viewInfo.getYAxis());
-        xAxis.addAll(viewInfo.getXAxisExt());
-        xAxis.addAll(viewInfo.getYAxisExt());
-        xAxis.addAll(viewInfo.getExtStack());
-        xAxis.addAll(viewInfo.getDrillFields());
+        Map<String, CellStyle> autoFormatterStyles = new HashMap<>();
+        List<ChartViewFieldDTO> exportFields = resolveExportFields(viewInfo, header);
+        Workbook styleWorkbook = wb != null ? wb : detailsSheet.getWorkbook();
         TableHeader tableHeader = null;
         Integer totalDepth = 0;
         List<CellRangeAddress> mergeConfig = new ArrayList<>();
         if (StringUtils.equalsAnyIgnoreCase(viewInfo.getType(), "table-normal", "table-info")) {
-            for (ChartViewFieldDTO tmpAxis : xAxis) {
-                if (tmpAxis.isHide()) {
-                    continue;
-                }
+            exportFields = exportFields.stream().filter(tmpAxis -> !tmpAxis.isHide()).toList();
+            for (ChartViewFieldDTO tmpAxis : exportFields) {
                 if (tmpAxis.getDeType().equals(DeTypeConstants.DE_INT) || tmpAxis.getDeType().equals(DeTypeConstants.DE_FLOAT)) {
-                    CellStyle formatterCellStyle = createCellStyle(wb, tmpAxis.getFormatterCfg(), null);
+                    FormatterCfgDTO formatterCfg = tmpAxis.getFormatterCfg();
+                    CellStyle formatterCellStyle = formatterCfg != null && "auto".equalsIgnoreCase(formatterCfg.getType())
+                            ? null
+                            : createCellStyle(styleWorkbook, formatterCfg, null);
                     styles.add(formatterCellStyle);
                 } else {
                     styles.add(null);
@@ -414,10 +400,7 @@ public class ChartDataServer implements ChartDataApi {
             if (tableHeaderMap.get("headerGroup") != null && Boolean.parseBoolean(tableHeaderMap.get("headerGroup").toString())) {
                 var tmpHeader = JsonUtil.parseObject((String) JsonUtil.toJSONString(customAttr.get("tableHeader")), TableHeader.class);
                 // 校验字段数量和顺序
-                var allAxis = new ArrayList<>(viewInfo.getXAxis().stream().filter(x -> !x.isHide()).toList());
-                if (StringUtils.equalsIgnoreCase(viewInfo.getType(), "table-normal")) {
-                    allAxis.addAll(viewInfo.getYAxis().stream().filter(x -> !x.isHide()).toList());
-                }
+                var allAxis = new ArrayList<>(exportFields);
                 if (validateHeaderGroup(tmpHeader, allAxis)) {
                     tableHeader = tmpHeader;
                     for (TableHeader.ColumnInfo column : tableHeader.getHeaderGroupConfig().getColumns()) {
@@ -428,15 +411,27 @@ public class ChartDataServer implements ChartDataApi {
                     }
                 }
             }
-            if ("table-info".equalsIgnoreCase(viewInfo.getType()) && !"dataset".equalsIgnoreCase(viewInfo.getDownloadType())) {
-                xAxis = xAxis.stream().filter(x -> !x.isHide()).toList();
-                Map<String, Object> tableCell = (Map<String, Object>) viewInfo.getCustomAttr().get("tableCell");
-                Boolean mergeCells = (Boolean) tableCell.get("mergeCells");
+            // 支持明细表与汇总表的单元格合并导出
+            if (StringUtils.equalsAnyIgnoreCase(viewInfo.getType(), "table-info", "table-normal") && !"dataset".equalsIgnoreCase(viewInfo.getDownloadType())) {
+                Map<String, Object> tableCell = viewInfo.getCustomAttr() != null ? (Map<String, Object>) viewInfo.getCustomAttr().get("tableCell") : null;
+                Boolean mergeCells = tableCell != null ? (Boolean) tableCell.get("mergeCells") : null;
                 if (mergeCells != null && mergeCells) {
-                    var tmpAxis = viewInfo.getXAxis().stream().filter(x -> !x.isHide()).toList();
-                    var mergeIndex = tmpAxis.size();
-                    for (int i = 0; i < tmpAxis.size(); i++) {
-                        if ("q".equalsIgnoreCase(tmpAxis.get(i).getGroupType())) {
+                    var mergeIndex = exportFields.size();
+                    for (int i = 0; i < exportFields.size(); i++) {
+                        ChartViewFieldDTO field = exportFields.get(i);
+                        boolean isQuota = "q".equalsIgnoreCase(field.getGroupType());
+                        // 汇总表优先依据 yAxis / xAxis 判断是否为指标列
+                        if ("table-normal".equalsIgnoreCase(viewInfo.getType())) {
+                            boolean inY = viewInfo.getYAxis() != null && viewInfo.getYAxis().stream()
+                                    .anyMatch(y -> StringUtils.equals(y.getDataeaseName(), field.getDataeaseName()));
+                            if (inY) {
+                                isQuota = true;
+                            } else if (viewInfo.getXAxis() != null && viewInfo.getXAxis().stream()
+                                    .anyMatch(x -> StringUtils.equals(x.getDataeaseName(), field.getDataeaseName()))) {
+                                isQuota = false;
+                            }
+                        }
+                        if (isQuota) {
                             mergeIndex = i;
                             break;
                         }
@@ -505,7 +500,7 @@ public class ChartDataServer implements ChartDataApi {
                 int width = 0;
                 Integer depth = 0;
                 for (TableHeader.ColumnInfo column : tableHeader.getHeaderGroupConfig().getColumns()) {
-                    createCell(tableHeader, column, width, depth, detailsSheet, cellStyle, totalDepth, rowMap, xAxis);
+                    createCell(tableHeader, column, width, depth, detailsSheet, cellStyle, totalDepth, rowMap, exportFields);
                     width = width + column.getWidth();
                 }
             }
@@ -555,16 +550,34 @@ public class ChartDataServer implements ChartDataApi {
                             detailsSheet.setColumnWidth(j, 255 * 20);
                         } else if (cellValObj != null) {
                             try {
-                                if (StringUtils.equalsAnyIgnoreCase(viewInfo.getType(), "table-info", "table-normal") && Arrays.asList(DeTypeConstants.DE_INT,DeTypeConstants.DE_FLOAT).contains(xAxis.get(j).getDeType())) {
+                                if (StringUtils.equalsAnyIgnoreCase(viewInfo.getType(), "table-info", "table-normal")
+                                        && j < exportFields.size()
+                                        && Arrays.asList(DeTypeConstants.DE_INT, DeTypeConstants.DE_FLOAT).contains(exportFields.get(j).getDeType())) {
                                     try {
-                                        FormatterCfgDTO formatterCfgDTO = xAxis.get(j).getFormatterCfg() == null ? new FormatterCfgDTO().setUnitLanguage(Lang.isChinese() ? "ch" : "en") : xAxis.get(j).getFormatterCfg();
-                                        row.getCell(j).setCellStyle(styles.get(j));
-                                        row.getCell(j).setCellValue(Double.valueOf(cellValue(formatterCfgDTO, new BigDecimal(cellValObj.toString()))));
+                                        FormatterCfgDTO formatterCfgDTO = exportFields.get(j).getFormatterCfg() == null ? new FormatterCfgDTO().setUnitLanguage(Lang.isChinese() ? "ch" : "en") : exportFields.get(j).getFormatterCfg();
+                                        String exportNumericValue = cellValue(formatterCfgDTO, new BigDecimal(cellValObj.toString()));
+                                        if ("auto".equalsIgnoreCase(formatterCfgDTO.getType())) {
+                                            // 不保留无意义的小数尾零
+                                            exportNumericValue = new BigDecimal(exportNumericValue).stripTrailingZeros().toPlainString();
+                                        }
+                                        CellStyle currentStyle = styles.get(j);
+                                        if (formatterCfgDTO != null && "auto".equalsIgnoreCase(formatterCfgDTO.getType())) {
+                                            String formatterValue = exportNumericValue;
+                                            currentStyle = autoFormatterStyles.computeIfAbsent(
+                                                    buildFormatterStyleCacheKey(formatterCfgDTO, formatterValue),
+                                                    key -> createCellStyle(styleWorkbook, formatterCfgDTO, formatterValue)
+                                            );
+                                        }
+                                        if (currentStyle != null) {
+                                            row.getCell(j).setCellStyle(currentStyle);
+                                        }
+                                        row.getCell(j).setCellValue(Double.valueOf(exportNumericValue));
                                     } catch (Exception e) {
                                         cell.setCellValue(cellValObj.toString());
                                     }
                                 } else {
-                                    if ((excelTypes[j].equals(DeTypeConstants.DE_INT) || excelTypes[j].equals(DeTypeConstants.DE_FLOAT)) && StringUtils.isNotEmpty(cellValObj.toString())) {
+                                    Integer excelType = getExcelType(j, excelTypes, exportFields, viewInfo);
+                                    if ((Objects.equals(excelType, DeTypeConstants.DE_INT) || Objects.equals(excelType, DeTypeConstants.DE_FLOAT)) && StringUtils.isNotEmpty(cellValObj.toString())) {
                                         cell.setCellValue(Double.valueOf(cellValObj.toString()));
                                     } else if (cellValObj != null) {
                                         cell.setCellValue(cellValObj.toString());
@@ -580,7 +593,7 @@ public class ChartDataServer implements ChartDataApi {
                                 ChartSeniorFunctionCfgDTO functionCfgDTO = JsonUtil.parseObject((String) JsonUtil.toJSONString(senior.get("functionCfg")), ChartSeniorFunctionCfgDTO.class);
                                 if (functionCfgDTO != null && StringUtils.isNotEmpty(functionCfgDTO.getEmptyDataStrategy()) && functionCfgDTO.getEmptyDataStrategy().equalsIgnoreCase("setZero")) {
                                     if ((viewInfo.getType().equalsIgnoreCase("table-normal") || viewInfo.getType().equalsIgnoreCase("table-info"))) {
-                                        if (functionCfgDTO.getEmptyDataFieldCtrl().contains(xAxis.get(j).getDataeaseName())) {
+                                        if (j < exportFields.size() && functionCfgDTO.getEmptyDataFieldCtrl().contains(exportFields.get(j).getDataeaseName())) {
                                             cell.setCellValue(0);
                                         }
                                     } else {
@@ -593,9 +606,105 @@ public class ChartDataServer implements ChartDataApi {
                 }
             }
             if (CollectionUtils.isNotEmpty(mergeConfig)) {
-                mergeConfig.forEach(detailsSheet::addMergedRegionUnsafe);
+                for (CellRangeAddress range : mergeConfig) {
+                    detailsSheet.addMergedRegionUnsafe(range);
+                    for (int r = range.getFirstRow(); r <= range.getLastRow(); r++) {
+                        Row row = detailsSheet.getRow(r);
+                        if (row == null) {
+                            continue;
+                        }
+                        for (int c = range.getFirstColumn(); c <= range.getLastColumn(); c++) {
+                            if (r == range.getFirstRow() && c == range.getFirstColumn()) {
+                                continue;
+                            }
+                            Cell cell = row.getCell(c);
+                            if (cell != null) {
+                                cell.setBlank();
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    private static Integer getExcelType(int columnIndex, Integer[] excelTypes, List<ChartViewFieldDTO> exportFields, ChartViewDTO viewInfo) {
+        if (viewInfo != null
+                && StringUtils.equalsAnyIgnoreCase(viewInfo.getType(), "table-info", "table-normal")
+                && columnIndex < exportFields.size()) {
+            return exportFields.get(columnIndex).getDeType();
+        }
+        return ArrayUtils.isNotEmpty(excelTypes) && columnIndex < excelTypes.length ? excelTypes[columnIndex] : null;
+    }
+
+    public static List<ChartViewFieldDTO> resolveExportFields(ChartViewDTO viewInfo, Object[] header) {
+        List<ChartViewFieldDTO> fields = new ArrayList<>();
+        if (viewInfo != null && viewInfo.getData() != null && viewInfo.getData().get("fields") != null) {
+            Object fieldsObj = viewInfo.getData().get("fields");
+            if (fieldsObj instanceof List<?> fieldList && !fieldList.isEmpty() && fieldList.getFirst() instanceof ChartViewFieldDTO) {
+                fields.addAll(fieldList.stream().map(ChartViewFieldDTO.class::cast).toList());
+            } else {
+                fields.addAll(JsonUtil.parseList(JsonUtil.toJSONString(fieldsObj).toString(), new TypeReference<List<ChartViewFieldDTO>>() {
+                }));
+            }
+        }
+        if (CollectionUtils.isEmpty(fields)) {
+            appendFields(fields, viewInfo == null ? null : viewInfo.getXAxis());
+            appendFields(fields, viewInfo == null ? null : viewInfo.getYAxis());
+            appendFields(fields, viewInfo == null ? null : viewInfo.getXAxisExt());
+            appendFields(fields, viewInfo == null ? null : viewInfo.getYAxisExt());
+            appendFields(fields, viewInfo == null ? null : viewInfo.getExtStack());
+            appendFields(fields, viewInfo == null ? null : viewInfo.getDrillFields());
+        }
+        if (ArrayUtils.isEmpty(header) || CollectionUtils.isEmpty(fields)) {
+            return fields;
+        }
+        Map<String, Deque<ChartViewFieldDTO>> fieldMap = new HashMap<>();
+        fields.forEach(field -> fieldMap.computeIfAbsent(getExportFieldName(field), key -> new ArrayDeque<>()).add(field));
+        List<ChartViewFieldDTO> orderedFields = new ArrayList<>();
+        for (Object headerItem : header) {
+            if (headerItem == null) {
+                continue;
+            }
+            Deque<ChartViewFieldDTO> matchedFields = fieldMap.get(headerItem.toString());
+            if (matchedFields != null && !matchedFields.isEmpty()) {
+                orderedFields.add(matchedFields.removeFirst());
+            }
+        }
+        return CollectionUtils.isNotEmpty(orderedFields) ? orderedFields : fields;
+    }
+
+    public static Object[] filterExportHeader(Object[] header, ChartViewDTO viewInfo) {
+        if (ArrayUtils.isEmpty(header)) {
+            return ArrayUtils.EMPTY_OBJECT_ARRAY;
+        }
+        List<ChartViewFieldDTO> exportFields = resolveExportFields(viewInfo, header);
+        if (CollectionUtils.isEmpty(exportFields)) {
+            return header;
+        }
+        Set<String> exportFieldNames = exportFields.stream().map(ChartDataServer::getExportFieldName).collect(Collectors.toSet());
+        return Arrays.stream(header).filter(Objects::nonNull).filter(item -> exportFieldNames.contains(item.toString())).toArray();
+    }
+
+    public static List<Integer> getHiddenExportColumnIndexes(Object[] header, ChartViewDTO viewInfo) {
+        List<ChartViewFieldDTO> exportFields = resolveExportFields(viewInfo, header);
+        List<Integer> columnIndexs = new ArrayList<>();
+        for (int i = 0; i < exportFields.size(); i++) {
+            if (exportFields.get(i).isHide()) {
+                columnIndexs.add(i);
+            }
+        }
+        return columnIndexs;
+    }
+
+    private static void appendFields(List<ChartViewFieldDTO> target, List<ChartViewFieldDTO> source) {
+        if (CollectionUtils.isNotEmpty(source)) {
+            target.addAll(source);
+        }
+    }
+
+    private static String getExportFieldName(ChartViewFieldDTO field) {
+        return StringUtils.isNotBlank(field.getChartShowName()) ? field.getChartShowName() : field.getName();
     }
 
     private static List<CellRangeAddress> getMergeConfig(List<Object[]> data, int colIndex, int offsetHeight) {
@@ -785,12 +894,7 @@ public class ChartDataServer implements ChartDataApi {
         }
         String formatStr = "";
         if (formatter.getType().equals("auto")) {
-            String[] valueSplit = String.valueOf(value).split(".");
-            if (StringUtils.isEmpty(value) || !value.contains(".")) {
-                formatStr = "General";
-            } else {
-                formatStr = "0." + new String(new char[valueSplit.length]).replace('\0', '0');
-            }
+            formatStr = buildAutoNumberFormat(value);
             switch (formatter.getUnit()) {
                 case 1000:
                     formatStr = formatStr + (formatter.getUnitLanguage().equalsIgnoreCase("ch") ? "\"千\"" : "\"K\"");
@@ -872,6 +976,31 @@ public class ChartDataServer implements ChartDataApi {
         return cellStyle;
     }
 
+    private static String buildAutoNumberFormat(String value) {
+        String formatStr = "0";
+        if (StringUtils.isBlank(value)) {
+            return formatStr;
+        }
+        int decimalIndex = value.indexOf('.');
+        if (decimalIndex < 0 || decimalIndex == value.length() - 1) {
+            return formatStr;
+        }
+        int decimalCount = value.length() - decimalIndex - 1;
+        return formatStr + "." + new String(new char[decimalCount]).replace('\0', '#');
+    }
+
+    private static String buildFormatterStyleCacheKey(FormatterCfgDTO formatter, String value) {
+        return String.join("|",
+                StringUtils.defaultString(formatter.getType()),
+                StringUtils.defaultString(formatter.getUnitLanguage()),
+                String.valueOf(formatter.getUnit()),
+                String.valueOf(formatter.getDecimalCount()),
+                String.valueOf(formatter.getThousandSeparator()),
+                StringUtils.defaultString(formatter.getSuffix()),
+                buildAutoNumberFormat(value)
+        );
+    }
+
     @Override
     public List<String> getFieldData(ChartViewDTO view, Long fieldId, String fieldType) throws Exception {
         return chartDataManage.getFieldData(view, fieldId, fieldType);
@@ -901,6 +1030,7 @@ public class ChartDataServer implements ChartDataApi {
 
     public static SummaryConfig parseSummaryConfig(ChartViewDTO viewInfo) {
         SummaryConfig config = new SummaryConfig();
+        config.tableInfo = viewInfo.getType().equalsIgnoreCase("table-info");
         Map<String, Object> basicStyle = (Map<String, Object>) viewInfo.getCustomAttr().get("basicStyle");
         config.summaryLabel = (basicStyle.get("summaryLabel") != null && StringUtils.isNotBlank(basicStyle.get("summaryLabel").toString()))
                 ? basicStyle.get("summaryLabel").toString()
@@ -911,11 +1041,11 @@ public class ChartDataServer implements ChartDataApi {
 
         List<ChartViewFieldDTO> summaryFields;
         if (viewInfo.getType().equalsIgnoreCase("table-info")) {
-            summaryFields = viewInfo.getXAxis();
+            summaryFields = viewInfo.getXAxis().stream()
+                    .filter(field -> Arrays.asList(DeTypeConstants.DE_INT, DeTypeConstants.DE_FLOAT).contains(field.getDeType()))
+                    .collect(Collectors.toList());
         } else {
-            summaryFields = new ArrayList<>();
-            summaryFields.addAll(viewInfo.getXAxis());
-            summaryFields.addAll(viewInfo.getYAxis());
+            summaryFields = viewInfo.getYAxis();
         }
 
         for (ChartViewFieldDTO field : summaryFields) {
@@ -979,7 +1109,6 @@ public class ChartDataServer implements ChartDataApi {
     public static Object[] buildSummaryRow(List<ChartViewFieldDTO> allColumns, SummaryConfig config,
                                            SummaryAccumulator acc, Map<String, BigDecimal> customSumResult) {
         Object[] totalRow = new Object[allColumns.size()];
-        boolean labelSet = false;
         for (int j = 0; j < allColumns.size(); j++) {
             ChartViewFieldDTO field = allColumns.get(j);
             String fName = field.getDataeaseName();
@@ -1015,15 +1144,38 @@ public class ChartDataServer implements ChartDataApi {
                     default:
                         break;
                 }
-            } else if (!labelSet) {
-                totalRow[j] = config.summaryLabel;
-                labelSet = true;
             }
         }
-        if (!labelSet && totalRow.length > 0) {
-            totalRow[0] = config.summaryLabel;
+        int summaryLabelColumnIndex = getSummaryLabelColumnIndex(allColumns, config);
+        if (summaryLabelColumnIndex >= 0) {
+            totalRow[summaryLabelColumnIndex] = config.summaryLabel;
         }
         return totalRow;
+    }
+
+    private static int getSummaryLabelColumnIndex(List<ChartViewFieldDTO> allColumns, SummaryConfig config) {
+        if (CollectionUtils.isEmpty(allColumns)) {
+            return -1;
+        }
+        int firstVisibleColumnIndex = -1;
+        for (int i = 0; i < allColumns.size(); i++) {
+            if (!allColumns.get(i).isHide()) {
+                firstVisibleColumnIndex = i;
+                break;
+            }
+        }
+        if (firstVisibleColumnIndex < 0) {
+            return -1;
+        }
+        ChartViewFieldDTO firstColumn = allColumns.get(firstVisibleColumnIndex);
+        String firstFieldName = firstColumn.getDataeaseName();
+        boolean firstColumnSummaryVisible = config.summaryShowMap.containsKey(firstFieldName)
+                && config.summaryShowMap.get(firstFieldName);
+        if (config.tableInfo) {
+            return firstColumnSummaryVisible ? -1 : firstVisibleColumnIndex;
+        }
+        return (!firstColumnSummaryVisible || !Arrays.asList(DeTypeConstants.DE_INT, DeTypeConstants.DE_FLOAT).contains(firstColumn.getDeType()))
+                ? firstVisibleColumnIndex : -1;
     }
 
     private static String calcVariance(SummaryAccumulator acc, String fName, boolean isSqrt) {
@@ -1054,6 +1206,7 @@ public class ChartDataServer implements ChartDataApi {
     }
 
     public static class SummaryConfig {
+        public boolean tableInfo;
         public String summaryLabel;
         public Map<String, String> summaryTypeMap = new HashMap<>();
         public Map<String, Boolean> summaryShowMap = new HashMap<>();
@@ -1067,5 +1220,4 @@ public class ChartDataServer implements ChartDataApi {
         public Map<String, Long> countMap = new HashMap<>();
         public Map<String, BigDecimal> sumOfSquaresMap = new HashMap<>();
     }
-
 }

@@ -35,9 +35,10 @@ public class DataSQLBotAssistantVO implements Serializable {
 
     private String mode;
 
+    private Boolean lowVersion;
+
     private List<SQLBotAssistanTable> tables = new ArrayList<>();
 
     @JsonIgnore
     private Map<String, Object> rowData;
-
 }

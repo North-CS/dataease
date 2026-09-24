@@ -1,4 +1,5 @@
 package io.dataease.chart.charts.impl.bar;
+import io.dataease.utils.LogUtil;
 
 import io.dataease.api.dataset.union.DatasetGroupInfoDTO;
 import io.dataease.chart.charts.impl.YoyChartHandler;
@@ -55,8 +56,7 @@ public class BarHandler extends YoyChartHandler {
             var assistFields = getAssistFields(dynamicAssistFields, yAxis);
             if (CollectionUtils.isNotEmpty(assistFields)) {
                 var req = new DatasourceRequest();
-                req.setIsCross(crossDs);
-                req.setDsList(dsMap);
+                fillDatasourceRequest(req, crossDs, dsMap, sqlMap);
 
                 List<ChartSeniorAssistDTO> assists = dynamicAssistFields.stream().filter(ele -> !StringUtils.equalsIgnoreCase(ele.getSummary(), "last_item")).toList();
                 if (ObjectUtils.isNotEmpty(assists)) {
@@ -79,7 +79,7 @@ public class BarHandler extends YoyChartHandler {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
         return result;
     }

@@ -1,6 +1,5 @@
 package io.dataease.datasource.provider;
 
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,6 +59,18 @@ public class ApiUtils {
         return new SimpleDateFormat(timeFunction[1]).format(calendar.getTime());
     }
 
+    static boolean isParamFieldMatched(List<TableField> fields, TableField field, String param) {
+        if (field == null || StringUtils.isBlank(param)) {
+            return false;
+        }
+        if (StringUtils.equalsIgnoreCase(field.getName(), param)) {
+            return true;
+        }
+        boolean matchedByName = Optional.ofNullable(fields).orElseGet(ArrayList::new).stream()
+                .anyMatch(item -> StringUtils.equalsIgnoreCase(item.getName(), param));
+        return !matchedByName && StringUtils.equalsIgnoreCase(field.getOriginName(), param);
+    }
+
     public static List<DatasetTableDTO> getApiTables(DatasourceRequest datasourceRequest) throws DEException {
         List<DatasetTableDTO> tableDescs = new ArrayList<>();
         TypeReference<List<ApiDefinition>> listTypeReference = new TypeReference<List<ApiDefinition>>() {
@@ -94,7 +105,6 @@ public class ApiUtils {
 
         return result;
     }
-
 
     public static Map<String, Object> fetchApiResultField(DatasourceRequest datasourceRequest) throws DEException {
         Map<String, Object> result = new HashMap<>();
@@ -153,7 +163,6 @@ public class ApiUtils {
             return result;
         }
     }
-
 
     private static List<TableField> getTableFields(ApiDefinition apiDefinition) throws DEException {
         return apiDefinition.getFields();
@@ -226,7 +235,6 @@ public class ApiUtils {
             apiDefinition.setRequest(JsonUtil.parseObject(JsonUtil.toJSONString(apiDefinition.getRequest()).toString().replace(apiDefinition.getRequest().getPage().getRequestData().get(0).getBuiltInParameterName(), StringUtils.isEmpty(defaultCursor) ? "" : defaultCursor).replace(apiDefinition.getRequest().getPage().getRequestData().get(1).getBuiltInParameterName(), apiDefinition.getRequest().getPage().getRequestData().get(1).getParameterDefaultValue()), ApiDefinitionRequest.class));
         }
 
-
         String response = "";
         HttpClientConfig httpClientConfig = new HttpClientConfig();
         httpClientConfig.setSocketTimeout(socketTimeout * 1000);
@@ -238,7 +246,7 @@ public class ApiUtils {
                     for (ApiDefinition definition : paramsList) {
                         for (int i = 0; i < definition.getFields().size(); i++) {
                             TableField field = definition.getFields().get(i);
-                            if (field.getName().equalsIgnoreCase(param)) {
+                            if (isParamFieldMatched(definition.getFields(), field, param)) {
                                 String resultStr = execHttpRequest(true, definition, definition.getApiQueryTimeout() == null || apiDefinition.getApiQueryTimeout() <= 0 ? 10 : apiDefinition.getApiQueryTimeout(), paramsList);
                                 List<String[]> dataList = fetchResult(resultStr, definition);
                                 if (dataList.size() > 0) {
@@ -268,7 +276,7 @@ public class ApiUtils {
                         for (ApiDefinition definition : paramsList) {
                             for (int i = 0; i < definition.getFields().size(); i++) {
                                 TableField field = definition.getFields().get(i);
-                                if (field.getName().equalsIgnoreCase(param)) {
+                                if (isParamFieldMatched(definition.getFields(), field, param)) {
                                     String resultStr = execHttpRequest(true, definition, definition.getApiQueryTimeout() == null || apiDefinition.getApiQueryTimeout() <= 0 ? 10 : apiDefinition.getApiQueryTimeout(), paramsList);
                                     List<String[]> dataList = fetchResult(resultStr, definition);
                                     if (dataList.size() > 0) {
@@ -315,7 +323,7 @@ public class ApiUtils {
                     for (ApiDefinition definition : paramsList) {
                         for (int i = 0; i < definition.getFields().size(); i++) {
                             TableField field = definition.getFields().get(i);
-                            if (field.getOriginName().equalsIgnoreCase(param)) {
+                            if (isParamFieldMatched(definition.getFields(), field, param)) {
                                 String resultStr = execHttpRequest(true, definition, definition.getApiQueryTimeout() == null || apiDefinition.getApiQueryTimeout() <= 0 ? 10 : apiDefinition.getApiQueryTimeout(), paramsList);
                                 List<String[]> dataList = fetchResult(resultStr, definition);
                                 if (dataList.size() > 0) {
@@ -337,7 +345,7 @@ public class ApiUtils {
                         for (ApiDefinition definition : paramsList) {
                             for (int i = 0; i < definition.getFields().size(); i++) {
                                 TableField field = definition.getFields().get(i);
-                                if (field.getName().equalsIgnoreCase(param)) {
+                                if (isParamFieldMatched(definition.getFields(), field, param)) {
                                     String resultStr = execHttpRequest(true, definition, definition.getApiQueryTimeout() == null || apiDefinition.getApiQueryTimeout() <= 0 ? 10 : apiDefinition.getApiQueryTimeout(), paramsList);
                                     List<String[]> dataList = fetchResult(resultStr, definition);
                                     if (dataList.size() > 0) {
@@ -391,7 +399,7 @@ public class ApiUtils {
                             for (ApiDefinition definition : paramsList) {
                                 for (int i = 0; i < definition.getFields().size(); i++) {
                                     TableField field = definition.getFields().get(i);
-                                    if (field.getOriginName().equalsIgnoreCase(param)) {
+                                    if (isParamFieldMatched(definition.getFields(), field, param)) {
                                         String resultStr = execHttpRequest(false, definition, definition.getApiQueryTimeout() == null || apiDefinition.getApiQueryTimeout() <= 0 ? 10 : apiDefinition.getApiQueryTimeout(), paramsList);
                                         List<String[]> dataList = fetchResult(resultStr, definition);
                                         if (dataList.size() > 0) {
@@ -421,7 +429,7 @@ public class ApiUtils {
                         try {
                             rootNode = objectMapper.readValue(JsonUtil.toJSONString(apiDefinition.getRequest().getBody().get("kvs")).toString(), listTypeReference);
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            LogUtil.error(e);
                             DEException.throwException(e);
                         }
                         for (JsonNode jsonNode : rootNode) {
@@ -432,7 +440,7 @@ public class ApiUtils {
                                         for (ApiDefinition definition : paramsList) {
                                             for (int i = 0; i < definition.getFields().size(); i++) {
                                                 TableField field = definition.getFields().get(i);
-                                                if (field.getOriginName().equalsIgnoreCase(param)) {
+                                                if (isParamFieldMatched(definition.getFields(), field, param)) {
                                                     String resultStr = execHttpRequest(false, definition, definition.getApiQueryTimeout() == null || apiDefinition.getApiQueryTimeout() <= 0 ? 10 : apiDefinition.getApiQueryTimeout(), paramsList);
                                                     List<String[]> dataList = fetchResult(resultStr, definition);
                                                     if (dataList.size() > 0) {
@@ -462,7 +470,7 @@ public class ApiUtils {
                                             for (ApiDefinition definition : paramsList) {
                                                 for (int i = 0; i < definition.getFields().size(); i++) {
                                                     TableField field = definition.getFields().get(i);
-                                                    if (field.getOriginName().equalsIgnoreCase(param)) {
+                                                    if (isParamFieldMatched(definition.getFields(), field, param)) {
                                                         String resultStr = execHttpRequest(false, definition, definition.getApiQueryTimeout() == null || apiDefinition.getApiQueryTimeout() <= 0 ? 10 : apiDefinition.getApiQueryTimeout(), paramsList);
                                                         List<String[]> dataList = fetchResult(resultStr, definition);
                                                         if (dataList.size() > 0) {
@@ -641,7 +649,6 @@ public class ApiUtils {
         }
     }
 
-
     private static void handleStr(ApiDefinition apiDefinition, String jsonStr, List<Map<String, Object>> fields, String rootPath) throws DEException {
         if (jsonStr.startsWith("[")) {
             TypeReference<List<Object>> listTypeReference = new TypeReference<List<Object>>() {
@@ -770,7 +777,6 @@ public class ApiUtils {
         return has;
     }
 
-
     private static void mergeField(Map<String, Object> field, Map<String, Object> item) throws DEException {
         if (item.get("children") != null) {
             List<Map<String, Object>> fieldChildren = null;
@@ -828,7 +834,7 @@ public class ApiUtils {
                 field.put("children", fieldArrayChildren);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
             DEException.throwException(e);
         }
 
@@ -896,7 +902,6 @@ public class ApiUtils {
         return dataList;
     }
 
-
     private static List<ApiDefinition> params(DatasourceRequest datasourceRequest) {
         TypeReference<List<ApiDefinition>> listTypeReference = new TypeReference<List<ApiDefinition>>() {
         };
@@ -938,5 +943,4 @@ public class ApiUtils {
         }
         return find;
     }
-
 }

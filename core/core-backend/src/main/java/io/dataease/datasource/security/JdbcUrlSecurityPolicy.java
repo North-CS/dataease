@@ -1,0 +1,197 @@
+package io.dataease.datasource.security;
+
+import io.dataease.datasource.dao.auto.entity.CoreDriver;
+import io.dataease.exception.DEException;
+import org.apache.commons.lang3.StringUtils;
+
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.util.*;
+
+public final class JdbcUrlSecurityPolicy {
+
+    private static final String DEFAULT_CUSTOM_DRIVER = "default";
+
+    private static final Map<String, String> JDBC_PREFIXES = Map.ofEntries(
+            Map.entry("impala", "jdbc:impala"),
+            Map.entry("sqlserver", "jdbc:sqlserver"),
+            Map.entry("oracle", "jdbc:oracle"),
+            Map.entry("db2", "jdbc:db2"),
+            Map.entry("pg", "jdbc:postgresql"),
+            Map.entry("redshift", "jdbc:redshift"),
+            Map.entry("h2", "jdbc:h2"),
+            Map.entry("ck", "jdbc:clickhouse"),
+            Map.entry("sqlite", "jdbc:sqlite:")
+    );
+    private static final List<String> mysqlType = Arrays.asList("mysql", "mongo", "mariadb", "starrocks", "doris", "tidb");
+
+    private static final Map<String, String> DEFAULT_DRIVERS = Map.ofEntries(
+            Map.entry("mysql", "org.mariadb.jdbc.Driver"),
+            Map.entry("mongo", "org.mariadb.jdbc.Driver"),
+            Map.entry("mariadb", "org.mariadb.jdbc.Driver"),
+            Map.entry("starrocks", "org.mariadb.jdbc.Driver"),
+            Map.entry("doris", "org.mariadb.jdbc.Driver"),
+            Map.entry("tidb", "org.mariadb.jdbc.Driver"),
+            Map.entry("impala", "com.cloudera.impala.jdbc.Driver"),
+            Map.entry("sqlserver", "com.microsoft.sqlserver.jdbc.SQLServerDriver"),
+            Map.entry("oracle", "oracle.jdbc.driver.OracleDriver"),
+            Map.entry("db2", "com.ibm.db2.jcc.DB2Driver"),
+            Map.entry("pg", "org.postgresql.Driver"),
+            Map.entry("redshift", "com.amazon.redshift.jdbc42.Driver"),
+            Map.entry("h2", "org.h2.Driver"),
+            Map.entry("ck", "com.clickhouse.jdbc.ClickHouseDriver"),
+            Map.entry("sqlite", "org.sqlite.JDBC")
+    );
+
+    private static final Set<String> COMMON_DANGEROUS_FRAGMENTS = Set.of(
+            "jndi:",
+            "rmi:",
+            "ldap:",
+            "ldaps:",
+            "dns:",
+            "file:",
+            "ftp:",
+            "nis:",
+            "corba:",
+            "corbaloc",
+            "corbaname",
+            "iiop",
+            "iiopname",
+            "java.naming.factory.initial",
+            "java.naming.provider.url",
+            "java.naming.factory.object",
+            "java.naming.factory.state",
+            "autodeserialize",
+            "queryinterceptors",
+            "statementinterceptors",
+            "detectcustomcollations",
+            "connectionproperties",
+            "initsql",
+            "allowloadlocalinfile",
+            "allowurlinlocalinfile",
+            "allowloadlocalinfileinpath",
+            "allowmultiqueries"
+    );
+
+    private static final Map<String, Set<String>> TYPE_DANGEROUS_FRAGMENTS = Map.ofEntries(
+            Map.entry("mysql", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries")),
+            Map.entry("mongo", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries")),
+            Map.entry("mariadb", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries")),
+            Map.entry("starrocks", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries")),
+            Map.entry("doris", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries")),
+            Map.entry("tidb", Set.of("maxallowedpacket", "allowloadlocalinfile", "allowurlinlocalinfile", "allowloadlocalinfileinpath", "allowmultiqueries")),
+            Map.entry("impala", Set.of("krbjaasfile", "krb5.conf")),
+            Map.entry("sqlserver", Set.of()),
+            Map.entry("oracle", Set.of()),
+            Map.entry("db2", Set.of()),
+            Map.entry("pg", Set.of("socketfactory", "socketfactoryarg", "sslfactory", "sslhostnameverifier", "sslpasswordcallback", "authenticationpluginclassname")),
+            Map.entry("redshift", Set.of("socketfactory", "socketfactoryarg", "sslfactory", "sslhostnameverifier", "sslpasswordcallback", "authenticationpluginclassname", "inifile")),
+            Map.entry("h2", Set.of("init=", "runscript", "create", "alias", "call", "script", "backup")),
+            Map.entry("ck", Set.of())
+    );
+
+    private JdbcUrlSecurityPolicy() {
+    }
+
+    public static String validate(String type, String driver, String jdbcUrl, String extraParams) {
+        if (StringUtils.isBlank(jdbcUrl)) {
+            DEException.throwException("Illegal jdbcUrl: " + jdbcUrl);
+        }
+        String normalizedType = normalizeType(type);
+        String normalizedUrl = canonicalize(jdbcUrl);
+        String normalizedExtraParams = canonicalize(extraParams);
+        if ("h2".equals(normalizedType) && (StringUtils.contains(jdbcUrl, '\\') || StringUtils.contains(extraParams, '\\'))) {
+            DEException.throwException("Illegal parameter: \\");
+        }
+        String expectedPrefix = JDBC_PREFIXES.get(normalizedType);
+        if (!mysqlType.contains(normalizedType) && (StringUtils.isBlank(expectedPrefix) || !startsWithIgnoreCase(normalizedUrl, expectedPrefix))) {
+            DEException.throwException("Illegal jdbcUrl: " + jdbcUrl);
+        }
+        if (mysqlType.contains(normalizedType)) {
+            if (!startsWithIgnoreCase(normalizedUrl, "jdbc:mysql") && !startsWithIgnoreCase(normalizedUrl, "jdbc:mariadb")) {
+                DEException.throwException("Illegal jdbcUrl: " + jdbcUrl);
+            }
+
+        }
+        Set<String> dangerousFragments = new LinkedHashSet<>(COMMON_DANGEROUS_FRAGMENTS);
+        dangerousFragments.addAll(TYPE_DANGEROUS_FRAGMENTS.getOrDefault(normalizedType, Set.of()));
+        for (String fragment : dangerousFragments) {
+            if (containsIgnoreCase(normalizedUrl, fragment) || containsIgnoreCase(normalizedExtraParams, fragment)) {
+                DEException.throwException("Illegal parameter: " + fragment);
+            }
+        }
+        return jdbcUrl;
+    }
+
+    public static String trustedDriverClass(String type) {
+        String driverClass = DEFAULT_DRIVERS.get(normalizeType(type));
+        if (StringUtils.isBlank(driverClass)) {
+            DEException.throwException("invalid driver");
+        }
+        return driverClass;
+    }
+
+    public static String resolveDriverClass(String type, String requestedDriverClass, String customDriver, CoreDriver registeredDriver) {
+        if (!isDefaultCustomDriver(customDriver)) {
+            if (registeredDriver == null
+                    || StringUtils.isBlank(registeredDriver.getDriverClass())
+                    || !StringUtils.equalsIgnoreCase(normalizeType(type), normalizeType(registeredDriver.getType()))) {
+                DEException.throwException("invalid driver");
+            }
+            return registeredDriver.getDriverClass();
+        }
+        String trustedDriverClass = trustedDriverClass(type);
+        if (StringUtils.isNotBlank(requestedDriverClass) && !StringUtils.equalsIgnoreCase(requestedDriverClass, trustedDriverClass)) {
+            DEException.throwException("invalid driver");
+        }
+        return trustedDriverClass;
+    }
+
+    public static boolean isDefaultCustomDriver(String customDriver) {
+        return StringUtils.isBlank(customDriver) || StringUtils.equalsIgnoreCase(customDriver, DEFAULT_CUSTOM_DRIVER);
+    }
+
+    private static String canonicalize(String value) {
+        if (StringUtils.isBlank(value)) {
+            return "";
+        }
+        String normalized = value;
+        for (int i = 0; i < 3; i++) {
+            try {
+                String decoded = URLDecoder.decode(normalized, StandardCharsets.UTF_8);
+                if (StringUtils.equals(decoded, normalized)) {
+                    normalized = decoded;
+                    break;
+                }
+                normalized = decoded;
+            } catch (IllegalArgumentException e) {
+                break;
+            }
+        }
+        normalized = Normalizer.normalize(normalized, Normalizer.Form.NFKC);
+        normalized = normalized.replace("\\", "");
+        return normalized;
+    }
+
+    private static String normalizeType(String type) {
+        return StringUtils.defaultString(type).toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean startsWithIgnoreCase(String value, String prefix) {
+        return StringUtils.length(value) >= StringUtils.length(prefix)
+                && value.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
+    private static boolean containsIgnoreCase(String value, String fragment) {
+        if (StringUtils.isEmpty(value) || StringUtils.isEmpty(fragment) || fragment.length() > value.length()) {
+            return false;
+        }
+        for (int i = 0; i <= value.length() - fragment.length(); i++) {
+            if (value.regionMatches(true, i, fragment, 0, fragment.length())) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

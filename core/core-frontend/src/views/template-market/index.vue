@@ -97,9 +97,11 @@
       </el-row>
       <el-row class="template-area">
         <el-scrollbar>
-          <div class="template-left">
+          <div class="template-left skeleton-left" v-if="categoriesComputed.length === 0">
+            <div class="skeleton-item" v-for="index in Array(14).fill(1)" :key="index"></div>
+          </div>
+          <div v-else-if="state.treeShow && categoriesComputed.length" class="template-left">
             <el-tree
-              v-if="state.treeShow"
               menu
               class="custom-market-tree"
               v-model="state.marketActiveTab"
@@ -647,6 +649,8 @@ defineExpose({
       align-items: center;
       padding: 12px 24px;
       border-bottom: 1px solid rgba(31, 35, 41, 0.15);
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
 
       span {
         font-size: 16px;
@@ -672,6 +676,25 @@ defineExpose({
         width: 204px;
         height: 100%;
         background: #ffffff;
+
+        &.skeleton-left {
+          min-height: calc(100vh - 140px);
+          padding: 24px;
+          overflow: hidden;
+
+          .skeleton-item {
+            background-color: #f5f5f5;
+            animation: skeleton-loading 1.5s infinite;
+            background: #eff0f199;
+            margin-bottom: 30px;
+            border-radius: 4px;
+            width: 100%;
+            height: 20px;
+            &:last-child {
+              margin-bottom: 0;
+            }
+          }
+        }
       }
       .template-right {
         flex: 1;
@@ -744,7 +767,7 @@ defineExpose({
   cursor: pointer;
 
   &.hover-icon_custom {
-    border-radius: 4px;
+    border-radius: 6px;
     color: #646a73;
 
     &[aria-expanded='true'] {

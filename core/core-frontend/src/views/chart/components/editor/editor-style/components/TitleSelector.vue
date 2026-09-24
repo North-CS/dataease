@@ -41,7 +41,7 @@ const props = defineProps({
 const appearanceStore = useAppearanceStoreWithOut()
 const emit = defineEmits(['onTextChange'])
 const toolTip = computed(() => {
-  return props.themes === 'dark' ? 'light' : 'dark'
+  return props.themes || 'dark'
 })
 const predefineColors = COLOR_PANEL
 const fontFamily = CHART_FONT_FAMILY.concat(
@@ -420,7 +420,7 @@ watch(
   width: 24px;
   height: 24px;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 6px;
   padding-top: 4px;
 
   color: #1f2329;
@@ -510,7 +510,7 @@ watch(
   }
 }
 .remark-label {
-  color: var(--N600, #646a73);
+  color: @canvas-main-font-color;
   font-family: var(--de-custom_font, 'PingFang');
   font-size: 12px;
   font-style: normal;
@@ -518,7 +518,7 @@ watch(
   line-height: 20px;
 
   &.remark-label--dark {
-    color: var(--N600-Dark, #a6a6a6);
+    color: @canvas-main-font-color-dark;
   }
 }
 </style>

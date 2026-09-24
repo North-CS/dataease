@@ -1,6 +1,5 @@
 package io.dataease.dataset.server;
 
-
 import io.dataease.api.dataset.DatasetTreeApi;
 import io.dataease.api.dataset.dto.DataSetExportRequest;
 import io.dataease.api.dataset.dto.DatasetNodeDTO;
@@ -8,6 +7,7 @@ import io.dataease.api.dataset.union.DatasetGroupInfoDTO;
 import io.dataease.api.dataset.vo.DataSetBarVO;
 import io.dataease.constant.LogOT;
 import io.dataease.constant.LogST;
+import io.dataease.constant.XpackSettingConstants;
 import io.dataease.dataset.manage.DatasetGroupManage;
 import io.dataease.exportCenter.manage.ExportCenterDownLoadManage;
 import io.dataease.exportCenter.manage.ExportCenterManage;
@@ -18,12 +18,11 @@ import io.dataease.model.BusiNodeRequest;
 import io.dataease.model.BusiNodeVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-
 import java.util.*;
-
 
 @RestController
 @RequestMapping("datasetTree")
@@ -34,7 +33,6 @@ public class DatasetTreeServer implements DatasetTreeApi {
     private ExportCenterManage exportCenterManage;
     @Resource
     private ExportCenterDownLoadManage exportCenterDownLoadManage;
-
 
     @DeLog(id = "#p0.id", ot = LogOT.MODIFY, st = LogST.DATASET)
     @Override
@@ -70,7 +68,6 @@ public class DatasetTreeServer implements DatasetTreeApi {
     public void delete(Long id) {
         datasetGroupManage.delete(id);
     }
-
 
     public List<BusiNodeVO> tree(BusiNodeRequest request) {
         return datasetGroupManage.tree(request);
@@ -108,11 +105,11 @@ public class DatasetTreeServer implements DatasetTreeApi {
 
     @Override
     public void exportDataset(DataSetExportRequest request, HttpServletResponse response) throws Exception {
-        if (request.isDataEaseBi()) {
+        boolean embeddedSyncExport = !StringUtils.equalsIgnoreCase(exportCenterManage.singleValue(XpackSettingConstants.EMBEDDED_EXPORT_MODE), "async");
+        if (request.isDataEaseBi() && embeddedSyncExport) {
             exportCenterDownLoadManage.downloadDataset(request, response);
         } else {
             exportCenterManage.addTask(request.getId(), "dataset", request);
         }
     }
-
 }

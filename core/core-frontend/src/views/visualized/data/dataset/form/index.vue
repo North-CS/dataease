@@ -679,7 +679,7 @@ const generateColumns = (arr: Field[]) =>
             })}
           </Icon>
         </ElIcon>
-        <span class="ellipsis" title={column.title} style={{ width: '120px', marginLeft: '4px' }}>
+        <span class="ellipsis" title={column.title} style={{ minWidth: '30px', marginLeft: '4px' }}>
           {column.title}
         </span>
       </div>
@@ -1343,7 +1343,7 @@ onMounted(async () => {
   isEdit.value = false
   await new Promise(r => (p = r))
   await initEdite()
-  getDatasource(isEdit.value ? 0 : 2)
+  getDatasource(2)
   window.addEventListener('resize', handleResize)
   getSqlResultHeight()
   quotaTableHeight.value = sqlResultHeight.value - 242
@@ -2062,7 +2062,7 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
                           ></component
                         ></Icon>
                       </ElIcon>
-                      <span class="ellipsis" :title="column.title" style="width: 120px">
+                      <span class="ellipsis" :title="column.title" style="min-width: 30px">
                         {{ column.title }}
                       </span>
                     </div>
@@ -2763,7 +2763,7 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
                       controls-position="right"
                   /></el-form-item>
                   <el-form-item :key="index + 'minTerm'"
-                    ><el-select v-model="domain.minTerm">
+                    ><el-select style="width: 100px" v-model="domain.minTerm">
                       <el-option
                         v-for="item in equalMin"
                         :key="item.value"
@@ -2775,7 +2775,7 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
                     {{ t('dataset.field_value') }}
                   </div>
                   <el-form-item :key="index + 'maxTerm'"
-                    ><el-select v-model="domain.maxTerm">
+                    ><el-select style="width: 100px" v-model="domain.maxTerm">
                       <el-option
                         v-for="item in equalMin"
                         :key="item.value"
@@ -3176,6 +3176,14 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
             height: 100%;
             width: calc(100% - 260px);
 
+            :deep(.ed-table--fit) {
+              margin-top: 1px;
+            }
+
+            :deep(.ed-table__header-wrapper) {
+              border-top: none;
+            }
+
             :deep(.ed-table-v2__header-cell) {
               background-color: #f5f6f7 !important;
             }
@@ -3192,7 +3200,7 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
             position: relative;
 
             :deep(.ed-tree-node__content) {
-              border-radius: 4px;
+              border-radius: 6px;
               &:hover {
                 background: rgba(31, 35, 41, 0.1);
               }
@@ -3456,7 +3464,7 @@ const getIconNameCalc = (deType, extField, dimension = false) => {
   .group-fields_item {
     padding: 16px;
     background: #f5f6f7;
-    border-radius: 4px;
+    border-radius: 6px;
     display: flex;
 
     & + .group-fields_item {

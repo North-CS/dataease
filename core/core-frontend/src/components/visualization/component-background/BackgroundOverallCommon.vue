@@ -15,7 +15,7 @@
     />
     <el-form size="small" label-position="top" style="width: 100%">
       <el-row :gutter="8">
-        <el-col :span="24">
+        <el-col :span="24" v-show="componentName !== 'Group'">
           <el-form-item
             :label="t('visualization.inner_padding')"
             class="form-item w100"
@@ -425,12 +425,14 @@ const props = withDefaults(
     editPosition?: string
     themes?: EditorTheme
     commonBackgroundPop: any
+    componentName?: string
     backgroundColorPickerWidth?: number
     backgroundBorderSelectWidth?: number
   }>(),
   {
     themes: 'dark',
     componentPosition: 'dashboard',
+    componentName: '',
     editPosition: 'canvas',
     backgroundColorPickerWidth: 50,
     backgroundBorderSelectWidth: 108
@@ -622,7 +624,7 @@ watch(
   :deep(.ed-upload--picture-card) {
     background: #eff0f1;
     border: 1px dashed #dee0e3;
-    border-radius: 4px;
+    border-radius: 6px;
 
     .ed-icon {
       color: #1f2329;
@@ -675,7 +677,7 @@ watch(
   :deep(.ed-upload--picture-card) {
     background: #eff0f1;
     border: 1px dashed #dee0e3;
-    border-radius: 4px;
+    border-radius: 6px;
 
     .ed-icon {
       color: #1f2329;

@@ -1,5 +1,5 @@
 package io.dataease.dds.provider;
-
+import io.dataease.utils.LogUtil;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -16,13 +16,12 @@ import java.util.stream.Collectors;
 
 public class TenantDatasourceProvider {
 
-    private static final String MYSQL_DRIVER_CLASS_NAME = "com.mysql.cj.jdbc.Driver";
+    private static final String MYSQL_DRIVER_CLASS_NAME = "org.mariadb.jdbc.Driver";
 
     private static final String DS_NAME_PREFIX = "tenant_%s_%s";
 
     private static final String ALL_TENANT_SQL = "select d.*, i.create_time from tenant_db d left join tenant_info i on d.tenant_id = i.id";
     private static final String ONE_TENANT_SQL = "select d.*, i.create_time from tenant_db d left join tenant_info i on d.tenant_id = i.id where d.tenant_id = ? ";
-
 
     /**
      * 这里需要加上异常处理
@@ -43,17 +42,14 @@ public class TenantDatasourceProvider {
                 return mapList.stream().collect(Collectors.toMap(TenantDatasourceProvider::getDsKey, TenantDatasourceProvider::buildHikari));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         } finally {
             close(connection,statement, resultSet);
         }
         return null;
     }
 
-
-
     public static Map<String, DataSource> getDbInfo(DataSource manage, Long tenantId) throws Exception{
-
 
         Connection connection = null;
         PreparedStatement statement = null;
@@ -68,7 +64,7 @@ public class TenantDatasourceProvider {
                 return mapList.stream().collect(Collectors.toMap(TenantDatasourceProvider::getDsKey, TenantDatasourceProvider::buildHikari));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         } finally {
             close(connection,statement, resultSet);
         }
@@ -118,24 +114,22 @@ public class TenantDatasourceProvider {
                 connection.close();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
         try {
             if (statement != null) {
                 statement.close();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
         try {
             if (rs != null && !rs.isClosed()) {
                 rs.close();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
 
-
     }
-
 }

@@ -9,6 +9,7 @@ import TextLabelThresholdEdit from '@/views/chart/components/editor/editor-senio
 import TextThresholdEdit from '@/views/chart/components/editor/editor-senior/components/dialog/TextThresholdEdit.vue'
 import LineThresholdEdit from '@/views/chart/components/editor/editor-senior/components/dialog/LineThresholdEdit.vue'
 import { fieldType } from '@/utils/attr'
+import { isDateThresholdField } from '@/views/chart/components/editor/util/DateFormatUtil'
 import { defaultsDeep } from 'lodash-es'
 import { iconFieldMap } from '@/components/icon-group/field-list'
 import PictureGroupThresholdEdit from '@/views/chart/components/editor/editor-senior/components/dialog/PictureGroupThresholdEdit.vue'
@@ -201,6 +202,10 @@ const changeTableThreshold = () => {
         ElMessage.error(t('chart.exp_can_not_empty'))
         return
       }
+      // 图片的默认规则不需要条件值，允许日期输入保持为空。
+      if (ele.term === 'default') {
+        continue
+      }
       if (ele.type !== 'dynamic') {
         if (ele.term === 'between') {
           if (
@@ -311,10 +316,12 @@ const changeLineThreshold = () => {
           ElMessage.error(t('chart.value_error'))
           return
         }
-        if (
-          (field.field.deType === 2 || field.field.deType === 3 || field.field.deType === 4) &&
-          parseFloat(ele.min) > parseFloat(ele.max)
-        ) {
+        // 日期条件的起止值使用相同格式，可直接按日期先后校验。
+        const isDateField = isDateThresholdField(field.field)
+        const isNumberField = [2, 3, 4].includes(field.field.deType)
+        const invalidDateRange = isDateField && ele.min > ele.max
+        const invalidNumberRange = isNumberField && parseFloat(ele.min) > parseFloat(ele.max)
+        if (invalidDateRange || invalidNumberRange) {
           ElMessage.error(t('chart.value_min_max_invalid'))
           return
         }
@@ -1227,7 +1234,7 @@ span {
 
   .label {
     cursor: default;
-    color: #646a73;
+    color: @canvas-main-font-color;
     font-size: 12px;
     font-style: normal;
     font-weight: 400;
@@ -1287,7 +1294,7 @@ span {
 }
 
 .threshold-container {
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid #dee0e3;
 
   margin-top: 8px;
@@ -1333,7 +1340,7 @@ span {
   font-style: normal;
   font-weight: 400;
   line-height: 20px;
-  color: #a6a6a6 !important;
+  color: #ebebeb !important;
   &.ed-button {
     color: var(--ed-color-primary) !important;
   }

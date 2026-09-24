@@ -21,8 +21,8 @@
     "@antv/s2": "^1.49.0",
     "@babel/runtime": "^7.5.5",
     "@codemirror/lang-sql": "^6.4.0",
-    "@npkg/tinymce-plugins": "^0.0.7",
-    "@tinymce/tinymce-vue": "^5.1.0",
+    "@npkg/tinymce-plugins": "0.0.7",
+    "@tinymce/tinymce-vue": "5.1.1",
     "@turf/centroid": "^7.0.0",
     "@videojs-player/vue": "^1.0.0",
     "@vueuse/core": "^9.13.0",
@@ -32,7 +32,8 @@
     "dayjs": "^1.11.9",
     "decimal.js": "^10.5.0",
     "dingtalk-jsapi": "^3.1.0",
-    "echarts": "^5.5.1",
+    "dompurify": "^3.4.2",
+    "echarts": "6.1.0",
     "element-plus-secondary": "^1.0.0",
     "element-resize-detector": "^1.2.4",
     "exceljs": "^4.4.0",
@@ -43,7 +44,6 @@
     "js-base64": "^3.7.5",
     "jsencrypt": "3.3.2",
     "jspdf": "^4.2.0",
-    "lodash": "^4.17.21",
     "lodash-es": "^4.17.21",
     "mathjs": "^15.2.0",
     "mitt": "^3.0.0",
@@ -55,7 +55,8 @@
     "qs": "^6.11.0",
     "screenfull": "^6.0.2",
     "snowflake-id": "^1.1.0",
-    "tinymce": "^5.8.2",
+    "tinymce": "6.8.6",
+    "tinymce-i18n": "23.1.23",
     "vant": "^4.8.3",
     "video.js": "^7.21.6",
     "vue": "^3.3.4",
@@ -69,7 +70,7 @@
     "vue-uuid": "^3.0.0",
     "vue3-ace-editor": "^2.2.2",
     "vuedraggable": "^4.1.0",
-    "vxe-table": "^4.16.20",
+    "vxe-table": ">=4.16.20 <=4.19.22",
     "web-storage-cache": "^1.1.1",
     "xss": "^1.0.14"
   },
@@ -122,6 +123,7 @@
   "overrides": {
     "@intlify/message-compiler": "9.14.5",
     "@intlify/shared": "9.14.5",
+    "rollup": "4.62.2",
     "glob": {
       "inflight": "npm:inflight-lru@^1.0.0"
     }

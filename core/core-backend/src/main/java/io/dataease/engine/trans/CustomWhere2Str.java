@@ -125,7 +125,7 @@ public class CustomWhere2Str {
         if (field.getDeType() == 1) {
             if (field.getDeExtractType() == 0 || field.getDeExtractType() == 5) {
                 // 此处获取标准格式的日期
-                whereName = String.format(SQLConstants.DE_STR_TO_DATE, originName, StringUtils.isNotEmpty(field.getDateFormat()) ? field.getDateFormat() : SQLConstants.DEFAULT_DATE_FORMAT);
+                whereName = String.format(SQLConstants.DE_STR_TO_DATE_T, originName, StringUtils.isNotEmpty(field.getDateFormat()) ? (Utils.isValidDateFormat(field.getDateFormat()) ? Utils.transValue(field.getDateFormat()) : SQLConstants.DEFAULT_DATE_FORMAT) : SQLConstants.DEFAULT_DATE_FORMAT);
             }
             if (field.getDeExtractType() == 2 || field.getDeExtractType() == 3 || field.getDeExtractType() == 4) {
                 String cast = String.format(SQLConstants.CAST, originName, SQLConstants.DEFAULT_INT_FORMAT);
@@ -215,6 +215,24 @@ public class CustomWhere2Str {
                 } else {
                     whereValue = toLikeValue(value);
                 }
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "start_with")) {
+                if ((StringUtils.containsIgnoreCase(field.getType(), "NVARCHAR")
+                        || StringUtils.containsIgnoreCase(field.getType(), "NCHAR"))
+                        && !isCross
+                        && StringUtils.equalsIgnoreCase(dsType, DatasourceConfiguration.DatasourceType.sqlServer.getType())) {
+                    whereValue = toSqlServerNStartValue(value);
+                } else {
+                    whereValue = toStartValue(value);
+                }
+            } else if (StringUtils.containsIgnoreCase(item.getTerm(), "end_with")) {
+                if ((StringUtils.containsIgnoreCase(field.getType(), "NVARCHAR")
+                        || StringUtils.containsIgnoreCase(field.getType(), "NCHAR"))
+                        && !isCross
+                        && StringUtils.equalsIgnoreCase(dsType, DatasourceConfiguration.DatasourceType.sqlServer.getType())) {
+                    whereValue = toSqlServerNEndValue(value);
+                } else {
+                    whereValue = toEndValue(value);
+                }
             } else {
                 // 如果是时间字段过滤，当条件是等于和不等于的时候转换成between和not between
                 if (field.getDeType() == 1) {
@@ -282,7 +300,6 @@ public class CustomWhere2Str {
 
     private static String sanitizeSqlLiteral(String value) {
         String normalized = StringUtils.defaultString(value);
-        Utils.validateSqlInjectionRisk(normalized);
         return Utils.transValue(normalized);
     }
 
@@ -294,12 +311,28 @@ public class CustomWhere2Str {
         return "'%" + sanitizeSqlLiteral(value) + "%'";
     }
 
+    private static String toStartValue(String value) {
+        return "'" + sanitizeSqlLiteral(value) + "%'";
+    }
+
+    private static String toEndValue(String value) {
+        return "'%" + sanitizeSqlLiteral(value) + "'";
+    }
+
     private static String toSqlServerNQuotedValue(String value) {
         return "'" + SQLConstants.MSSQL_N_PREFIX + sanitizeSqlLiteral(value) + "'";
     }
 
     private static String toSqlServerNLikeValue(String value) {
         return "'" + SQLConstants.MSSQL_N_PREFIX + "%" + sanitizeSqlLiteral(value) + "%'";
+    }
+
+    private static String toSqlServerNStartValue(String value) {
+        return "'" + SQLConstants.MSSQL_N_PREFIX + sanitizeSqlLiteral(value) + "%'";
+    }
+
+    private static String toSqlServerNEndValue(String value) {
+        return "'" + SQLConstants.MSSQL_N_PREFIX + "%" + sanitizeSqlLiteral(value) + "'";
     }
 
     private static String sanitizeNumberLiteral(String value) {

@@ -16,7 +16,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class VisualizationExcelUtils {
@@ -33,18 +32,19 @@ public class VisualizationExcelUtils {
     }
 
     public static File exportExcel(List<ExcelSheetModel> sheets, String fileName, String folderId) throws Exception {
+        Pattern pattern = Pattern.compile("[\\s\\\\/:\\*\\?\\\"<>\\|]");
         AtomicReference<String> realFileName = new AtomicReference<>(fileName);
-        Workbook wb = new SXSSFWorkbook();
+        if (StringUtils.isNotBlank(fileName)) {
+            realFileName.set(pattern.matcher(fileName).replaceAll("-"));
+        }
+        SXSSFWorkbook wb = new SXSSFWorkbook();
 
         sheets.forEach(sheet -> {
 
             List<List<String>> details = sheet.getData();
             List<Integer> fieldTypes = sheet.getFiledTypes();
             details.add(0, sheet.getHeads());
-            String sheetName = sheet.getSheetName();
-            Pattern pattern = Pattern.compile("[\\s\\\\/:\\*\\?\\\"<>\\|]");
-            Matcher matcher = pattern.matcher(sheetName);
-            sheetName = matcher.replaceAll("-");
+            String sheetName = pattern.matcher(sheet.getSheetName()).replaceAll("-");
             Sheet curSheet = wb.createSheet(sheetName);
             if (StringUtils.isBlank(fileName)) {
                 String cName = sheetName + suffix;
@@ -92,7 +92,7 @@ public class VisualizationExcelUtils {
 
         folderPath += Thread.currentThread().getId() + "/";
         FileUtils.validateExist(folderPath);
-        File result = new File(folderPath + realFileName.get());
+        File result = new File(folderPath + realFileName.get()).getCanonicalFile();
         FileOutputStream fos = new FileOutputStream(result);
         BufferedOutputStream outputStream = new BufferedOutputStream(fos);
         try {
@@ -101,6 +101,7 @@ public class VisualizationExcelUtils {
             LogUtil.error(e.getMessage(), new Throwable(e));
             throw e;
         } finally {
+            wb.dispose();
             wb.close();
             outputStream.flush();
             outputStream.close();

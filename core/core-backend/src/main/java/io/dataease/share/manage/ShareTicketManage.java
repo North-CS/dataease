@@ -40,7 +40,6 @@ public class ShareTicketManage {
     @Resource
     private XpackShareExtMapper xpackShareExtMapper;
 
-
     public CoreShareTicket getByTicket(String ticket) {
         QueryWrapper<CoreShareTicket> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("ticket", ticket);
@@ -49,10 +48,26 @@ public class ShareTicketManage {
 
     @Transactional
     public String saveTicket(TicketCreator creator) {
+        String uuid = creator.getUuid();
+        if (StringUtils.isBlank(uuid)) {
+            DEException.throwException("uuid为必填参数");
+        }
+        QueryWrapper<XpackShare> shareQuery = new QueryWrapper<>();
+        shareQuery.eq("uuid", uuid);
+        shareQuery.eq("creator", AuthUtils.getUser().getUserId());
+        if (ObjectUtils.isEmpty(xpackShareMapper.selectOne(shareQuery))) {
+            DEException.throwException("无权操作此分享的Ticket");
+        }
         String ticket = creator.getTicket();
         if (StringUtils.isNotBlank(ticket)) {
             CoreShareTicket ticketEntity = getByTicket(ticket);
             if (ObjectUtils.isNotEmpty(ticketEntity)) {
+                QueryWrapper<XpackShare> ticketShareQuery = new QueryWrapper<>();
+                ticketShareQuery.eq("uuid", ticketEntity.getUuid());
+                ticketShareQuery.eq("creator", AuthUtils.getUser().getUserId());
+                if (ObjectUtils.isEmpty(xpackShareMapper.selectOne(ticketShareQuery))) {
+                    DEException.throwException("无权操作此Ticket");
+                }
                 if (creator.isGenerateNew()) {
                     ticketEntity.setAccessTime(null);
                     ticketEntity.setTicket(CodingUtil.shortUuid());
@@ -90,6 +105,16 @@ public class ShareTicketManage {
         if (StringUtils.isBlank(ticket)) {
             DEException.throwException("ticket为必填参数");
         }
+        CoreShareTicket existingTicket = getByTicket(ticket);
+        if (ObjectUtils.isEmpty(existingTicket)) {
+            DEException.throwException("Ticket不存在");
+        }
+        QueryWrapper<XpackShare> shareQuery = new QueryWrapper<>();
+        shareQuery.eq("uuid", existingTicket.getUuid());
+        shareQuery.eq("creator", AuthUtils.getUser().getUserId());
+        if (ObjectUtils.isEmpty(xpackShareMapper.selectOne(shareQuery))) {
+            DEException.throwException("无权删除此Ticket");
+        }
         QueryWrapper<CoreShareTicket> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("ticket", ticket);
         coreShareTicketMapper.delete(queryWrapper);
@@ -102,6 +127,10 @@ public class ShareTicketManage {
         queryWrapper.eq("resource_id", resourceId);
         queryWrapper.eq("creator", AuthUtils.getUser().getUserId());
         XpackShare xpackShare = xpackShareMapper.selectOne(queryWrapper);
+        // 分享记录可能不存在（尚未创建分享或 resourceId 无效），避免直接 NPE
+        if (ObjectUtils.isEmpty(xpackShare)) {
+            DEException.throwException("分享记录不存在");
+        }
         xpackShare.setTicketRequire(require);
         xpackShareMapper.updateById(xpackShare);
     }
@@ -148,6 +177,10 @@ public class ShareTicketManage {
         }
         CoreShareTicket linkTicket = getByTicket(ticket);
         if (ObjectUtils.isEmpty(linkTicket)) {
+            vo.setTicketValid(false);
+            return vo;
+        }
+        if (!StringUtils.equals(linkTicket.getUuid(), share.getUuid())) {
             vo.setTicketValid(false);
             return vo;
         }

@@ -89,9 +89,9 @@ import { useEmbedded } from '@/store/modules/embedded'
 import { XpackComponent } from '@/components/plugin'
 import { iconFieldMap } from '@/components/icon-group/field-list'
 import { iconDatasourceMap } from '@/components/icon-group/datasource-list'
-import { querySymmetricKey } from '@/api/login'
 import { symmetricDecrypt } from '@/utils/encryption'
 import { isFreeFolder } from '@/utils/utils'
+import { AnyColumns } from 'element-plus-secondary/es/components/table-v2/src/types'
 const route = useRoute()
 const interactiveStore = interactiveStoreWithOut()
 interface Field {
@@ -253,9 +253,9 @@ const scrollbarRef = ref()
 
 const generateColumns = (arr: Field[]) =>
   arr.map(ele => ({
-    key: ele.originName,
+    key: ele.originName === 'id' ? 'ids' : ele.originName,
     deType: ele.deType,
-    dataKey: ele.originName,
+    dataKey: ele.originName === 'id' ? 'ids' : ele.originName,
     title: ele.name,
     width: 150,
     headerCellRenderer: ({ column }) => (
@@ -275,13 +275,16 @@ const generateColumns = (arr: Field[]) =>
   }))
 
 const dataPreviewLoading = ref(false)
-const columns = ref([])
-const handleLoadExcel = data => {
+const columns = ref<any[]>([])
+const handleLoadExcel = (data: Record<string, unknown>) => {
   dataPreviewLoading.value = true
+  let num = +new Date()
   previewData(data)
     .then(res => {
       columns.value = generateColumns((res?.data?.fields as Field[]) || [])
-      tabData.value = (res?.data?.data as Array<{}>) || []
+      tabData.value = ((res?.data?.data as any) || []).map(ele => {
+        return { ...ele, ids: ele.id, id: num++ }
+      })
     })
     .finally(() => {
       dataPreviewLoading.value = false
@@ -476,7 +479,6 @@ const saveDsFolder = (params, successCb, finallyCb, cmd) => {
 const dsLoading = ref(false)
 const mounted = ref(false)
 const isSupportSetKey = ref(false)
-const symmetricKey = ref('')
 
 const listDs = () => {
   rawDatasourceList.value = []
@@ -579,7 +581,7 @@ const sortTypeTip = computed(() => {
 const tableData = shallowRef([])
 const tabData = shallowRef([])
 const handleNodeClick = data => {
-  if (!data.leaf) {
+  if (!data.leaf || data.weight === 0) {
     dsListTree.value.setCurrentKey(null)
     return
   }
@@ -607,13 +609,13 @@ const handleNodeClick = data => {
       enableDataFill
     } = res.data
     if (configuration) {
-      configuration = JSON.parse(symmetricDecrypt(configuration, symmetricKey.value))
+      configuration = JSON.parse(symmetricDecrypt(configuration))
     }
     if (paramsStr) {
-      paramsStr = JSON.parse(symmetricDecrypt(paramsStr, symmetricKey.value))
+      paramsStr = JSON.parse(symmetricDecrypt(paramsStr))
     }
     if (apiConfigurationStr) {
-      apiConfigurationStr = JSON.parse(symmetricDecrypt(apiConfigurationStr, symmetricKey.value))
+      apiConfigurationStr = JSON.parse(symmetricDecrypt(apiConfigurationStr))
     }
     Object.assign(nodeInfo, {
       name,
@@ -690,6 +692,24 @@ const updateApiDs = () => {
   })
 }
 
+const syncRemoteExcelDsLoading = ref(false)
+const updateRemoteExcelDs = () => {
+  if (syncRemoteExcelDsLoading.value) {
+    return
+  }
+  syncRemoteExcelDsLoading.value = true
+  syncApiDs({ datasourceId: nodeInfo.id })
+    .then(() => {
+      ElMessage.success(t('datasource.req_completed'))
+      if (showRecord.value) {
+        getRecord()
+      }
+    })
+    .finally(() => {
+      syncRemoteExcelDsLoading.value = false
+    })
+}
+
 const nodeExpand = data => {
   if (data.id) {
     expandedKey.value.push(data.id)
@@ -734,13 +754,13 @@ const editDatasource = (editType?: number) => {
       enableDataFill
     } = res.data
     if (configuration) {
-      configuration = JSON.parse(symmetricDecrypt(configuration, symmetricKey.value))
+      configuration = JSON.parse(symmetricDecrypt(configuration))
     }
     if (paramsStr) {
-      paramsStr = JSON.parse(symmetricDecrypt(paramsStr, symmetricKey.value))
+      paramsStr = JSON.parse(symmetricDecrypt(paramsStr))
     }
     if (apiConfigurationStr) {
-      apiConfigurationStr = JSON.parse(symmetricDecrypt(apiConfigurationStr, symmetricKey.value))
+      apiConfigurationStr = JSON.parse(symmetricDecrypt(apiConfigurationStr))
     }
     let datasource = reactive<Node>(cloneDeep(defaultInfo))
     Object.assign(datasource, {
@@ -804,13 +824,13 @@ const handleCopy = async data => {
       return ele.type == res.data.type
     })
     if (configuration) {
-      configuration = JSON.parse(symmetricDecrypt(configuration, symmetricKey.value))
+      configuration = JSON.parse(symmetricDecrypt(configuration))
     }
     if (paramsStr) {
-      paramsStr = JSON.parse(symmetricDecrypt(paramsStr, symmetricKey.value))
+      paramsStr = JSON.parse(symmetricDecrypt(paramsStr))
     }
     if (apiConfigurationStr) {
-      apiConfigurationStr = JSON.parse(symmetricDecrypt(apiConfigurationStr, symmetricKey.value))
+      apiConfigurationStr = JSON.parse(symmetricDecrypt(apiConfigurationStr))
     }
     let datasource = reactive<Node>(cloneDeep(defaultInfo))
     Object.assign(datasource, {
@@ -1032,7 +1052,8 @@ const uploadExcel = editType => {
 const activeName = ref('table')
 const defaultProps = {
   children: 'children',
-  label: 'name'
+  label: 'name',
+  disabled: (data: any) => data.weight === 0
 }
 
 const loadInit = () => {
@@ -1062,9 +1083,6 @@ onMounted(() => {
   if (opt && opt === 'create') {
     datasourceEditor.value.init(null, null, null, isSupportSetKey.value)
   }
-  querySymmetricKey().then(res => {
-    symmetricKey.value = res.data
-  })
 })
 
 const sideTreeStatus = ref(true)
@@ -1119,10 +1137,8 @@ const getMenuList = (val: boolean) => {
             <span class="title"> {{ t('datasource.datasource') }} </span>
             <div v-if="rootManage" class="flex-align-center">
               <el-tooltip
-                arrow-offset="10"
                 offset="14"
                 effect="dark"
-                popper-class="new-folder_tip"
                 :content="t('deDataset.new_folder')"
                 placement="top"
               >
@@ -1135,9 +1151,7 @@ const getMenuList = (val: boolean) => {
                 </el-icon>
               </el-tooltip>
               <el-tooltip
-                arrow-offset="10"
                 offset="14"
-                popper-class="new-folder_tip"
                 effect="dark"
                 :content="t('datasource.create')"
                 placement="top"
@@ -1213,7 +1227,11 @@ const getMenuList = (val: boolean) => {
             @node-click="handleNodeClick"
           >
             <template #default="{ node, data }">
-              <span class="custom-tree-node" style="position: relative">
+              <span
+                class="custom-tree-node"
+                style="position: relative"
+                :class="{ 'node-disabled-custom': data.weight === 0 }"
+              >
                 <el-icon :class="data.leaf && 'icon-border'" style="font-size: 18px">
                   <Icon :static-content="getDsIcon(data)"
                     ><component class="svg-icon" :is="getDsIconName(data)"></component
@@ -1225,18 +1243,30 @@ const getMenuList = (val: boolean) => {
                 >
                   <Icon><icon_warning_colorful_red class="svg-icon" /></Icon>
                 </el-icon>
-                <span
-                  :title="node.label"
-                  class="label-tooltip ellipsis"
-                  :class="data.type === 'Excel' && 'excel'"
-                  v-if="data.extraFlag > -1"
-                  >{{ node.label }}</span
-                >
                 <el-tooltip
+                  v-if="data.extraFlag > -1"
                   effect="dark"
+                  :content="t('visualization.no_permission_tips')"
+                  :disabled="data.weight > 0"
+                  placement="top-start"
+                >
+                  <span
+                    :title="node.label"
+                    class="label-tooltip ellipsis"
+                    :class="data.type === 'Excel' && 'excel'"
+                    v-if="data.extraFlag > -1"
+                    >{{ node.label }}</span
+                  >
+                </el-tooltip>
+                <el-tooltip
                   v-else
-                  :content="`${t('data_set.invalid_data_source')}: ${node.label}`"
-                  placement="top"
+                  effect="dark"
+                  :content="
+                    data.weight === 0
+                      ? t('visualization.no_permission_tips')
+                      : `${t('data_set.invalid_data_source')}: ${node.label}`
+                  "
+                  placement="top-start"
                 >
                   <span
                     :title="node.label"
@@ -1427,7 +1457,14 @@ const getMenuList = (val: boolean) => {
               <el-table-column
                 key="tableName"
                 prop="tableName"
+                show-overflow-tooltip
                 :label="t('datasource.table_name')"
+              />
+              <el-table-column
+                key="name"
+                prop="name"
+                show-overflow-tooltip
+                :label="t('datasource.table_remarks')"
               />
               <el-table-column
                 key="status"
@@ -1527,7 +1564,7 @@ const getMenuList = (val: boolean) => {
                     <ExcelInfoBase :name="nodeInfo.fileName" :size="nodeInfo.size"></ExcelInfoBase>
                   </BaseInfoItem>
                 </el-col>
-                <el-col v-if="nodeInfo.type === 'ExcelRemote'" :span="12">
+                <el-col v-if="nodeInfo.type === 'ExcelRemote' && nodeInfo.configuration" :span="12">
                   <BaseInfoItem :label="t('datasource.remote_excel_url')">
                     {{ nodeInfo.configuration.url }}
                   </BaseInfoItem>
@@ -1539,12 +1576,13 @@ const getMenuList = (val: boolean) => {
                 </el-col>
                 <el-col v-if="!nodeInfo.type.startsWith('Excel')" :span="24">
                   <BaseInfoItem :label="t('common.description')">{{
-                    nodeInfo.description
+                    nodeInfo.description || '-'
                   }}</BaseInfoItem>
                 </el-col>
               </el-row>
               <template
                 v-if="
+                  nodeInfo.configuration &&
                   !['Excel', 'es'].includes(nodeInfo.type) &&
                   !nodeInfo.type.startsWith('API') &&
                   !nodeInfo.type.startsWith('Excel') &&
@@ -1703,7 +1741,7 @@ const getMenuList = (val: boolean) => {
             v-slot="slotProps"
             :name="t('datasource.data_table')"
           >
-            <div class="api-card-content" v-if="slotProps.active">
+            <div class="api-card-content" v-if="slotProps.active && nodeInfo.apiConfiguration">
               <div v-for="api in nodeInfo.apiConfiguration" :key="api.id" class="api-card">
                 <el-row>
                   <el-col :span="19">
@@ -1816,14 +1854,30 @@ const getMenuList = (val: boolean) => {
                 </el-col>
               </el-row>
             </template>
-            <el-button @click="getRecord" class="update-records" text>
-              <template #icon>
-                <icon name="icon_describe_outlined"
-                  ><icon_describe_outlined class="svg-icon"
-                /></icon>
-              </template>
-              {{ t('dataset.update_records') }}
-            </el-button>
+            <div class="update-actions">
+              <el-button
+                v-if="nodeInfo.type === 'ExcelRemote'"
+                @click="updateRemoteExcelDs"
+                :loading="syncRemoteExcelDsLoading"
+                class="update-records"
+                text
+              >
+                <template #icon>
+                  <icon name="icon_replace_outlined"
+                    ><icon_replace_outlined class="svg-icon"
+                  /></icon>
+                </template>
+                {{ t('datasource.execute_once') }}
+              </el-button>
+              <el-button @click="getRecord" class="update-records" text>
+                <template #icon>
+                  <icon name="icon_describe_outlined"
+                    ><icon_describe_outlined class="svg-icon"
+                  /></icon>
+                </template>
+                {{ t('dataset.update_records') }}
+              </el-button>
+            </div>
           </BaseInfoContent>
         </template>
       </template>
@@ -1845,7 +1899,7 @@ const getMenuList = (val: boolean) => {
             <p class="table-name">
               {{ t('datasource.table_name') }}
             </p>
-            <p class="table-value">
+            <p :title="dsTableDetail.tableName" class="table-value">
               {{ dsTableDetail.tableName }}
             </p>
           </el-col>
@@ -1853,7 +1907,7 @@ const getMenuList = (val: boolean) => {
             <p class="table-name">
               {{ t('datasource.table_description') }}
             </p>
-            <p class="table-value">
+            <p :title="dsTableDetail.name" class="table-value">
               {{ dsTableDetail.name || '-' }}
             </p>
           </el-col>
@@ -2096,10 +2150,17 @@ const getMenuList = (val: boolean) => {
     }
   }
 
-  .update-records {
+  .update-actions {
     position: absolute;
     top: 19px;
     right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .update-records {
+    margin: 0;
   }
 
   .update-info {
@@ -2149,9 +2210,9 @@ const getMenuList = (val: boolean) => {
   .api-card {
     width: calc(50% - 16px);
     height: 140px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid var(--deCardStrokeColor, #dee0e3);
-    border-radius: 4px;
+    border-radius: 6px;
     margin: 0 0 16px 16px;
     padding: 16px;
     font-family: var(--de-custom_font, 'PingFang');
@@ -2292,7 +2353,7 @@ const getMenuList = (val: boolean) => {
 
         .name {
           margin-left: 8px;
-          max-width: 200px;
+          max-width: 400px;
         }
 
         .create-user {
@@ -2357,13 +2418,17 @@ const getMenuList = (val: boolean) => {
   padding-right: 4px;
 
   .label-tooltip {
-    width: 100%;
+    width: calc(100% - 40px);
     margin-left: 8.75px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 18px;
   }
 
   .icon-more {
     margin-left: auto;
-    display: none;
+    opacity: 0;
   }
 
   &:hover {
@@ -2376,9 +2441,14 @@ const getMenuList = (val: boolean) => {
     }
 
     .icon-more {
-      display: inline-flex;
+      opacity: 1;
     }
   }
+}
+
+.node-disabled-custom {
+  color: rgba(187, 191, 196, 1);
+  cursor: not-allowed;
 }
 </style>
 <style lang="less">
@@ -2412,6 +2482,10 @@ const getMenuList = (val: boolean) => {
     font-size: 14px;
     font-weight: 400;
     margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
   }
 
   .table-name {

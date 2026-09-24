@@ -26,6 +26,7 @@ import {
 import {
   getColor,
   getGroupColor,
+  parseJson,
   getSingleDimensionColor,
   getStackColor,
   handleEmptyDataStrategy,
@@ -93,7 +94,31 @@ export abstract class G2PlotChartView<
 
   protected configTheme(chart: Chart, options: O): O {
     const theme = getTheme(chart)
-    return { ...options, theme }
+    // 根据主题深色浅色配置图表选中状态样式
+    let state = {}
+    if (chart.customAttr) {
+      const customAttr = parseJson(chart.customAttr)
+      const basicStyle = customAttr.basicStyle
+      const stockStrokeColor = basicStyle.themeContrastColor ?? customAttr.label?.color ?? '#000000'
+      const selectedStyle = {
+        stroke: stockStrokeColor
+      }
+      state = {
+        selected: {
+          style: selectedStyle
+        },
+        active: {
+          style: selectedStyle
+        },
+        inactive: {
+          style: {
+            fillOpacity: 0.3,
+            strokeOpacity: 0.3
+          }
+        }
+      }
+    }
+    return { ...options, theme, state }
   }
 
   protected configLabel(chart: Chart, options: O): O {
@@ -177,8 +202,15 @@ export abstract class G2PlotChartView<
 
   protected configConditions(chart: Chart, options: O) {
     const annotations = getConditions(chart)
+    const { threshold, functionCfg } = parseJson(chart.senior)
+    const disabledAnimation =
+      threshold?.enable &&
+      functionCfg?.sliderShow &&
+      annotations.some(annotation => annotation.type === 'regionFilter')
     return {
       ...options,
+      // 缩略轴过滤后 regionFilter 需跟随当前渲染周期立即重建
+      ...(disabledAnimation ? { animation: false } : {}),
       annotations: [...annotations, ...((options as unknown as Options).annotations || [])]
     }
   }

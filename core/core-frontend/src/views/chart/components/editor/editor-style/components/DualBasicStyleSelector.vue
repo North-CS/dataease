@@ -503,7 +503,7 @@ onMounted(() => {
     min-width: 56px;
 
     &.dark {
-      color: #a6a6a6;
+      color: #ebebeb;
     }
   }
 }
@@ -511,7 +511,7 @@ onMounted(() => {
   .ed-select {
     width: 100px !important;
     :deep(.ed-input__wrapper) {
-      border-radius: 4px 0 0 4px !important;
+      border-radius: 6px 0 0 4px !important;
     }
   }
   .ed-input-group {

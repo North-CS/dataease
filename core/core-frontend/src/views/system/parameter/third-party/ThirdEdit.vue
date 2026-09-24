@@ -74,14 +74,16 @@ const save = () => {
     })
 }
 
-const saveClose = () => {
+const saveClose = (showMsg: boolean) => {
   const param = { ...state.form }
   const method = request.post({ url: '/sysParameter/sqlbot', data: param })
   showLoading()
   method
     .then(res => {
       if (!res.msg) {
-        ElMessage.success(t('common.save_success'))
+        if (showMsg) {
+          ElMessage.success(t('common.save_success'))
+        }
         emits('saved')
       }
       closeLoading()
@@ -98,7 +100,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       let url = `${
         state.form.domain.endsWith('/') ? state.form.domain : state.form.domain + '/'
-      }api/v1/system/assistant/info/${state.form.id}`
+      }api/v1/system/assistant/validate/${state.form.id}`
       fetch(url)
         .then(response => response.json())
         .finally(() => {
@@ -130,7 +132,7 @@ const closeLoading = () => {
 const validateHandlerOnly = () => {
   let url = `${
     state.form.domain.endsWith('/') ? state.form.domain : state.form.domain + '/'
-  }api/v1/system/assistant/info/${state.form.id}`
+  }api/v1/system/assistant/validate/${state.form.id}`
   fetch(url)
     .then(response => {
       if (!response.ok) {
@@ -148,7 +150,7 @@ const validateHandlerOnly = () => {
       state.form.valid = false
     })
     .finally(() => {
-      saveClose()
+      saveClose(false)
     })
 }
 

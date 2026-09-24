@@ -278,6 +278,10 @@ export const multFieldValuesForPermissions = (data = {}) => {
   return request.post({ url: '/datasetField/multFieldValuesForPermissions', data })
 }
 
+export const multFieldValues = (data = {}) => {
+  return request.post({ url: '/datasetField/multFieldValues', data })
+}
+
 export const listFieldsWithPermissions = (datasetId: number) => {
   return request.get({ url: '/datasetField/listWithPermissions/' + datasetId }).then(res => {
     originNameHandleBack(res?.data)
@@ -351,10 +355,12 @@ export const exportRetry = async (id): Promise<IResponse> => {
   })
 }
 
-export const downloadFile = async (id): Promise<Blob> => {
-  return request.get({ url: 'exportCenter/download/' + id, responseType: 'blob' }).then(res => {
-    return res?.data
-  })
+export const downloadFile = async (id, ticket): Promise<Blob> => {
+  return request
+    .get({ url: 'exportCenter/download/' + id, params: { ticket }, responseType: 'blob' })
+    .then(res => {
+      return res?.data
+    })
 }
 
 export const exportDelete = async (id): Promise<IResponse> => {
@@ -363,7 +369,7 @@ export const exportDelete = async (id): Promise<IResponse> => {
   })
 }
 
-export const generateDownloadUri = async (id): Promise<IResponse> => {
+export const generateDownloadUri = async (id): Promise<string> => {
   return request.get({ url: '/exportCenter/generateDownloadUri/' + id }).then(res => {
     return res?.data
   })

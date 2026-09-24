@@ -27,7 +27,12 @@
     <div v-if="!shareDisable" class="share-container">
       <div class="share-title share-padding">{{ t('work_branch.public_link_share') }}</div>
       <div class="open-share flex-align-center share-padding">
-        <el-switch size="small" v-model="shareEnable" @change="enableSwitcher" />
+        <el-switch
+          size="small"
+          v-model="shareEnable"
+          :disabled="!shareInfoReady"
+          @change="enableSwitcher"
+        />
         {{ shareTips }}
       </div>
       <div v-if="shareEnable" class="custom-link-line share-padding">
@@ -188,11 +193,21 @@
         </div>
       </div>
 
+      <ShareVisitorPermissions
+        v-if="shareEnable && !appearanceStore.getCommunity"
+        v-model="visitorChoices"
+        :allowed="state.detailInfo.allowedVisitorPermissions ?? 7"
+      />
       <el-divider v-if="shareEnable" class="share-divider" />
       <div v-if="shareEnable" class="share-foot share-padding">
         <el-button secondary @click="openTicket">{{ t('work_branch.ticket_setting') }}</el-button>
-        <el-button :disabled="!shareEnable || expError" type="primary" @click="copyInfo">
-          {{ passwdEnable ? t('visualization.copy_link_passwd') : t('visualization.copy_link') }}
+        <el-button
+          :disabled="!shareEnable || expError"
+          :loading="savingPermissions"
+          type="primary"
+          @click="copyInfo"
+        >
+          {{ t('share_visitor.save_copy') }}
         </el-button>
       </div>
     </div>
@@ -218,6 +233,8 @@
 </template>
 
 <script lang="ts" setup>
+import ShareVisitorPermissions from './ShareVisitorPermissions.vue'
+import { useAppearanceStoreWithOut } from '@/store/modules/appearance'
 import icon_shareLabel_outlined from '@/assets/svg/icon_share-label_outlined.svg'
 import icon_edit_outlined from '@/assets/svg/icon_edit_outlined.svg'
 import icon_close_outlined from '@/assets/svg/icon_close_outlined.svg'
@@ -333,7 +350,12 @@ const shareTips = computed(
 const shareDisable = computed(() => shareStore.getShareDisable)
 const sharePeRequire = computed(() => shareStore.getSharePeRequire)
 
+const appearanceStore = useAppearanceStoreWithOut()
+const shareInfoReady = ref(false)
+const visitorChoices = ref<number[]>([])
+const savingPermissions = ref(false)
 const copyInfo = async () => {
+  if (savingPermissions.value) return
   if (shareEnable.value) {
     try {
       if (existErrorMsg('link-uuid-error-msg')) {
@@ -350,15 +372,33 @@ const copyInfo = async () => {
           return
         }
       }
+      savingPermissions.value = true
+      if (!appearanceStore.getCommunity) {
+        await request.post({
+          url: '/share/visitorPermissions',
+          data: {
+            resourceId: props.resourceId,
+            visitorPermissions: visitorChoices.value.reduce((a, b) => a | b, 0)
+          }
+        })
+      }
       formatLinkAddr()
       let info = linkAddr.value
       if (passwdEnable.value) {
         info += `,${state.detailInfo.pwd}`
       }
-      await toClipboard(info)
-      ElMessage.success(t('common.copy_success'))
-    } catch (e) {
-      ElMessage.warning(t('common.copy_unsupported'))
+      try {
+        await toClipboard(info)
+        ElMessage.success(t('common.copy_success'))
+      } catch {
+        ElMessage.warning(t('common.copy_unsupported'))
+        return
+      }
+    } catch {
+      // The request interceptor displays the server error. Keep the draft open on failure.
+      return
+    } finally {
+      savingPermissions.value = false
     }
   } else {
     ElMessage.warning(t('common.copy_unsupported'))
@@ -378,21 +418,36 @@ const closeLoading = () => {
 }
 
 const share = () => {
-  loadShareInfo(validatePeRequire)
+  loadShareInfo(validatePeRequire, true)
 }
 
-const loadShareInfo = cb => {
+const loadShareInfo = (cb, resetPermissions = false) => {
+  shareInfoReady.value = false
   showLoading()
   const resourceId = props.resourceId
   const url = `/share/detail/${resourceId}`
   request
     .get({ url })
     .then(res => {
+      const sameShare = state.detailInfo.id === res.data?.id
       state.detailInfo = { ...res.data }
+      if (resetPermissions || !sameShare) {
+        visitorChoices.value = [1, 2, 4].filter(
+          bit =>
+            ((res.data?.visitorPermissions ?? 7) &
+              (res.data?.allowedVisitorPermissions ?? 7) &
+              bit) !==
+            0
+        )
+      }
       if (res.data?.uuid) {
         originUuid.value = res.data.uuid
       }
       setPageInfo()
+      shareInfoReady.value = true
+    })
+    .catch(() => {
+      // The request interceptor reports the error; do not allow toggling an unknown state.
     })
     .finally(() => {
       closeLoading()
@@ -414,11 +469,18 @@ const setPageInfo = () => {
 }
 
 const enableSwitcher = () => {
+  if (!shareInfoReady.value) return
+  shareInfoReady.value = false
   const resourceId = props.resourceId
   const url = `/share/switcher/${resourceId}`
-  request.post({ url }).then(() => {
-    loadShareInfo(null)
-  })
+  request
+    .post({ url })
+    .then(() => {
+      loadShareInfo(null)
+    })
+    .catch(() => {
+      loadShareInfo(null)
+    })
 }
 
 const formatLinkAddr = () => {
@@ -840,7 +902,7 @@ defineExpose({
   .input-suffix-btn {
     width: 24px;
     height: 24px;
-    border-radius: 4px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;

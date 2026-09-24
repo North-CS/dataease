@@ -24,7 +24,7 @@ export interface Item {
   deType: number
   enumValue: string[]
   name: string
-  value: number
+  value: number | string | null
   filterTypeTime?: string
   timeValue: string
   dynamicTimeSetting?: SelectConfig
@@ -168,6 +168,18 @@ const filterTypeChange = () => {
   item.value.term = ''
   item.value.value = null
   initEnumOptions()
+}
+
+const normalizeNumericValue = (value: string | number) => {
+  const source = String(value ?? '')
+  let normalized = source.replace(/[^\d.-]/g, '')
+  normalized = normalized.replace(/(?!^)-/g, '')
+  const firstDot = normalized.indexOf('.')
+  if (firstDot !== -1) {
+    normalized =
+      normalized.slice(0, firstDot + 1) + normalized.slice(firstDot + 1).replace(/\./g, '')
+  }
+  item.value.value = normalized
 }
 
 const filterTypeChangeTime = () => {
@@ -567,13 +579,13 @@ const emits = defineEmits(['update:item', 'del'])
               !['null', 'empty', 'not_null', 'not_empty'].includes(item.term)
             "
           >
-            <el-input-number
+            <el-input
               class="w70 mar5"
               size="small"
-              effect="plain"
               v-model="item.value"
-              controls-position="right"
-            ></el-input-number>
+              inputmode="decimal"
+              @input="normalizeNumericValue"
+            />
             <div class="bottom-line"></div>
           </template>
           <template v-else-if="!['null', 'empty', 'not_null', 'not_empty'].includes(item.term)">
@@ -590,6 +602,7 @@ const emits = defineEmits(['update:item', 'del'])
               v-else-if="item.deType === 1 && item.filterTypeTime === 'dynamicDate'"
               effect="light"
               :content="item.timeValue"
+              :disabled="!item.timeValue"
               placement="top"
               ><el-input
                 @click="handleClick"
@@ -603,6 +616,7 @@ const emits = defineEmits(['update:item', 'del'])
               v-else-if="item.deType === 1 && item.filterTypeTime !== 'dynamicDate'"
               effect="light"
               :content="item.value"
+              :disabled="!item.value"
               placement="top"
               ><el-input
                 readonly
@@ -1110,7 +1124,7 @@ const emits = defineEmits(['update:item', 'del'])
         :nth-child(2) {
           height: 26px;
           line-height: 26px;
-          border-radius: 4px;
+          border-radius: 6px;
           padding: 0 4px;
           color: var(--ed-color-primary, #3370ff);
           &:hover {
@@ -1160,7 +1174,7 @@ const emits = defineEmits(['update:item', 'del'])
             width: 24px;
             margin: 0px;
             height: 24px;
-            border-radius: 4px;
+            border-radius: 6px;
             background-color: #1f23291a;
           }
         }
@@ -1204,7 +1218,7 @@ const emits = defineEmits(['update:item', 'del'])
   margin: 5px 0;
   background-color: #fff;
   border: 1px solid #ebeef5;
-  border-radius: 4px;
+  border-radius: 6px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   margin-top: 12px;
   position: absolute;

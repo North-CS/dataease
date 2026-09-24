@@ -13,15 +13,17 @@
       <el-row style="flex-direction: row">
         <div class="top-area">
           <span class="top-area-text">{{ t('visualization.selected_view') }}：</span>
-          <span class="top-area-value">
+          <span class="top-area-value view-title-value">
             <Icon class-name="view-type-icon"
               ><component
                 class="svg-icon view-type-icon"
                 :is="iconChartMap[state.curJumpViewInfo.type]"
               ></component
             ></Icon>
-            {{ state.curJumpViewInfo.title }}</span
-          >
+            <span class="top-area-title" :title="state.curJumpViewInfo.title">
+              {{ state.curJumpViewInfo.title }}
+            </span>
+          </span>
           <span class="top-area-text margin-left">{{ t('visualization.used_dataset') }}：</span>
           <span class="top-area-value">
             <Icon name="dataset-outline"
@@ -35,7 +37,7 @@
         <el-row class="preview">
           <el-col :span="8" style="height: 100%; overflow-y: auto">
             <el-row class="tree-head">
-              <span class="head-text">{{ t('visualization.to_select_view') }}</span>
+              <span class="head-text">{{ t('visualization.to_select_field') }}</span>
               <span class="head-filter">
                 {{ t('visualization.show_selected_only') }}
                 <el-switch size="small" v-model="state.showSelected" />
@@ -884,6 +886,7 @@ const init = viewItem => {
 }
 
 const save = () => {
+  outerContentEditor.value?.syncContent?.()
   // 字段检查
   let subCheckCountAll = 0
   state.linkJump.linkJumpInfoArray.forEach(linkJumpInfo => {
@@ -936,6 +939,7 @@ const nodeClick = data => {
   if (!data) {
     return
   }
+  outerContentEditor.value?.syncContent?.()
   state.linkJumpInfo = state.mapJumpInfoArray[data.sourceFieldId]
   if (!state.linkJumpInfo.windowSize) {
     state.linkJumpInfo.windowSize = 'middle'
@@ -1069,7 +1073,7 @@ const cancel = () => {
 }
 
 const insertFieldToCodeMirror = (value: string) => {
-  outerContentEditor.value.insertFieldToCodeMirror(value)
+  outerContentEditor.value?.insertFieldToCodeMirror(value)
 }
 
 const outerContentShow = computed(() => {
@@ -1151,7 +1155,7 @@ defineExpose({
 .preview {
   margin-top: 5px;
   border: 1px solid #e6e6e6;
-  border-radius: 4px;
+  border-radius: 6px;
   height: 470px !important;
   overflow: hidden;
   background-size: 100% 100% !important;
@@ -1285,7 +1289,7 @@ defineExpose({
   white-space: nowrap;
   text-overflow: ellipsis;
 
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid #dee0e3;
 
   background: #fff;
@@ -1361,6 +1365,8 @@ span {
   display: flex;
   flex-direction: row;
   align-items: center;
+  width: 100%;
+  min-width: 0;
 }
 
 .top-area-text {
@@ -1454,6 +1460,19 @@ span {
   flex-direction: row;
   align-items: center;
 }
+
+/* 长标题单行省略，避免撑高弹窗 */
+.view-title-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.top-area-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .view-type-icon {
   color: var(--ed-color-primary);
   width: 22px;
@@ -1483,13 +1502,13 @@ span {
 
 .outer-content {
   height: 340px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .padding-lr {
   height: 500px;
   border: 1px solid var(--deCardStrokeColor, #dee0e3);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px;
   box-sizing: border-box;
   margin-left: 12px;

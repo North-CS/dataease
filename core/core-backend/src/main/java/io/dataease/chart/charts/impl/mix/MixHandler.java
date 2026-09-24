@@ -1,4 +1,5 @@
 package io.dataease.chart.charts.impl.mix;
+import io.dataease.utils.LogUtil;
 
 import io.dataease.api.dataset.union.DatasetGroupInfoDTO;
 import io.dataease.chart.charts.impl.YoyChartHandler;
@@ -63,7 +64,8 @@ public class MixHandler extends YoyChartHandler {
             var xAxis = formatResult.getAxisMap().get(ChartAxis.xAxis);
             var xAxisExt = formatResult.getAxisMap().get(ChartAxis.xAxisExt);
             var yAxis = formatResult.getAxisMap().get(ChartAxis.yAxis);
-            var xAxisBase = xAxis.subList(0, xAxis.size() - xAxisExt.size());
+            // 钻取字段追加在子类别之后，主维度必须沿用原始轴，避免将钻取值作为右轴图例。
+            var xAxisBase = (List<ChartViewFieldDTO>) formatResult.getContext().get("xAxisBase");
             return ChartDataBuild.transMixChartDataAntV(xAxisBase, xAxis, xAxisExt, yAxis, view, data, isDrill, true);
         }
 
@@ -94,8 +96,7 @@ public class MixHandler extends YoyChartHandler {
             var assistFields = getAssistFields(leftAssistFields, yAxis);
             if (CollectionUtils.isNotEmpty(assistFields)) {
                 var req = new DatasourceRequest();
-                req.setIsCross(crossDs);
-                req.setDsList(dsMap);
+                fillDatasourceRequest(req, crossDs, dsMap, sqlMap);
 
                 List<ChartSeniorAssistDTO> assists = leftAssistFields.stream().filter(ele -> !StringUtils.equalsIgnoreCase(ele.getSummary(), "last_item")).toList();
                 if (ObjectUtils.isNotEmpty(assists)) {
@@ -118,7 +119,7 @@ public class MixHandler extends YoyChartHandler {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
 
         AxisFormatResult rightFormatResult = new AxisFormatResult();
@@ -147,7 +148,6 @@ public class MixHandler extends YoyChartHandler {
         rightFormatResult.getContext().remove("yoyFiltered");
         rightFormatResult.getContext().put("isRight", "isRight");
 
-
         formatResult.getContext().put("subAxisMap", axisMap);
         var originFilter = filterResult.getContext().get("originFilter");
         if (originFilter != null) {
@@ -166,8 +166,7 @@ public class MixHandler extends YoyChartHandler {
             var assistFields = getAssistFields(rightAssistFields, yAxis);
             if (CollectionUtils.isNotEmpty(assistFields)) {
                 var req = new DatasourceRequest();
-                req.setIsCross(crossDs);
-                req.setDsList(dsMap);
+                fillDatasourceRequest(req, crossDs, dsMap, sqlMap);
 
                 List<ChartSeniorAssistDTO> assists = rightAssistFields.stream().filter(ele -> !StringUtils.equalsIgnoreCase(ele.getSummary(), "last_item")).toList();
                 if (ObjectUtils.isNotEmpty(assists)) {
@@ -190,7 +189,7 @@ public class MixHandler extends YoyChartHandler {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
         var mixResult = (T) new ChartCalcDataResult();
         var data = new HashMap<String, Object>();

@@ -65,7 +65,7 @@ const save = () => {
 const validateHandler = () => {
   let url = `${
     info.value.domain.endsWith('/') ? info.value.domain : info.value.domain + '/'
-  }api/v1/system/assistant/info/${info.value.id}`
+  }api/v1/system/assistant/validate/${info.value.id}`
   fetch(url)
     .then(response => {
       if (!response.ok) {
@@ -146,7 +146,7 @@ search()
 <style lang="less" scoped>
 .no-params {
   height: 72px;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   padding: 0 24px;
   align-items: center;
@@ -157,7 +157,7 @@ search()
 .container-sys-platform {
   padding: 24px;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--ContentBG, #ffffff);
 }
 .platform-head-container {

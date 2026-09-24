@@ -50,7 +50,6 @@ public class EngineManage {
     @Resource
     private DeTemplateVersionMapper deTemplateVersionMapper;
 
-
     public CoreDeEngine info() throws DEException {
         List<CoreDeEngine> deEngines = deEngineMapper.selectList(null);
         if (CollectionUtils.isEmpty(deEngines)) {
@@ -68,7 +67,6 @@ public class EngineManage {
         BeanUtils.copyBean(coreDatasource, deEngines.get(0));
         return coreDatasource;
     }
-
 
     public CoreDatasource deEngine() {
         List<CoreDeEngine> deEngines = deEngineMapper.selectList(null);
@@ -131,6 +129,9 @@ public class EngineManage {
             engine.setType(engineType.mysql.name());
             Mysql mysqlConfiguration = new Mysql();
             Pattern WITH_SQL_FRAGMENT = Pattern.compile("jdbc:mysql://(.*):(\\d+)/(.*)");
+            if(env.getProperty("spring.datasource.url").startsWith("jdbc:mariadb")) {
+                WITH_SQL_FRAGMENT = Pattern.compile("jdbc:mariadb://(.*):(\\d+)/(.*)");
+            }
             Matcher matcher = WITH_SQL_FRAGMENT.matcher(env.getProperty("spring.datasource.url"));
             if (!matcher.find()) {
                 return;
@@ -150,7 +151,6 @@ public class EngineManage {
         engine.setDescription("默认引擎");
         deEngineMapper.insert(engine);
     }
-
 
     public enum engineType {
         mysql("Mysql"),
@@ -175,6 +175,9 @@ public class EngineManage {
         queryVersionWrapper.eq("version", "985188400292302848");
         if (!datasourceMapper.exists(queryWrapper) && !deTemplateVersionMapper.exists(queryVersionWrapper) && !ModelUtils.isDesktop()) {
             Pattern WITH_SQL_FRAGMENT = Pattern.compile("jdbc:mysql://(.*):(\\d+)/(.*)\\?(.*)");
+            if(env.getProperty("spring.datasource.url").startsWith("jdbc:mariadb")) {
+                WITH_SQL_FRAGMENT = Pattern.compile("jdbc:mariadb://(.*):(\\d+)/(.*)\\?(.*)");
+            }
             Matcher matcher = WITH_SQL_FRAGMENT.matcher(env.getProperty("spring.datasource.url"));
             if (!matcher.find()) {
                 return;

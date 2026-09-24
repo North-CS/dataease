@@ -1011,7 +1011,7 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 6px;
   padding-top: 4px;
 
   color: #1f2329;
@@ -1098,8 +1098,10 @@ onMounted(() => {
 }
 </style>
 <style lang="less">
+.ed-dialog.table-header-group-config-dialog,
 .table-header-group-config-dialog {
-  background-color: #1a1a1a;
+  --ed-dialog-bg-color: #1a1a1a !important;
+  background-color: #1a1a1a !important;
   border: 1px solid #2a2a2a;
   .ed-dialog__header,
   .ed-dialog__body {

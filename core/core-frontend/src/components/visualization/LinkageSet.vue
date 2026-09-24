@@ -23,15 +23,17 @@
           <span class="top-area-text" style="margin-left: 0"
             >{{ t('visualization.selected_view') }}：</span
           >
-          <span class="top-area-value">
+          <span class="top-area-value view-title-value">
             <Icon class-name="view-type-icon"
               ><component
                 class="svg-icon view-type-icon"
                 :is="iconChartMap[state.curLinkageViewInfo.type]"
               ></component
             ></Icon>
-            {{ state.curLinkageViewInfo.title }}</span
-          >
+            <span class="top-area-title" :title="state.curLinkageViewInfo.title">
+              {{ state.curLinkageViewInfo.title }}
+            </span>
+          </span>
           <span class="top-area-text">{{ t('visualization.used_dataset') }}：</span>
           <span class="top-area-value">
             <Icon class-name="view-type-icon" name="dataset-outline"
@@ -45,7 +47,7 @@
         <el-row class="preview">
           <el-col :span="8" style="height: 100%; overflow-y: auto">
             <el-row class="tree-head">
-              <span class="head-text">{{ t('visualization.to_select_view') }}</span>
+              <span class="head-text">{{ t('visualization.to_select_field') }}</span>
               <span class="head-filter"
                 >{{ t('visualization.show_selected_only') }}
                 <el-switch size="small" v-model="state.showSelected" />
@@ -155,6 +157,9 @@
                 </span>
               </template>
             </el-tree>
+            <el-row v-show="!sameDsShow && !diffDsShow" class="no-available-chart">
+              {{ t('visualization.no_available_chart') }}
+            </el-row>
           </el-col>
           <el-col :span="16" class="preview-show">
             <el-row class="content-head">{{ t('visualization.linkage_setting_tips1') }}</el-row>
@@ -691,7 +696,7 @@ defineExpose({
 .preview {
   margin-top: 5px;
   border: 1px solid #e6e6e6;
-  border-radius: 4px;
+  border-radius: 6px;
   height: 470px !important;
   overflow: hidden;
   background-size: 100% 100% !important;
@@ -888,6 +893,8 @@ span {
   display: flex;
   flex-direction: row;
   align-items: center;
+  width: 100%;
+  min-width: 0;
 }
 
 .top-area-text {
@@ -904,6 +911,19 @@ span {
   display: flex;
   flex-direction: row;
   align-items: center;
+}
+
+/* 长标题单行省略，避免撑高弹窗 */
+.view-title-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.top-area-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .view-type-icon {
   color: var(--ed-color-primary);
@@ -934,13 +954,13 @@ span {
 
 .outer-content {
   height: 340px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .padding-lr {
   height: 500px;
   border: 1px solid var(--deCardStrokeColor, #dee0e3);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px;
   box-sizing: border-box;
   margin-left: 12px;
@@ -1029,6 +1049,14 @@ span {
 
 .tree-dataset-head-top {
   border-top: 1px solid rgba(31, 35, 41, 0.15);
+}
+
+.no-available-chart {
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #8f959e;
 }
 
 .toggle-icon {

@@ -139,6 +139,9 @@ const generateColumns = (arr: Field[]) =>
   }))
 
 const referenceSetting = () => {
+  if (!validateVariableNames()) {
+    return
+  }
   showVariableMgm.value = true
   parseVariable()
 }
@@ -376,6 +379,9 @@ const save = () => {
     return
   }
 
+  if (!validateVariableNames()) {
+    return
+  }
   parseVariable()
   sql = setNameIdTrans('name', 'id', codeCom.value.state.doc.toString())
   sqlNode.value.changeFlag = true
@@ -431,6 +437,9 @@ const handleClose = () => {
 
 const dataPreviewLoading = ref(false)
 const getSQLPreview = () => {
+  if (!validateVariableNames()) {
+    return
+  }
   parseVariable()
   dataPreviewLoading.value = true
   getPreviewSql({
@@ -510,6 +519,17 @@ const mouseupDrag = () => {
   const dom = document.querySelector('.sql-eidtor')
   dom.removeEventListener('mousemove', calculateWidth)
   dom.removeEventListener('mousemove', calculateHeight)
+}
+
+const validateVariableNames = () => {
+  const sql = codeCom.value.state.doc.toString()
+  const hasEmptyVariable = /\$\{\s*}/.test(sql)
+  const hasEmptyDeParamVariable = /\$DE_PARAM\{[\s\S]*?\$\[\s*][\s\S]*?\}/.test(sql)
+  if (hasEmptyVariable || hasEmptyDeParamVariable) {
+    ElMessage.error(t('sql_variable.variable_name_empty'))
+    return false
+  }
+  return true
 }
 
 const parseVariable = () => {
@@ -1481,7 +1501,7 @@ const mousedownDrag = () => {
             height: 28px;
             margin-top: 4px;
             word-break: break-all;
-            border-radius: 4px;
+            border-radius: 6px;
 
             .icon-right {
               display: none;
@@ -1691,7 +1711,7 @@ const mousedownDrag = () => {
   .content {
     height: 80px;
     width: 822px;
-    border-radius: 4px;
+    border-radius: 6px;
     background: var(--ed-color-primary-1a, rgba(51, 112, 255, 0.1));
     position: relative;
     line-height: 22px;

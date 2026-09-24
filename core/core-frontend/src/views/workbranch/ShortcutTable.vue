@@ -516,10 +516,10 @@ const getEmptyDesc = (): string => {
 
 <style lang="less" scoped>
 .dashboard-type {
-  padding: 8px 24px 0 24px;
+  padding: 8px 24px 24px 24px;
   background: #fff;
-  border-radius: 4px;
-  height: calc(100% - 280px);
+  border-radius: 6px;
+  min-height: calc(100% - 280px);
   margin-top: 16px;
 
   .select-type-list {
@@ -616,7 +616,16 @@ const getEmptyDesc = (): string => {
 </style>
 <style lang="less">
 .menu-panel-select_popper {
-  width: 140px;
+  min-width: 140px;
   background: #fff;
+}
+.dashboard-type {
+  .name-content {
+    display: flex;
+    align-items: center;
+    .ed-icon svg {
+      border-radius: 4px;
+    }
+  }
 }
 </style>

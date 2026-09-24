@@ -106,11 +106,6 @@
         <key-type>java.lang.String</key-type>
         <value-type>java.lang.Object</value-type>
     </cache>
-    <cache alias="de_ds_symmetricKey" uses-template="common-cache">
-        <key-type>java.lang.String</key-type>
-        <value-type>java.lang.String</value-type>
-    </cache>
-
     <cache alias="de_v2_user_token_cache">
         <key-type>java.lang.String</key-type>
         <value-type>java.lang.Integer</value-type>
@@ -154,6 +149,28 @@
         <resources>
             <heap unit="entries">1000</heap>
             <offheap unit="MB">10</offheap>
+        </resources>
+    </cache>
+
+    <cache alias="de_v2_dataset_table" uses-template="common-cache">
+        <key-type>java.lang.String</key-type>
+        <value-type>java.util.List</value-type>
+    </cache>
+
+    <cache alias="de_v2_dataset_field" uses-template="common-cache">
+        <key-type>java.lang.String</key-type>
+        <value-type>java.util.List</value-type>
+    </cache>
+
+    <!-- 资源存在性负缓存：鉴权时"资源不在权限池且 per_busi_resource 中无记录"的短期缓存，防随机 id 洪泛打库 -->
+    <cache alias="de_v2_busi_resource_exist">
+        <key-type>java.lang.String</key-type>
+        <value-type>java.lang.Boolean</value-type>
+        <expiry>
+            <ttl unit="minutes">5</ttl>
+        </expiry>
+        <resources>
+            <heap unit="entries">1000</heap>
         </resources>
     </cache>
 

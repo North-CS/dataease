@@ -21,6 +21,7 @@ import barGroupStackOrigin from '@/assets/svg/bar-group-stack-origin.svg'
 import barHorizontalOrigin from '@/assets/svg/bar-horizontal-origin.svg'
 import barOrigin from '@/assets/svg/bar-origin.svg'
 import barRangeOrigin from '@/assets/svg/bar-range-origin.svg'
+import boxPlotOrigin from '@/assets/svg/box-plot-origin.svg'
 import barStackHorizontalOrigin from '@/assets/svg/bar-stack-horizontal-origin.svg'
 import barStackOrigin from '@/assets/svg/bar-stack-origin.svg'
 import bidirectionalBarOrigin from '@/assets/svg/bidirectional-bar-origin.svg'
@@ -49,6 +50,7 @@ import radarOrigin from '@/assets/svg/radar-origin.svg'
 import richTextOrigin from '@/assets/svg/rich-text-origin.svg'
 import sankeyOrigin from '@/assets/svg/sankey-origin.svg'
 import scatterOrigin from '@/assets/svg/scatter-origin.svg'
+import multiScatterOrigin from '@/assets/svg/multi-scatter-origin.svg'
 import stockLineOrigin from '@/assets/svg/stock-line-origin.svg'
 import symbolicMapOrigin from '@/assets/svg/symbolic-map-origin.svg'
 import tableInfoOrigin from '@/assets/svg/table-info-origin.svg'
@@ -193,7 +195,9 @@ const onClick = (e, index) => {
   composeStore.setLaterIndex(index)
 }
 const setCurComponent = index => {
-  dvMainStore.setCurComponent({ component: componentData.value[index], index })
+  if (curComponent.value?.id !== componentData.value[index].id) {
+    dvMainStore.setCurComponent({ component: componentData.value[index], index })
+  }
 }
 
 const expandClick = component => {
@@ -305,6 +309,7 @@ const iconMap = {
   'bar-horizontal-origin': barHorizontalOrigin,
   'bar-origin': barOrigin,
   'bar-range-origin': barRangeOrigin,
+  'box-plot-origin': boxPlotOrigin,
   'bar-stack-horizontal-origin': barStackHorizontalOrigin,
   'bar-stack-origin': barStackOrigin,
   'bidirectional-bar-origin': bidirectionalBarOrigin,
@@ -333,6 +338,7 @@ const iconMap = {
   'rich-text-origin': richTextOrigin,
   'sankey-origin': sankeyOrigin,
   'scatter-origin': scatterOrigin,
+  'multi-scatter-origin': multiScatterOrigin,
   'stock-line-origin': stockLineOrigin,
   'symbolic-map-origin': symbolicMapOrigin,
   'table-info-origin': tableInfoOrigin,
@@ -599,7 +605,7 @@ const canvasChange = () => {
                     effect="dark"
                     :hide-timeout="0"
                   >
-                    <span :class="'dropdownMore-' + index" @click="onClick(transformIndex(index))">
+                    <span :class="'dropdownMore-' + index">
                       <el-icon class="component-base">
                         <Icon name="dv-more"><dvMore class="svg-icon opt-icon" /></Icon>
                       </el-icon>
@@ -784,7 +790,7 @@ const canvasChange = () => {
   cursor: pointer;
   height: 22px !important;
   width: 22px !important;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 0 4px;
 
   .opt-icon {

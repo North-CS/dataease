@@ -4,7 +4,7 @@ import {
   L7PlotDrawOptions
 } from '@/views/chart/components/js/panel/types/impl/l7plot'
 import { Choropleth, ChoroplethOptions } from '@antv/l7plot/dist/esm/plots/choropleth'
-import { Dot, DotOptions, IPlotLayer } from '@antv/l7plot'
+import { Dot, DotOptions } from '@antv/l7plot'
 import {
   MAP_AXIS_TYPE,
   MAP_EDITOR_PROPERTY,
@@ -15,6 +15,9 @@ import { flow, getGeoJsonFile, hexColorToRGBA, parseJson } from '@/views/chart/c
 import { cloneDeep, isEmpty } from 'lodash-es'
 import { FeatureCollection } from '@antv/l7plot/dist/esm/plots/choropleth/types'
 import {
+  bindMapHoverTooltipRefresh,
+  configL7PlotZoom,
+  formatL7TooltipValue,
   handleGeoJson,
   mapRendered,
   mapRendering
@@ -25,6 +28,10 @@ import { configCarouselTooltip } from '@/views/chart/components/js/panel/charts/
 import { getCustomGeoArea } from '@/api/map'
 import { TextLayer } from '@antv/l7plot/dist/esm'
 import { centroid } from '@turf/centroid'
+import {
+  isPointOnlyGeoJson,
+  drawPointFallbackChart
+} from '@/views/chart/components/js/panel/charts/map/point-fallback'
 
 const { t } = useI18n()
 
@@ -63,7 +70,10 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
     chart.container = container
     let geoJson = {} as FeatureCollection
     let customSubArea: CustomGeoSubArea[] = []
-    let data = chart.data?.data
+    // 标签、气泡图层和提示统一使用空值策略处理后的数据
+    const sourceData = this.getDataByEmptyDataStrategy(chart, chart.data?.data || [])
+    const ignoredLabelFields = this.getIgnoredDataFields(chart)
+    let data = sourceData
     if (areaId.startsWith('custom_')) {
       customSubArea = (await getCustomGeoArea(areaId)).data || []
       customSubArea.forEach(a => (a.scopeArr = a.scope?.split(',') || []))
@@ -130,6 +140,31 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
         })
       }
     }
+    if (isPointOnlyGeoJson(geoJson)) {
+      const { basicStyle } = parseJson(chart.customAttr)
+      const { bubbleCfg } = parseJson(chart.senior)
+      const { offsetHeight, offsetWidth } = document.getElementById(container)
+      const sizeRange: [number, number] = bubbleCfg?.enable
+        ? [10, Math.min(offsetHeight, offsetWidth) / 10]
+        : [5, Math.min(offsetHeight, offsetWidth) / 20]
+      const dataColor = hexColorToRGBA(basicStyle.colors[0], basicStyle.alpha)
+      const view = await drawPointFallbackChart(drawOption, chart, geoJson, data || [], action, {
+        dotSize: { field: 'size', value: sizeRange },
+        dotColor: {
+          field: 'hasData',
+          value: ({ hasData }) => (hasData ? dataColor : '#cccccc')
+        },
+        dotName: 'dotLayer',
+        dotShape: { field: 'hasData', value: ({ hasData }) => (hasData ? 'circle' : 'square') },
+        animate: bubbleCfg?.enable
+          ? { enable: true, speed: bubbleCfg.speed, rings: bubbleCfg.rings }
+          : undefined,
+        disableInteraction: false,
+        hideLabel: name => ignoredLabelFields.has(name)
+      })
+      configL7PlotZoom(chart, view)
+      return view
+    }
     let options: ChoroplethOptions = {
       preserveDrawingBuffer: true,
       minZoom: -2,
@@ -173,17 +208,24 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
       // 禁用线上地图数据
       customFetchGeoData: () => null
     }
-    const context: Record<string, any> = { drawOption, geoJson, customSubArea }
+    const context: Record<string, any> = {
+      drawOption,
+      geoJson,
+      customSubArea,
+      sourceData,
+      ignoredLabelFields
+    }
     options = this.setupOptions(chart, options, context)
 
     const tooltip = deepCopy(options.tooltip)
     options = { ...options, tooltip: { ...tooltip, showComponent: false } }
     const view = new Choropleth(container, options)
-    const dotLayer = this.getDotLayer(chart, geoJson, drawOption, customSubArea)
+    const dotLayer = this.getDotLayer(chart, geoJson, drawOption, customSubArea, sourceData)
     if (!areaId.startsWith('custom_')) {
       dotLayer.options = { ...dotLayer.options, tooltip }
     }
     this.configZoomButton(chart, view)
+    bindMapHoverTooltipRefresh(container, view.scene, () => dotLayer.tooltip?.hideTooltip())
     mapRendering(container)
     view.once('loaded', () => {
       // 修改地图鼠标样式为默认
@@ -241,8 +283,9 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
     chart: Chart,
     geoJson: FeatureCollection,
     drawOption: L7PlotDrawOptions<Choropleth>,
-    customSubArea: CustomGeoSubArea[]
-  ): IPlotLayer {
+    customSubArea: CustomGeoSubArea[],
+    sourceData: any[]
+  ): Dot {
     const { areaId } = drawOption
     const { basicStyle, tooltip } = parseJson(chart.customAttr)
     const { bubbleCfg } = parseJson(chart.senior)
@@ -292,7 +335,7 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
         p[n.name] = n
         return p
       }, {})
-      chart.data?.data?.forEach(d => {
+      sourceData.forEach(d => {
         const area = customAreaMap[d.name]
         if (area) {
           const areaJsonArr = []
@@ -337,15 +380,17 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
           const head = originalItem.properties
           const formatter = formatterMap[head.quotaList?.[0]?.id]
           if (!isEmpty(formatter)) {
-            const originValue = parseFloat(head.value as string)
-            const value = valueFormatter(originValue, formatter.formatterCfg)
+            const value = formatL7TooltipValue(head.value, formatter.formatterCfg)
             const name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
             result.push({ ...head, name, value: `${value ?? ''}` })
           }
           head.dynamicTooltipValue?.forEach(item => {
             const formatter = formatterMap[item.fieldId]
             if (formatter) {
-              const value = valueFormatter(parseFloat(item.value), formatter.formatterCfg)
+              const value =
+                item.value != null
+                  ? formatL7TooltipValue(item.value, formatter.formatterCfg)
+                  : item.stringValue ?? ''
               const name = isEmpty(formatter.chartShowName)
                 ? formatter.name
                 : formatter.chartShowName
@@ -372,13 +417,13 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
         }
       }
     } else {
-      const areaMap = chart.data?.data?.reduce((obj, value) => {
+      const areaMap = sourceData.reduce((obj, value) => {
         obj[value['field']] = { value: value.value, data: value }
         return obj
       }, {})
       geoJson?.features.forEach(item => {
         const name = item.properties['name']
-        if (areaMap?.[name]?.value) {
+        if (areaMap?.[name] && (areaMap[name].value || areaMap[name].value === 0)) {
           dotData.push({
             x: item.properties['centroid'][0],
             y: item.properties['centroid'][1],
@@ -416,6 +461,7 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
   ): ChoroplethOptions {
     const { areaId }: L7PlotDrawOptions<any> = context.drawOption
     const geoJson: FeatureCollection = context.geoJson
+    const ignoredLabelFields: Set<string> = context.ignoredLabelFields
     const { basicStyle, label } = parseJson(chart.customAttr)
     const senior = parseJson(chart.senior)
     const curAreaNameMapping = senior.areaMapping?.[areaId]
@@ -425,7 +471,7 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
       options.label && (options.label.field = 'name')
       return options
     }
-    const data = chart.data.data
+    const data = options.source.data
     const areaMap = data.reduce((obj, value) => {
       obj[value['field']] = value.value
       return obj
@@ -434,6 +480,10 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
       const name = item.properties['name']
       // trick, maybe move to configLabel, here for perf
       if (label.show) {
+        if (ignoredLabelFields.has(name)) {
+          item.properties['_DE_LABEL_'] = ''
+          return
+        }
         const content = []
         if (label.showDimension) {
           content.push(name)
@@ -459,7 +509,8 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
     }
     const customAttr = parseJson(chart.customAttr)
     const { label } = customAttr
-    const data = chart.data?.data
+    const data = context.sourceData
+    const ignoredLabelFields: Set<string> = context.ignoredLabelFields
     const areaMap = data?.reduce((obj, value) => {
       obj[value['field']] = value
       return obj
@@ -483,7 +534,7 @@ export class BubbleMap extends L7PlotChartView<ChoroplethOptions, Choropleth> {
           const json = geoJsonMap[adcode]
           json && areaJsonArr.push(json)
         })
-        if (areaJsonArr.length) {
+        if (areaJsonArr.length && !ignoredLabelFields.has(area.name)) {
           const areaJson: FeatureCollection = {
             type: 'FeatureCollection',
             features: areaJsonArr

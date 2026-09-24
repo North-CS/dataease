@@ -258,7 +258,7 @@ const initOpenHandler = newWindow => {
   padding: 16px 24px;
   border-bottom: 1px solid rgba(31, 35, 41, 0.15);
   .canvas-name {
-    max-width: 200px;
+    max-width: 400px;
     font-size: 16px;
     font-weight: 500;
   }
@@ -291,7 +291,7 @@ const initOpenHandler = newWindow => {
       margin-left: 12px;
       cursor: pointer;
       font-size: 20px;
-      border-radius: 4px;
+      border-radius: 6px;
       position: relative;
       &:hover {
         &::after {
@@ -299,7 +299,7 @@ const initOpenHandler = newWindow => {
           position: absolute;
           top: -4px;
           left: -4px;
-          border-radius: 4px;
+          border-radius: 6px;
           height: 28px;
           width: 28px;
           background: #1f23291a;

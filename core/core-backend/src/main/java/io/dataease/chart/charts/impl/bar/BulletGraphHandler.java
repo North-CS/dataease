@@ -1,4 +1,5 @@
 package io.dataease.chart.charts.impl.bar;
+import io.dataease.utils.LogUtil;
 
 import io.dataease.api.dataset.union.DatasetGroupInfoDTO;
 import io.dataease.chart.charts.impl.YoyChartHandler;
@@ -68,8 +69,7 @@ public class BulletGraphHandler extends YoyChartHandler {
             var assistFields = getAssistFields(dynamicAssistFields, yAxis);
             if (CollectionUtils.isNotEmpty(assistFields)) {
                 var req = new DatasourceRequest();
-                req.setIsCross(((DatasetGroupInfoDTO) formatResult.getContext().get("dataset")).getIsCross());
-                req.setDsList(dsMap);
+                fillDatasourceRequest(req, ((DatasetGroupInfoDTO) formatResult.getContext().get("dataset")).getIsCross(), dsMap, sqlMap);
                 var assistSql = assistSQL(originSql, assistFields, dsMap, ((DatasetGroupInfoDTO) formatResult.getContext().get("dataset")).getIsCross());
                 req.setQuery(assistSql);
                 logger.debug("calcite assistSql sql: " + assistSql);
@@ -78,9 +78,8 @@ public class BulletGraphHandler extends YoyChartHandler {
                 result.setDynamicAssistFields(dynamicAssistFields);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
         return result;
     }
-
 }

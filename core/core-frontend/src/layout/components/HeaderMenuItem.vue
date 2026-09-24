@@ -52,15 +52,22 @@ export default HeaderMenuItem
   }
   .popper-class-menu {
     min-width: 152px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid #dee0e3 !important;
 
     .ed-menu--popup {
       min-width: 150px;
-      padding: 3px 0;
+      padding: 4px;
+      border-radius: 6px;
+
       .ed-menu-item {
-        padding-left: 11px !important;
+        padding-left: 8px !important;
+        border-radius: 6px;
       }
+    }
+
+    .ed-menu--popup .ed-menu-item.is-active.is-active:not(:hover) {
+      background-color: transparent;
     }
   }
 }

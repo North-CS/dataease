@@ -8,6 +8,7 @@ import { fieldType } from '@/utils/attr'
 import { iconFieldMap } from '@/components/icon-group/field-list'
 import PictureItem from '@/custom-component/picture-group/PictureItem.vue'
 import PictureOptionPrefix from '@/custom-component/picture-group/PictureOptionPrefix.vue'
+import ThresholdDatePicker from './ThresholdDatePicker.vue'
 
 const { t } = useI18n()
 
@@ -245,6 +246,23 @@ const initFields = () => {
     fields = [...xAxis, ...yAxis]
   }
   state.fields.splice(0, state.fields.length, ...fields)
+  let change = false
+  state.thresholdArr.forEach(item => {
+    const fieldItemObj = state.fields.find(ele => ele.id === item.fieldId)
+    if (!fieldItemObj) {
+      item.fieldId = null
+      change = true
+      return
+    }
+    if (fieldItemObj.deType === 1) {
+      // 图片条件样式也使用当前字段的日期配置，保留原有条件和图片。
+      item.field = JSON.parse(JSON.stringify(fieldItemObj))
+      change = true
+    }
+  })
+  if (change) {
+    changeThreshold()
+  }
 }
 const addThreshold = () => {
   state.thresholdArr.push(JSON.parse(JSON.stringify(state.thresholdObj)))
@@ -260,7 +278,11 @@ const changeThreshold = () => {
 }
 
 const addConditions = item => {
-  item.conditions.push(JSON.parse(JSON.stringify(thresholdCondition)))
+  const newCondition = JSON.parse(JSON.stringify(thresholdCondition))
+  if (item.field.deType === 1) {
+    newCondition.value = ''
+  }
+  item.conditions.push(newCondition)
   changeThreshold()
 }
 const removeCondition = (item, index) => {
@@ -389,6 +411,14 @@ init()
                   clearable
                   @change="changeThreshold"
                 />
+                <ThresholdDatePicker
+                  v-model="item.value"
+                  v-else-if="fieldItem.field.deType === 1"
+                  :field="fieldItem.field"
+                  :placeholder="t('chart.drag_block_label_value')"
+                  class="value-item"
+                  @change="changeThreshold"
+                />
                 <el-input
                   v-model="item.value"
                   v-else
@@ -510,7 +540,7 @@ init()
 <style lang="less" scoped>
 .field-item {
   width: 100%;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 10px 16px;
   margin-top: 10px;
   background: #f5f6f7;
@@ -582,7 +612,7 @@ span {
 .tip {
   font-size: 12px;
   background: #d6e2ff;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 10px 20px;
   display: flex;
   align-items: center;

@@ -163,6 +163,10 @@ const handleValueChange = () => {
     })
     return
   }
+  if (!value) {
+    config.value.defaultValue = undefined
+    return
+  }
   config.value.defaultValue = Array.isArray(value)
     ? value.map(ele => new Date(ele).toLocaleString())
     : new Date(value).toLocaleString()
@@ -322,9 +326,7 @@ const disabledDate = val => {
         startTime = getThisStart('quarter')
         break
       case 'thisWeek':
-        startTime = new Date(
-          dayjs().startOf('week').add(1, 'day').startOf('day').format('YYYY/MM/DD HH:mm:ss')
-        )
+        startTime = getThisStart('week')
         break
       case 'today':
         startTime = getThisStart('day')
@@ -505,6 +507,7 @@ const formatDate = computed(() => {
     "
     @change="handleValueChange"
     :editable="false"
+    @clear="handleClear"
     :range-separator="$t('cron.to')"
     :start-placeholder="placeholderText"
     :end-placeholder="placeholderText"
@@ -513,6 +516,8 @@ const formatDate = computed(() => {
     v-else
     :key="config.timeGranularity + 1"
     v-model="selectValue"
+    class="icon-fixed_16"
+    @clear="handleClear"
     @visible-change="visibleChange"
     :disabled-date="disabledDate"
     :type="config.timeGranularity"
@@ -614,5 +619,10 @@ const formatDate = computed(() => {
   padding: 10px;
   text-align: center;
   border-bottom: 1px solid #eee;
+}
+.icon-fixed_16 {
+  .ed-input__icon {
+    font-size: 16px !important;
+  }
 }
 </style>

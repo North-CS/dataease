@@ -169,6 +169,7 @@ onMounted(() => {
           :themes="themes"
           :common-background-pop="element.commonBackground"
           component-position="component"
+          :component-name="element.component"
           @onBackgroundChange="onBackgroundChange"
           :background-color-picker-width="backgroundColorPickerWidth"
           :background-border-select-width="backgroundBorderSelectWidth"
@@ -183,12 +184,17 @@ onMounted(() => {
         @modelChange="val => onTitleBackgroundEnableChange(val)"
         v-if="element && titleBackgroundShow"
       >
-        <tab-background-overall
-          :themes="themes"
-          :element="element"
-          component-position="component"
-          @onTitleBackgroundChange="onTitleBackgroundChange"
-        ></tab-background-overall>
+        <div
+          class="switch-item-content"
+          :class="{ 'switch-item-content--disabled': !element.titleBackground.enable }"
+        >
+          <tab-background-overall
+            :themes="themes"
+            :element="element"
+            component-position="component"
+            @onTitleBackgroundChange="onTitleBackgroundChange"
+          ></tab-background-overall>
+        </div>
       </collapse-switch-item>
       <slot></slot>
       <collapse-switch-item
@@ -202,12 +208,18 @@ onMounted(() => {
         name="tabTitle"
         class="common-style-area"
       >
-        <common-style-set
-          @onStyleAttrChange="onStyleAttrChange"
-          :themes="themes"
-          :element="element"
-        ></common-style-set>
-        <CustomTabsSortSide :themes="themes" :config="element"></CustomTabsSortSide>
+        <div
+          class="switch-item-content"
+          :class="{ 'switch-item-content--disabled': !element.style.showTabTitle }"
+        >
+          <common-style-set
+            @onStyleAttrChange="onStyleAttrChange"
+            :disabled="!element.style.showTabTitle"
+            :themes="themes"
+            :element="element"
+          ></common-style-set>
+          <CustomTabsSortSide :themes="themes" :config="element"></CustomTabsSortSide>
+        </div>
       </collapse-switch-item>
       <el-collapse-item
         v-if="styleShow"
@@ -242,11 +254,16 @@ onMounted(() => {
         name="borderSetting"
         class="common-style-area"
       >
-        <common-border-setting
-          :style-info="element.style"
-          :themes="themes"
-          @onStyleAttrChange="onStyleAttrChange"
-        ></common-border-setting>
+        <div
+          class="switch-item-content"
+          :class="{ 'switch-item-content--disabled': !element.style.borderActive }"
+        >
+          <common-border-setting
+            :style-info="element.style"
+            :themes="themes"
+            @onStyleAttrChange="onStyleAttrChange"
+          ></common-border-setting>
+        </div>
       </collapse-switch-item>
       <slot name="threshold" />
       <slot name="carousel" />
@@ -256,6 +273,13 @@ onMounted(() => {
 </template>
 
 <style lang="less" scoped>
+.switch-item-content {
+  &--disabled {
+    opacity: 0.6;
+    pointer-events: none;
+    user-select: none;
+  }
+}
 .v-common-attr {
   .ed-input-group__prepend {
     padding: 0 10px;
@@ -437,7 +461,7 @@ onMounted(() => {
   width: 24px;
   height: 24px;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 6px;
   padding-top: 4px;
 
   color: #1f2329;

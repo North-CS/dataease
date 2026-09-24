@@ -1,6 +1,5 @@
 package io.dataease.extensions.datafilling.provider;
 
-
 import io.dataease.extensions.datafilling.dto.ExtIndexField;
 import io.dataease.extensions.datafilling.dto.ExtTableField;
 import io.dataease.extensions.datasource.dto.TableField;
@@ -193,4 +192,11 @@ public abstract class ExtDDLProvider {
 
     public abstract String listAllIds(String table, String keyColumn);
 
+    /**
+     * 获取批量操作最大参数个数
+     * @return 最大参数个数，-1 表示不限制
+     */
+    public int getMaxParams() {
+        return -1;
+    }
 }

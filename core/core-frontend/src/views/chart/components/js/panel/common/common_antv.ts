@@ -1,4 +1,5 @@
 import { hexColorToRGBA, hexToRgba, measureText, parseJson } from '../../util'
+import { bindLegendFullName, getLegendTextOverflow } from './text-overflow'
 import {
   DEFAULT_BASIC_STYLE,
   DEFAULT_LEGEND_STYLE,
@@ -7,14 +8,13 @@ import {
   DEFAULT_YAXIS_STYLE
 } from '@/views/chart/components/editor/util/chart'
 import { valueFormatter } from '@/views/chart/components/js/formatter'
+import { isDateThresholdField } from '@/views/chart/components/editor/util/DateFormatUtil'
 import { AreaOptions, LabelOptions } from '@antv/l7plot'
 import { TooltipOptions } from '@antv/l7plot/dist/lib/types/tooltip'
 import { FeatureCollection } from '@antv/l7plot/dist/esm/plots/choropleth/types'
 import { Datum } from '@antv/g2plot/esm/types/common'
 import { Tooltip } from '@antv/g2plot/esm'
 import { add } from 'mathjs'
-import isEmpty from 'lodash-es/isEmpty'
-import _ from 'lodash'
 import type { LegendOptions } from '@antv/l7plot/dist/esm/types/legend'
 import { CategoryLegendListItem } from '@antv/l7plot-component/dist/lib/types/legend'
 import createDom from '@antv/dom-util/esm/create-dom'
@@ -33,15 +33,26 @@ import { PositionType } from '@antv/l7-core'
 import { centroid } from '@turf/centroid'
 import type { Plot } from '@antv/g2plot'
 import type { PickOptions } from '@antv/g2plot/lib/core/plot'
-import { defaults, find } from 'lodash-es'
+import { assign, defaults, filter, find, isEmpty, merge } from 'lodash-es'
 import { useI18n } from '@/hooks/web/useI18n'
 import { isMobile } from '@/utils/utils'
-import { GaodeMap, TMap, TencentMap } from '@antv/l7-maps'
+import { GaodeMap, MapLibre, TMap, TencentMap } from '@antv/l7-maps'
 import {
   gaodeMapStyleOptions,
   qqMapStyleOptions,
   tdtMapStyleOptions
 } from '@/views/chart/components/js/panel/charts/map/common'
+import {
+  buildCustomMapStyle,
+  CUSTOM_TILE_MAP_TYPE,
+  getCustomMapAttributionOptions,
+  getCustomMapZoomRange,
+  isCustomMapAttributionEnabled,
+  replaceVectorStyleAttribution,
+  setVectorStyleLabelVisibility,
+  VECTOR_STYLE_SERVICE_TYPE,
+  type OnlineMapConfig
+} from '@/utils/onlineMap'
 import ChartCarouselTooltip, {
   isPie,
   isColumn,
@@ -50,6 +61,13 @@ import ChartCarouselTooltip, {
 } from '@/views/chart/components/js/g2plot_tooltip_carousel'
 
 const { t: tI18n } = useI18n()
+const LEGEND_ITEM_MARGIN_BOTTOM = 6
+const VERTICAL_LEGEND_MAX_HEIGHT_RATIO = 0.5
+
+function useMobileTooltipLayout(): boolean {
+  // 移动端编辑器运行在桌面浏览器的窄 iframe 中，需要结合视口宽度判断
+  return !!isMobile() || window.innerWidth <= 768
+}
 
 export function getPadding(chart: Chart): number[] {
   if (chart.drill) {
@@ -150,16 +168,26 @@ export function getTheme(chart: Chart) {
           },
           'g2-tooltip-list-item': {
             display: 'flex',
+            'flex-wrap': 'nowrap',
             'align-items': 'flex-start',
-            'justify-content': 'space-between',
+            'justify-content': 'flex-start',
+            'min-width': '0',
             'line-height': tooltipFontsize + 'px'
           },
           'g2-tooltip-name': {
             display: 'inline-block',
+            flex: '1 1 auto',
+            'min-width': '0',
+            overflow: 'hidden',
+            'text-overflow': 'ellipsis',
+            'white-space': 'nowrap',
             'line-height': tooltipFontsize + 'px'
           },
           'g2-tooltip-value': {
-            flex: 1,
+            flex: '0 0 auto',
+            'margin-left': '8px',
+            // 数值保持自然宽度，达到视口上限时优先压缩指标名称
+            'white-space': 'nowrap',
             display: 'inline-block',
             'text-align': 'end',
             'line-height': tooltipFontsize + 'px'
@@ -323,6 +351,35 @@ export function getMultiSeriesTooltip(chart: Chart) {
   }
   return tooltip
 }
+
+function getCompactVerticalLegendOptions(
+  chart: Chart,
+  orient: string,
+  position: string,
+  itemHeight: number
+) {
+  const legendPosition = String(position || '').split('-')[0]
+  // 热力表使用连续图例，不参与分类图例分页高度计算
+  if (
+    chart.type === 't-heatmap' ||
+    orient !== 'vertical' ||
+    !['top', 'bottom'].includes(legendPosition)
+  ) {
+    return {}
+  }
+  const legendRowHeight = itemHeight + LEGEND_ITEM_MARGIN_BOTTOM
+  const containerHeight = document.getElementById(chart.container)?.clientHeight
+  const preferredLegendHeight = (containerHeight || 0) * VERTICAL_LEGEND_MAX_HEIGHT_RATIO
+  const itemsPerPage = Math.max(1, Math.floor(preferredLegendHeight / legendRowHeight) - 1)
+  const compactLegendHeight = legendRowHeight * (itemsPerPage + 1)
+  return {
+    itemMarginBottom: LEGEND_ITEM_MARGIN_BOTTOM,
+    maxHeightRatio: containerHeight
+      ? Math.min(1, compactLegendHeight / containerHeight)
+      : VERTICAL_LEGEND_MAX_HEIGHT_RATIO
+  }
+}
+
 // 通用legend
 export function getLegend(chart: Chart) {
   let legend = {}
@@ -386,8 +443,16 @@ export function getLegend(chart: Chart) {
             offsetY = 0
           }
         }
+        const itemHeight = (l.fontSize > l.size * 2 ? l.fontSize : l.size * 2) + 4
+        const compactVerticalLegendOptions = getCompactVerticalLegendOptions(
+          chart,
+          orient,
+          position,
+          itemHeight
+        )
 
         legend = {
+          ...(chart.type === 't-heatmap' ? {} : getLegendTextOverflow(position)),
           layout: orient,
           position: position,
           offsetX: offsetX,
@@ -404,7 +469,8 @@ export function getLegend(chart: Chart) {
               fontSize: l.fontSize
             }
           },
-          itemHeight: (l.fontSize > l.size * 2 ? l.fontSize : l.size * 2) + 4,
+          itemHeight,
+          ...compactVerticalLegendOptions,
           radio: false,
           pageNavigator: {
             marker: {
@@ -783,14 +849,13 @@ export function getAnalyse(chart: Chart) {
     const dynamicLineFields = assistLineArr
       .filter(ele => ele.field === '1')
       .map(item => item.fieldId)
-    const quotaFields = _.filter(chart.yAxis, ele => ele.summary !== '' && ele.id !== '-1')
-    const quotaExtFields = _.filter(chart.yAxisExt, ele => ele.summary !== '' && ele.id !== '-1')
+    const quotaFields = filter(chart.yAxis, ele => ele.summary !== '' && ele.id !== '-1')
+    const quotaExtFields = filter(chart.yAxisExt, ele => ele.summary !== '' && ele.id !== '-1')
     const dynamicLines = chart.data.dynamicAssistLines?.filter(item => {
       return (
         dynamicLineFields?.includes(item.fieldId) &&
-        (!!_.find(quotaFields, d => d.id === item.fieldId) ||
-          (!!_.find(quotaExtFields, d => d.id === item.fieldId) &&
-            chart.type.includes('chart-mix')))
+        (!!find(quotaFields, d => d.id === item.fieldId) ||
+          (!!find(quotaExtFields, d => d.id === item.fieldId) && chart.type.includes('chart-mix')))
       )
     })
     const lines = fixedLines.concat(dynamicLines || [])
@@ -857,11 +922,10 @@ export function getAnalyseHorizontal(chart: Chart) {
     const dynamicLineFields = assistLineArr
       .filter(ele => ele.field === '1')
       .map(item => item.fieldId)
-    const quotaFields = _.filter(chart.yAxis, ele => ele.summary !== '' && ele.id !== '-1')
+    const quotaFields = filter(chart.yAxis, ele => ele.summary !== '' && ele.id !== '-1')
     const dynamicLines = chart.data.dynamicAssistLines?.filter(
       item =>
-        dynamicLineFields?.includes(item.fieldId) &&
-        !!_.find(quotaFields, d => d.id === item.fieldId)
+        dynamicLineFields?.includes(item.fieldId) && !!find(quotaFields, d => d.id === item.fieldId)
     )
     const lines = fixedLines.concat(dynamicLines || [])
 
@@ -975,6 +1039,15 @@ export function configL7Style(chart: Chart): AreaOptions['style'] {
   }
 }
 
+export function formatL7TooltipValue(value, formatter) {
+  // 空值和非法数值不进入数值格式化，避免 tooltip 展示 NaN
+  if (value === null || value === undefined || value === '') {
+    return ''
+  }
+  const numberValue = typeof value === 'number' ? value : parseFloat(value)
+  return Number.isFinite(numberValue) ? valueFormatter(numberValue, formatter) : ''
+}
+
 export function configL7Tooltip(chart: Chart): TooltipOptions {
   const customAttr = parseJson(chart.customAttr)
   const tooltip = customAttr.tooltip
@@ -1023,8 +1096,7 @@ export function configL7Tooltip(chart: Chart): TooltipOptions {
       }
       const formatter = formatterMap[head.quotaList?.[0]?.id]
       if (!isEmpty(formatter)) {
-        const originValue = parseFloat(head.value as string)
-        const value = valueFormatter(originValue, formatter.formatterCfg)
+        const value = formatL7TooltipValue(head.value, formatter.formatterCfg)
         const name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
         result.push({ ...head, name, value: `${value ?? ''}` })
       }
@@ -1033,7 +1105,7 @@ export function configL7Tooltip(chart: Chart): TooltipOptions {
         if (formatter) {
           const value =
             item.value != null
-              ? valueFormatter(parseFloat(item.value), formatter.formatterCfg)
+              ? formatL7TooltipValue(item.value, formatter.formatterCfg)
               : item.stringValue ?? ''
           const name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
           result.push({ color: 'grey', name, value: `${value ?? ''}` })
@@ -1060,6 +1132,260 @@ export function configL7Tooltip(chart: Chart): TooltipOptions {
       }
     }
   }
+}
+
+type MapHoverPick = { completed: boolean; isCurrent: () => boolean; onStale: () => void }
+type MapHoverPickingGuard = {
+  pending: number
+  track: (event: MouseEvent, isCurrent: () => boolean, onStale: () => void) => MapHoverPick
+}
+const mapHoverPickingGuards = new WeakMap<Scene, MapHoverPickingGuard>()
+const mapHoverTooltipBindings = new WeakMap<HTMLElement, () => void>()
+
+function getMapHoverPickingGuard(scene: Scene): MapHoverPickingGuard {
+  const existing = mapHoverPickingGuards.get(scene)
+  if (existing) {
+    return existing
+  }
+  const states = new WeakMap<MouseEvent, MapHoverPick>()
+  const guard: MapHoverPickingGuard = {
+    pending: 0,
+    track(event, isCurrent, onStale) {
+      const state = { completed: false, isCurrent, onStale }
+      states.set(event, state)
+      return state
+    }
+  }
+  const picking = scene.getServiceContainer().pickingService
+  const originalPick = picking.pickFromPickingFBO
+  const originalTrigger = picking.triggerHoverOnLayer
+  let destroyed = false
+  // 只适配当前 Scene 的公开拾取入口，等待像素读取完成，并拦截过期事件
+  const pick: typeof originalPick = async (layer, target) => {
+    guard.pending++
+    const previousPickId = layer.getCurrentPickId()
+    try {
+      return await originalPick.call(picking, layer, target)
+    } finally {
+      guard.pending--
+      const state = states.get(target.target as MouseEvent)
+      if (state) {
+        state.completed = true
+        if (!state.isCurrent()) {
+          // 过期读取也会修改 L7 命中缓存，还原后下次才能正确发出 enter/out
+          layer.setCurrentPickId(previousPickId)
+          state.onStale()
+        }
+      }
+      if (destroyed && !guard.pending) {
+        restore()
+      }
+    }
+  }
+  const trigger: typeof originalTrigger = (layer, target) => {
+    const event = (target as typeof target & { target?: MouseEvent }).target
+    const state = event && states.get(event)
+    if (!destroyed && (!state || state.isCurrent())) {
+      originalTrigger.call(picking, layer, target)
+    }
+  }
+  picking.pickFromPickingFBO = pick
+  picking.triggerHoverOnLayer = trigger
+  mapHoverPickingGuards.set(scene, guard)
+  // 重绘复用同一 Scene 的适配器，避免重复包装；销毁时还原原方法
+  const restore = () => {
+    if (picking.pickFromPickingFBO === pick) {
+      picking.pickFromPickingFBO = originalPick
+    }
+    if (picking.triggerHoverOnLayer === trigger) {
+      picking.triggerHoverOnLayer = originalTrigger
+    }
+    mapHoverPickingGuards.delete(scene)
+  }
+  scene.once('destroy', () => {
+    destroyed = true
+    if (!guard.pending) {
+      restore()
+    }
+  })
+  return guard
+}
+
+export function bindMapHoverTooltipRefresh(
+  containerId: string,
+  scene: Scene,
+  hideTooltip: () => void
+) {
+  const container = document.getElementById(containerId)
+  if (!container) {
+    return
+  }
+  mapHoverTooltipBindings.get(container)?.()
+  let disposed = false
+  let listening = false
+  let replaying = false
+  let frame = 0
+  let revision = 0
+  let remainingPicks = 0
+  let guard: MapHoverPickingGuard
+  let request: { event: MouseEvent; state: MapHoverPick }
+  let pointer: { clientX: number; clientY: number }
+  const events = ['camerachange', 'viewchange', 'zoomchange', 'moveend', 'zoomend', 'dragend']
+  const controlSelector =
+    '.l7-control, .tdt-control, .amap-toolbar, .mapboxgl-control-container, .maplibregl-control-container'
+  const track = (event: MouseEvent) => {
+    const currentRevision = revision
+    return guard.track(
+      event,
+      () => !disposed && !!pointer && revision === currentRevision,
+      () => {
+        // 原生鼠标检测也可能在读取像素前忙碌，过期后补查最后一次鼠标位置
+        if (!disposed && pointer) {
+          schedule()
+        }
+      }
+    )
+  }
+  const dismiss = () => {
+    revision++
+    pointer = undefined
+    request = undefined
+    remainingPicks = 0
+    cancelAnimationFrame(frame)
+    frame = 0
+    if (!disposed) {
+      hideTooltip()
+    }
+  }
+  const refresh = () => {
+    frame = 0
+    if (disposed || !pointer || !guard || !container.isConnected) {
+      return
+    }
+    const mapContainer = scene.getMapContainer()
+    const target = document.elementFromPoint(pointer.clientX, pointer.clientY)
+    const bounds = mapContainer?.getBoundingClientRect()
+    if (
+      !mapContainer ||
+      !target ||
+      !container.contains(target) ||
+      target.closest(controlSelector) ||
+      pointer.clientX < bounds.left ||
+      pointer.clientX >= bounds.right ||
+      pointer.clientY < bounds.top ||
+      pointer.clientY >= bounds.bottom
+    ) {
+      dismiss()
+      return
+    }
+    const { interactionService, layerService } = scene.getServiceContainer()
+    // 等待实际拾取及绘制完成，不能把被 L7 跳过的事件计为一次成功检测
+    if (guard.pending || interactionService.indragging || layerService.alreadyInRendering) {
+      frame = requestAnimationFrame(refresh)
+      return
+    }
+    if (!layerService.needPick('mousemove') || !layerService.getShaderPickStat()) {
+      remainingPicks = 0
+      request = undefined
+      return
+    }
+    if (request?.state.completed) {
+      remainingPicks--
+      request = undefined
+    }
+    if (remainingPicks <= 0) {
+      return
+    }
+    if (!request) {
+      const event = new MouseEvent('mousemove', {
+        bubbles: true,
+        clientX: pointer.clientX,
+        clientY: pointer.clientY
+      })
+      request = { event, state: track(event) }
+    }
+    replaying = true
+    try {
+      // 未完成的请求保留原标识，忙碌时被忽略也不会消耗检测次数
+      mapContainer.dispatchEvent(request.event)
+    } finally {
+      replaying = false
+    }
+    if (!disposed && pointer && !frame) {
+      frame = requestAnimationFrame(refresh)
+    }
+  }
+  const schedule = () => {
+    revision++
+    request = undefined
+    if (!disposed && pointer) {
+      // L7 跨边界先发 enter/out，再发 tooltip 使用的 move/unmove，需完成两次拾取
+      remainingPicks = 2
+      if (!frame) {
+        frame = requestAnimationFrame(refresh)
+      }
+    }
+  }
+  const recordPointer = (event: MouseEvent) => {
+    if (replaying || disposed) {
+      return
+    }
+    const target = event.target
+    if (
+      target instanceof Element &&
+      target.closest(`.l7plot-tooltip-container, .l7-popup, ${controlSelector}`)
+    ) {
+      dismiss()
+      return
+    }
+    const changed = pointer?.clientX !== event.clientX || pointer?.clientY !== event.clientY
+    pointer = { clientX: event.clientX, clientY: event.clientY }
+    if (changed) {
+      revision++
+      request = undefined
+      // 移动期间旧检测尚未返回时，结果失效后仍需补查最新位置
+      if (guard?.pending || remainingPicks > 0) {
+        schedule()
+      }
+    }
+    if (guard && event.type === 'mousemove') {
+      track(event)
+    }
+  }
+  const bind = () => {
+    if (!disposed && !listening) {
+      guard = getMapHoverPickingGuard(scene)
+      events.forEach(event => scene.on(event, schedule))
+      listening = true
+    }
+  }
+  const dispose = () => {
+    disposed = true
+    revision++
+    cancelAnimationFrame(frame)
+    container.removeEventListener('mouseleave', dismiss)
+    container.removeEventListener('mousemove', recordPointer, true)
+    container.removeEventListener('wheel', recordPointer, true)
+    scene.off('loaded', bind)
+    scene.off('destroy', dispose)
+    if (listening) {
+      events.forEach(event => scene.off(event, schedule))
+    }
+    if (mapHoverTooltipBindings.get(container) === dispose) {
+      mapHoverTooltipBindings.delete(container)
+    }
+  }
+  container.addEventListener('mouseleave', dismiss)
+  container.addEventListener('mousemove', recordPointer, true)
+  container.addEventListener('wheel', recordPointer, { capture: true, passive: true })
+  mapHoverTooltipBindings.set(container, dispose)
+  scene.once('destroy', dispose)
+  if (scene.loaded) {
+    bind()
+  } else {
+    scene.once('loaded', bind)
+  }
+  return dispose
 }
 
 export function handleGeoJson(
@@ -1178,16 +1504,43 @@ const ZOOM_OUT_BTN =
 export class CustomZoom extends Zoom {
   resetButtonGroup(container) {
     DOM.clearChildren(container)
+    const isCustomTileMap = this.controlOption['mapType'] === CUSTOM_TILE_MAP_TYPE
+    const zoomIn = () => {
+      if (isCustomTileMap) {
+        this.mapsService.zoomIn({ duration: 0 })
+      } else {
+        this.zoomIn()
+      }
+    }
+    const zoomOut = () => {
+      if (isCustomTileMap) {
+        this.mapsService.zoomOut({ duration: 0 })
+      } else {
+        this.zoomOut()
+      }
+    }
     this['zoomInButton'] = this['createButton'](
       this.controlOption.zoomInText,
       this.controlOption.zoomInTitle,
       'l7-button-control',
       container,
-      this.zoomIn
+      zoomIn
     )
     // 抽出重置事件，方便其他事件（移动端触摸）触发
     const zoomReset = () => {
-      if (this.mapsService.map?.deMapProvider == 'qq') {
+      if (isCustomTileMap) {
+        if (this.controlOption['bounds']) {
+          this.mapsService.fitBounds(this.controlOption['bounds'], {
+            animate: false,
+            duration: 0
+          })
+        } else {
+          this.mapsService.map?.jumpTo({
+            zoom: this.controlOption['initZoom'],
+            center: this.controlOption['center']
+          })
+        }
+      } else if (this.mapsService.map?.deMapProvider == 'qq') {
         if (this.mapsService.map.deMapAutoFit) {
           this.mapsService.setZoomAndCenter(this.mapsService.map.deMapAutoZoom, [
             this.mapsService.map.deMapAutoLng,
@@ -1230,7 +1583,7 @@ export class CustomZoom extends Zoom {
       this.controlOption.zoomOutTitle,
       'l7-button-control',
       container,
-      this.zoomOut
+      zoomOut
     )
     const { buttonBackground } = this.controlOption as any
     const elements = [this['zoomResetButton'], this['zoomInButton'], this['zoomOutButton']]
@@ -1270,11 +1623,7 @@ export class CustomZoom extends Zoom {
     } as IZoomControlOption
   }
 }
-export function configL7Zoom(
-  chart: Chart,
-  scene: Scene,
-  mapKey?: { key: string; securityCode: string; mapType: string }
-) {
+export function configL7Zoom(chart: Chart, scene: Scene, mapKey?: OnlineMapConfig) {
   const { basicStyle } = parseJson(chart.customAttr)
   const zoomOption = scene?.getControlByName('zoom')
   if (zoomOption) {
@@ -1322,6 +1671,24 @@ export function configL7Zoom(
               scene.addControl(new CustomZoom(newZoomOptions))
             }
             break
+          case CUSTOM_TILE_MAP_TYPE:
+            {
+              const initZoom = basicStyle.autoFit === false ? basicStyle.zoomLevel : scene.getZoom()
+              const mapCenter = scene.map.getCenter()
+              const center =
+                basicStyle.autoFit === false
+                  ? [basicStyle.mapCenter.longitude, basicStyle.mapCenter.latitude]
+                  : [mapCenter.lng, mapCenter.lat]
+              const newZoomOptions = {
+                initZoom,
+                center,
+                mapType: mapKey?.mapType,
+                buttonColor: basicStyle.zoomButtonColor,
+                buttonBackground: basicStyle.zoomBackground
+              } as any
+              scene.addControl(new CustomZoom(newZoomOptions))
+            }
+            break
           default:
             scene.map.on('complete', () => {
               const initZoom = basicStyle.autoFit === false ? basicStyle.zoomLevel : scene.getZoom()
@@ -1341,6 +1708,7 @@ export function configL7Zoom(
       })
     } else {
       const newZoomOptions = {
+        mapType: mapKey?.mapType,
         buttonColor: basicStyle.zoomButtonColor,
         buttonBackground: basicStyle.zoomBackground
       } as any
@@ -1496,12 +1864,12 @@ export function getMapCenter(basicStyle: ChartBasicStyle) {
   return center
 }
 
-export function getMapStyle(
-  mapKey: { key: string; securityCode: string; mapType: string },
-  basicStyle: ChartBasicStyle
-) {
-  let mapStyle: string
+export function getMapStyle(mapKey: OnlineMapConfig, basicStyle: ChartBasicStyle) {
+  let mapStyle: any
   switch (mapKey.mapType) {
+    case CUSTOM_TILE_MAP_TYPE:
+      mapStyle = buildCustomMapStyle(mapKey)
+      break
     case 'tianditu':
       if (!find(tdtMapStyleOptions, s => s.value === basicStyle.mapStyle)) {
         mapStyle = 'normal'
@@ -1536,19 +1904,70 @@ export async function getMapScene(
   chart: Chart,
   scene: Scene,
   container: string,
-  mapKey: { key: string; securityCode: string; mapType: string },
+  mapKey: OnlineMapConfig,
   basicStyle: ChartBasicStyle,
   miscStyle: ChartMiscAttr,
-  mapStyle: string,
+  mapStyle: any,
   center?: [number, number]
 ) {
+  const customVectorMap =
+    mapKey.mapType === CUSTOM_TILE_MAP_TYPE && mapKey.serviceType === VECTOR_STYLE_SERVICE_TYPE
+  const customAttribution =
+    customVectorMap && isCustomMapAttributionEnabled(mapKey) ? mapKey.styleAttribution?.trim() : ''
+  if (customVectorMap && (customAttribution || basicStyle.showLabel === false)) {
+    try {
+      const response = await fetch(mapKey.styleUrl.trim())
+      if (response.ok) {
+        let resolvedStyle = await response.json()
+        if (customAttribution) {
+          resolvedStyle = replaceVectorStyleAttribution(
+            resolvedStyle,
+            customAttribution,
+            mapKey.styleUrl
+          )
+        }
+        mapStyle = setVectorStyleLabelVisibility(
+          resolvedStyle,
+          basicStyle.showLabel !== false,
+          mapKey.styleUrl
+        )
+      }
+    } catch (e) {
+      console.warn('Failed to prepare custom vector map style', e)
+    }
+  }
+  const mapIdentity =
+    mapKey.mapType === CUSTOM_TILE_MAP_TYPE
+      ? [
+          mapKey.mapType,
+          mapKey.serviceType,
+          mapKey.tileUrl,
+          mapKey.styleUrl,
+          mapKey.tileScheme,
+          mapKey.tileSize,
+          mapKey.tileMinZoom,
+          mapKey.tileMaxZoom,
+          mapKey.tileAttribution,
+          mapKey.styleAttribution,
+          mapKey.tileAttributionEnabled,
+          mapKey.styleAttributionEnabled
+        ].join('|')
+      : mapKey.mapType
+  const currentMapIdentity = (scene as any)?.deMapIdentity
+  if (scene && currentMapIdentity && currentMapIdentity !== mapIdentity) {
+    // 地图适配器或自定义服务配置变化时重建 Scene
+    scene.destroy()
+    scene = undefined
+  }
   if (!scene) {
     scene = new Scene({
       id: container,
       logoVisible: false,
       map: getMapObject(mapKey, basicStyle, miscStyle, mapStyle, center)
     })
+    ;(scene as any).deMapIdentity = mapIdentity
   } else {
+    ;(scene as any).deMapIdentity = mapIdentity
     if (mapKey.mapType === 'tianditu') {
       scene.map?.checkResize()
     }
@@ -1567,7 +1986,9 @@ export async function getMapScene(
         scene.setMapStyle(mapStyle)
       }
 
-      scene.map.showLabel = !(basicStyle.showLabel === false)
+      if (mapKey.mapType !== CUSTOM_TILE_MAP_TYPE) {
+        scene.map.showLabel = !(basicStyle.showLabel === false)
+      }
       if (mapKey.mapType === 'qq') {
         scene.map.setBaseMap({
           //底图设置（参数为：VectorBaseMap对象）
@@ -1600,9 +2021,6 @@ export async function getMapScene(
 
       scene.map.deMapProvider = 'qq'
       scene.map.deMapAutoFit = !!basicStyle.autoFit
-      // scene.map.deMapAutoZoom = scene.map.getZoom()
-      // scene.map.deMapAutoLng = scene.map.getCenter().getLng()
-      // scene.map.deMapAutoLat = scene.map.getCenter().getLat()
     }
     // 去除天地图自己的缩放按钮
     if (mapKey.mapType === 'tianditu') {
@@ -1646,13 +2064,36 @@ export async function getMapScene(
 }
 
 export function getMapObject(
-  mapKey: { key: string; securityCode: string; mapType: string },
+  mapKey: OnlineMapConfig,
   basicStyle: ChartBasicStyle,
   miscStyle: ChartMiscAttr,
-  mapStyle: string,
+  mapStyle: any,
   center?: [number, number]
 ) {
   switch (mapKey.mapType) {
+    case CUSTOM_TILE_MAP_TYPE: {
+      const { minZoom, maxZoom } = getCustomMapZoomRange(mapKey)
+      const defaultZoom = Math.min(Math.max(3, minZoom), maxZoom)
+      const initialZoom =
+        basicStyle.autoFit === false
+          ? Math.min(Math.max(Number(basicStyle.zoomLevel) || defaultZoom, minZoom), maxZoom)
+          : defaultZoom
+      return new MapLibre({
+        style: mapStyle,
+        pitch: miscStyle.mapPitch,
+        // MapLibre 初始化必须有有效视图；数据图层加载后仍会按 autoFit 自动定位
+        center: center ?? [105, 35],
+        zoom: initialZoom,
+        minZoom,
+        maxZoom,
+        ...getCustomMapAttributionOptions(mapKey),
+        // 关闭地图淡入，避免与 L7 叠加画布出现短暂的相对位移
+        fadeDuration: 0,
+        // 与栅格瓦片保持一致，横向循环世界副本避免持续拖动露出空白
+        renderWorldCopies: true,
+        preserveDrawingBuffer: true
+      })
+    }
     case 'tianditu':
       return new TMap({
         token: mapKey?.key ?? undefined,
@@ -1703,6 +2144,58 @@ function shouldHideZoom(basicStyle: any): boolean {
 }
 
 const G2_TOOLTIP_WRAPPER = 'g2-tooltip-wrapper'
+const G2_TOOLTIP_VIEWPORT_GAP = 12
+const tooltipLayoutFrames = new WeakMap<HTMLElement, number>()
+
+function updateTooltipLayout(container: HTMLElement) {
+  const previousFrame = tooltipLayoutFrames.get(container)
+  if (previousFrame) {
+    window.cancelAnimationFrame(previousFrame)
+  }
+  const frame = window.requestAnimationFrame(() => {
+    tooltipLayoutFrames.delete(container)
+    if (!container.isConnected || container.style.display === 'none') {
+      return
+    }
+
+    container.querySelectorAll<HTMLElement>('.g2-tooltip-name').forEach(element => {
+      // 仅在指标名称实际被省略时提供完整悬浮文本
+      if (element.scrollWidth > element.clientWidth) {
+        element.title = element.textContent ?? ''
+      } else {
+        element.removeAttribute('title')
+      }
+    })
+
+    const rect = container.getBoundingClientRect()
+    const viewport = window.visualViewport
+    const viewportLeft = viewport?.offsetLeft ?? 0
+    const viewportTop = viewport?.offsetTop ?? 0
+    const viewportRight = viewportLeft + (viewport?.width ?? window.innerWidth)
+    const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight)
+    const minLeft = viewportLeft + G2_TOOLTIP_VIEWPORT_GAP
+    const minTop = viewportTop + G2_TOOLTIP_VIEWPORT_GAP
+    const maxRight = viewportRight - G2_TOOLTIP_VIEWPORT_GAP
+    const maxBottom = viewportBottom - G2_TOOLTIP_VIEWPORT_GAP
+    let offsetX = rect.right > maxRight ? maxRight - rect.right : 0
+    let offsetY = rect.bottom > maxBottom ? maxBottom - rect.bottom : 0
+
+    if (rect.left + offsetX < minLeft) {
+      offsetX += minLeft - (rect.left + offsetX)
+    }
+    if (rect.top + offsetY < minTop) {
+      offsetY += minTop - (rect.top + offsetY)
+    }
+    if (offsetX) {
+      container.style.left = `${Number.parseFloat(container.style.left || '0') + offsetX}px`
+    }
+    if (offsetY) {
+      container.style.top = `${Number.parseFloat(container.style.top || '0') + offsetY}px`
+    }
+  })
+  tooltipLayoutFrames.set(container, frame)
+}
+
 export function getTooltipContainer(id, chartContainer?: string) {
   let wrapperDom = document.getElementById(G2_TOOLTIP_WRAPPER)
   if (!wrapperDom) {
@@ -1719,9 +2212,14 @@ export function getTooltipContainer(id, chartContainer?: string) {
   const g2Tooltip = document.createElement('div')
   g2Tooltip.setAttribute('id', id)
   g2Tooltip.classList.add('g2-tooltip')
-  // 最多半屏，鼠标移入可滚动
+  // 优先按内容自然宽度展开，达到视口上限后再触发提示项换行
+  g2Tooltip.style.width = 'max-content'
+  g2Tooltip.style.boxSizing = 'border-box'
   g2Tooltip.style.maxHeight = '50%'
-  isMobile() ? (g2Tooltip.style.maxWidth = '50%') : (g2Tooltip.style.maxWidth = '25%')
+  g2Tooltip.style.maxWidth = useMobileTooltipLayout()
+    ? 'calc(100vw - 24px)'
+    : 'min(33.333333vw, calc(100vw - 24px))'
+  g2Tooltip.style.overflowX = 'hidden'
   g2Tooltip.style.overflowY = 'auto'
   g2Tooltip.style.display = 'none'
   g2Tooltip.style.position = 'fixed'
@@ -1819,6 +2317,7 @@ export function configPlotTooltipEvent<O extends PickOptions, P extends Plot<O>>
   chart: Chart,
   plot: P
 ) {
+  bindLegendFullName(plot)
   const { tooltip } = parseJson(chart.customAttr)
   if (!tooltip.show) {
     ChartCarouselTooltip.destroyByContainer(chart.container)
@@ -1904,6 +2403,7 @@ export function configPlotTooltipEvent<O extends PickOptions, P extends Plot<O>>
     const { x, y } = calculateTooltipPosition(chart, isCarousel, tooltipCtl, chartElement, event)
     plot.chart.getTheme().components.tooltip.x = x
     plot.chart.getTheme().components.tooltip.y = y
+    container && updateTooltipLayout(container)
   })
   // https://github.com/antvis/G2/blob/master/src/chart/controller/tooltip.ts#hideTooltip
   plot.on('plot:leave', () => {
@@ -1947,7 +2447,7 @@ export function configPlotTooltipEvent<O extends PickOptions, P extends Plot<O>>
 export const TOOLTIP_TPL =
   '<li class="g2-tooltip-list-item" data-index={index}>' +
   '<span class="g2-tooltip-marker" style="background:{color}"></span>' +
-  '<span class="g2-tooltip-name">{name}</span>:' +
+  '<span class="g2-tooltip-name">{name}:</span>' +
   '<span class="g2-tooltip-value">{value}</span>' +
   '</li>'
 
@@ -1980,13 +2480,20 @@ export function getConditions(chart: Chart) {
         }
       }
       if (t.term === 'between') {
-        annotation.start = ['start', parseFloat(t.min)]
-        annotation.end = ['end', parseFloat(t.max)]
-        annotationLine.start = ['start', parseFloat(t.min)]
-        annotationLine.end = ['end', parseFloat(t.min)]
+        // 日期范围保留完整日期值，避免 parseFloat 将其截断为年份。
+        let min = t.min
+        let max = t.max
+        if (!isDateThresholdField(field.field)) {
+          min = parseFloat(min)
+          max = parseFloat(max)
+        }
+        annotation.start = ['start', min]
+        annotation.end = ['end', max]
+        annotationLine.start = ['start', min]
+        annotationLine.end = ['end', min]
         annotations.push(JSON.parse(JSON.stringify(annotationLine)))
-        annotationLine.start = ['start', parseFloat(t.max)]
-        annotationLine.end = ['end', parseFloat(t.max)]
+        annotationLine.start = ['start', max]
+        annotationLine.end = ['end', max]
         annotations.push(annotationLine)
       } else if (['lt', 'le'].includes(t.term)) {
         annotation.start = ['start', t.value]
@@ -2014,7 +2521,7 @@ const AXIS_LABEL_TOOLTIP_STYLE = {
   visibility: 'visible'
 }
 const AXIS_LABEL_TOOLTIP_TPL =
-  '<div class="g2-axis-label-tooltip">' + '<div class="g2-tooltip-title">{title}</div>' + '</div>'
+  '<div class="g2-axis-label-tooltip">' + '<div class="g2-tooltip-title"></div>' + '</div>'
 export function configAxisLabelLengthLimit(chart, plot, triggerObjName = 'axis-label') {
   // 设置触发事件的名称，如果未传入，则默认为 'axis-label'
   const triggerName = triggerObjName
@@ -2066,20 +2573,26 @@ export function configAxisLabelLengthLimit(chart, plot, triggerObjName = 'axis-l
 
     // 如果没有 tooltip，创建新的 tooltip DOM 元素
     if (!labelTooltipDom) {
-      const domStr = substitute(AXIS_LABEL_TOOLTIP_TPL, { title })
-      labelTooltipDom = createDom(domStr)
+      labelTooltipDom = createDom(AXIS_LABEL_TOOLTIP_TPL)
+      const tooltipTitleDom = labelTooltipDom.getElementsByClassName(
+        'g2-tooltip-title'
+      )[0] as HTMLElement
+      tooltipTitleDom.textContent = title
 
       // 设置 tooltip 的样式
       AXIS_LABEL_TOOLTIP_STYLE.backgroundColor = tooltip.backgroundColor
       AXIS_LABEL_TOOLTIP_STYLE.boxShadow = `${tooltip.backgroundColor} 0px 0px 5px`
       AXIS_LABEL_TOOLTIP_STYLE.maxWidth = '200px'
-      _.assign(labelTooltipDom.style, AXIS_LABEL_TOOLTIP_STYLE)
+      assign(labelTooltipDom.style, AXIS_LABEL_TOOLTIP_STYLE)
 
       // 将 tooltip 添加到父节点
       parentNode.appendChild(labelTooltipDom)
     } else {
       // 如果已有 tooltip，更新其标题并使其可见
-      labelTooltipDom.getElementsByClassName('g2-tooltip-title')[0].innerHTML = title
+      const tooltipTitleDom = labelTooltipDom.getElementsByClassName(
+        'g2-tooltip-title'
+      )[0] as HTMLElement
+      tooltipTitleDom.textContent = title
       labelTooltipDom.style.visibility = 'visible'
     }
 
@@ -2134,7 +2647,11 @@ export function configAxisLabelLengthLimit(chart, plot, triggerObjName = 'axis-l
   })
 }
 
-export function configXAxisLengthLimit(chart: any, chartObj: any): void {
+export function configXAxisLengthLimit(
+  chart: any,
+  chartObj: any,
+  formatOriginText?: (originText: string, event: any) => string
+): void {
   const xAxis = parseJson(chart.customStyle).xAxis
   if (!xAxis.show || !xAxis.axisLabel?.show) {
     return
@@ -2147,14 +2664,17 @@ export function configXAxisLengthLimit(chart: any, chartObj: any): void {
       return
     }
     hideTimer && clearTimeout(hideTimer)
-    const originText = e.target?.cfg?.delegateObject?.item?.name
+    const originTextRaw = e.target?.cfg?.delegateObject?.item?.name
+    const originText = String(
+      (formatOriginText ? formatOriginText(originTextRaw, e) : originTextRaw) ?? ''
+    )
     const parentContainer: HTMLDivElement = e.view?.ele
     let axisLabelDom = parentContainer.getElementsByClassName(
       'g2-axis-label-tooltip'
     )[0] as HTMLDivElement
     if (!axisLabelDom) {
       axisLabelDom = document.createElement('div')
-      _.merge(axisLabelDom.style, {
+      merge(axisLabelDom.style, {
         left: '0px',
         top: '0px',
         display: 'none',
@@ -2633,6 +3153,16 @@ function onlineMapStatusOption(chart: Chart, mapType: string, scene: Scene, enab
  */
 function setMapStatusOption(chart: Chart, mapType: string, scene: Scene, enable = false) {
   switch (mapType) {
+    case CUSTOM_TILE_MAP_TYPE: {
+      const method = enable ? 'enable' : 'disable'
+      scene.map?.dragPan?.[method]()
+      scene.map?.scrollZoom?.[method]()
+      scene.map?.doubleClickZoom?.[method]()
+      scene.map?.dragRotate?.[method]()
+      scene.map?.keyboard?.[method]()
+      scene.map?.touchZoomRotate?.[method]()
+      break
+    }
     case 'tianditu': {
       const method = enable ? 'enable' : 'disable'
       scene.map?.[`${method}Drag`]()

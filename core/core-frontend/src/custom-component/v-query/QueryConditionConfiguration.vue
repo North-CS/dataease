@@ -20,6 +20,7 @@ import {
   watch,
   defineAsyncComponent,
   provide,
+  onUnmounted,
   unref
 } from 'vue'
 import { storeToRefs } from 'pinia'
@@ -55,6 +56,7 @@ import { iconChartMap } from '@/components/icon-group/chart-list'
 import { iconFieldMap } from '@/components/icon-group/field-list'
 import treeSort from '@/utils/treeSortUtils'
 import { useCache } from '@/hooks/web/useCache'
+import { cancelAllRequest } from '@/config/axios/service'
 
 const { t } = useI18n()
 const { wsCache } = useCache()
@@ -1107,9 +1109,7 @@ const isInRange = (ele, startWindowTime, timeStamp) => {
         startTime = getThisStart('quarter')
         break
       case 'thisWeek':
-        startTime = new Date(
-          dayjs().startOf('week').add(1, 'day').startOf('day').format('YYYY/MM/DD HH:mm:ss')
-        )
+        startTime = getThisStart('week')
         break
       case 'today':
         startTime = getThisStart('day')
@@ -1457,6 +1457,12 @@ const validate = () => {
     }
 
     if (ele.displayType === '2') {
+      if (ele.optionValueSource === 1 && !ele.field.id) {
+        ElMessage.error(
+          !ele.dataset?.id ? t('v_query.option_value_field') : t('v_query.the_data_set')
+        )
+        return true
+      }
       if (!ele.defaultValueCheck) return false
       if (
         (Array.isArray(ele.defaultValue) && !ele.defaultValue.length) ||
@@ -1825,9 +1831,43 @@ const parameterCompletion = ele => {
 
   return ele
 }
+let fastClickId
+let fastDbClickId
+let fastDbDelayClickId
+const fastClickLoading = ref(false)
+const fastDbClickLoading = ref(false)
+const handleFastClick = (item, idx = 0) => {
+  clearTimeout(fastDbDelayClickId)
+  fastDbDelayClickId = setTimeout(() => {
+    if (fastDbClickLoading.value) {
+      return
+    }
+    clearTimeout(fastClickId)
+    fastClickLoading.value = true
+    cancelAllRequest()
+    handleCondition(item, idx)
+    fastClickId = setTimeout(() => {
+      fastClickLoading.value = false
+    }, 800)
+  }, 200)
+}
+const handleFastDbClick = (cmd, condition, index) => {
+  clearTimeout(fastDbClickId)
+  fastDbClickLoading.value = true
+  addOperation(cmd, condition, index)
+  fastDbClickId = setTimeout(() => {
+    fastDbClickLoading.value = false
+  }, 800)
+}
+onUnmounted(() => {
+  clearTimeout(fastClickId)
+  clearTimeout(fastDbClickId)
+  clearTimeout(fastDbDelayClickId)
+})
 
 const handleCondition = (item, idx = 0) => {
   handleDialogClick()
+  oldDisplayType = null
   if (activeConditionForRename.id) return
   activeCondition.value = item.id
   const obj = conditions.value.find(ele => ele.id === item.id)
@@ -2184,6 +2224,10 @@ const relativeToCurrentListRange = computed(() => {
         {
           label: t('common.to_this_month'),
           value: 'YearToThisMonth'
+        },
+        {
+          label: t('v_query.year_to_last_month_end'),
+          value: 'YearToLastMonthEnd'
         }
       ]
       break
@@ -2211,8 +2255,16 @@ const relativeToCurrentListRange = computed(() => {
           value: 'yearBeginning'
         },
         {
+          label: t('v_query.year_to_last_month_end'),
+          value: 'YearToLastMonthEnd'
+        },
+        {
           label: t('common.month_to_yesterday'),
           value: 'monthToYesterday'
+        },
+        {
+          label: t('v_query.last_month_full'),
+          value: 'LastMonthFull'
         }
       ]
       break
@@ -2287,7 +2339,7 @@ const setRenameInput = val => {
 const relationshipChartIndex = ref(0)
 const notCurrentEle = (ele, index) => {
   if (activeCondition.value !== ele.id) {
-    handleCondition(ele, index)
+    handleFastClick(ele, index)
   } else {
     handleRelationshipChart(index)
   }
@@ -2342,9 +2394,10 @@ const addOperation = (cmd, condition, index) => {
       curComponent.value = null
       break
     case 'rename':
+      clearTimeout(fastDbClickId)
       renameInput.value = []
       Object.assign(activeConditionForRename, condition)
-      setTimeout(() => {
+      fastDbClickId = setTimeout(() => {
         nextTick(() => {
           renameInput.value[0].focus()
         })
@@ -2432,8 +2485,8 @@ defineExpose({
           <template #item="{ element, index }">
             <div
               :key="element.id"
-              @dblclick.stop="addOperation('rename', element, index)"
-              @click.stop="handleCondition(element)"
+              @dblclick.stop="handleFastDbClick('rename', element, index)"
+              @click.stop="handleFastClick(element)"
               class="list-item_box"
               :style="{
                 marginBottom: element.treeFieldList
@@ -3663,7 +3716,7 @@ defineExpose({
     font-family: var(--de-custom_font, 'PingFang');
     width: 1152px;
     height: 454px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid #dee0e3;
     display: flex;
     .ed-checkbox:not(.is-disabled) {
@@ -3736,8 +3789,8 @@ defineExpose({
       height: calc(100% - 30px);
 
       &.condition {
-        height: calc(100% - 45px);
-        top: 45px;
+        height: 100%;
+        top: 0;
       }
     }
 
@@ -3771,6 +3824,8 @@ defineExpose({
 
       .select-all {
         height: 40px;
+        display: flex;
+        align-items: center;
       }
 
       .field-list {

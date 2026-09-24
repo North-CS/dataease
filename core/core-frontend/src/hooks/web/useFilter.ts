@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import { getDynamicRange, getCustomTime } from '@/custom-component/v-query/time-format'
 import { getCustomRange } from '@/custom-component/v-query/time-format-dayjs'
 const dvMainStore = dvMainStoreWithOut()
-const { componentData, canvasStyleData } = storeToRefs(dvMainStore)
+const { componentData, canvasStyleData, componentDataMultiply } = storeToRefs(dvMainStore)
 
 const getDynamicRangeTime = (type: number, selectValue: any, timeGranularityMultiple: string) => {
   const timeType = (timeGranularityMultiple || '').split('range')[0]
@@ -155,17 +155,19 @@ const getValueByDefaultValueCheckOrFirstLoad = (
   return selectValue ? selectValue : multiple ? [] : ''
 }
 
-export const useFilter = (curComponentId: string, firstLoad = false) => {
+export const useFilter = (curComponentId: string, firstLoad = false, showPosition: any) => {
   // 弹窗区域过滤组件是否生效
   const popupAvailable = canvasStyleData.value.popupAvailable
   const filter = []
-  const queryComponentList = componentData.value.filter(
+  const componentDataCustom =
+    showPosition === 'multiplexing' ? componentDataMultiply.value : componentData.value
+  const queryComponentList = componentDataCustom.filter(
     ele =>
       ele.component === 'VQuery' &&
       (popupAvailable || (!popupAvailable && ele.category !== 'hidden'))
   )
   searchQuery(queryComponentList, filter, curComponentId, firstLoad)
-  componentData.value.forEach(ele => {
+  componentDataCustom.forEach(ele => {
     if (ele.component === 'Group') {
       const list = ele.propValue.filter(
         item =>
@@ -271,7 +273,7 @@ const getOperator = (
   firstLoad
 ) => {
   if (+displayType === 9) {
-    return multiple ? 'in' : 'eq'
+    return 'in'
   }
 
   if (+displayType === 22) {
@@ -295,7 +297,7 @@ const getOperator = (
     return valueF === '' ? operatorS : operatorF
   }
 
-  return [1, 7].includes(+displayType) ? 'between' : multiple ? 'in' : 'eq'
+  return [1, 7].includes(+displayType) ? 'between' : 'in'
 }
 
 const duplicateRemoval = arr => {
@@ -490,7 +492,7 @@ export const searchQuery = (queryComponentList, filter, curComponentId, firstLoa
               timeGranularity,
               timeGranularityMultiple
             )
-            const operator = getOperator(
+            let operator = getOperator(
               displayType,
               multiple,
               conditionType,
@@ -504,6 +506,7 @@ export const searchQuery = (queryComponentList, filter, curComponentId, firstLoa
               conditionValueS,
               firstLoad
             )
+
             if (result?.length) {
               let fieldId = item.checkedFieldsMap[curComponentId]
               if (isTree) {
@@ -541,6 +544,9 @@ export const searchQuery = (queryComponentList, filter, curComponentId, firstLoa
                 const parametersFilterEnd = duplicateRemoval(
                   item.parametersArr[curComponentId].filter(e => e.id === endTimeFieldId)
                 )
+                if (endTimeFieldId.includes('|DE|')) {
+                  operator = multiple ? 'in' : 'eq'
+                }
                 filter.push({
                   filterId: id,
                   componentId: ele.id,
@@ -574,6 +580,9 @@ export const searchQuery = (queryComponentList, filter, curComponentId, firstLoa
                 const parametersFilterEnd = duplicateRemoval(
                   item.parametersArr[curComponentId].filter(e => e.id === endTimeFieldId)
                 )
+                if (endTimeFieldId.includes('|DE|')) {
+                  operator = multiple ? 'in' : 'eq'
+                }
                 filter.push({
                   filterId: id,
                   componentId: ele.id,
@@ -586,6 +595,9 @@ export const searchQuery = (queryComponentList, filter, curComponentId, firstLoa
                 })
               }
 
+              if (fieldId.includes('|DE|')) {
+                operator = multiple ? 'in' : 'eq'
+              }
               filter.push({
                 filterId: id,
                 componentId: ele.id,

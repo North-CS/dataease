@@ -234,7 +234,7 @@ const curComponentView = computed(() => {
   return (canvasViewInfo.value[element.value.id] || {}).customStyle
 })
 
-const { datasetFieldList } = comInfo()
+const { datasetFieldList } = comInfo(props.showPosition)
 
 const setCustomStyle = val => {
   const {
@@ -465,6 +465,9 @@ const queryDataForId = id => {
     return
   }
   if (!emitterList.length) return
+  if (!(dvMainStore.mobileInPc && !isMobile())) {
+    dvMainStore.setFirstLoadMap([...new Set([...emitterList, ...firstLoadMap.value])])
+  }
   fillRequireVal(emitterList)
   emitterList.forEach(ele => {
     emitter.emit(`query-data-${ele}`)
@@ -535,6 +538,9 @@ const isConfirmSearchNoRequiredName = id => {
     return
   }
   if (!emitterList.length) return
+  if (!(dvMainStore.mobileInPc && !isMobile())) {
+    dvMainStore.setFirstLoadMap([...new Set([...emitterList, ...firstLoadMap.value])])
+  }
   fillRequireVal(emitterList)
   emitterList.forEach(ele => {
     emitter.emit(`query-data-${ele}`)
@@ -1270,7 +1276,7 @@ const autoStyle = computed(() => {
             padding: 4px 8px;
             height: 26px;
             width: 58px;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid #dee0e3;
             background: #fff;
             box-shadow: 0px 4px 8px 0px rgba(31, 35, 41, 0.1);
@@ -1323,7 +1329,7 @@ const autoStyle = computed(() => {
             padding: 4px 8px;
             height: 26px;
             width: 58px;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid #dee0e3;
             background: #fff;
             box-shadow: 0px 4px 8px 0px rgba(31, 35, 41, 0.1);

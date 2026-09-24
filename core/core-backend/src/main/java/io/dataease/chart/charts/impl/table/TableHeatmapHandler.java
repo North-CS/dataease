@@ -3,6 +3,11 @@ package io.dataease.chart.charts.impl.table;
 import io.dataease.api.dataset.union.DatasetGroupInfoDTO;
 import io.dataease.chart.charts.impl.DefaultChartHandler;
 import io.dataease.chart.utils.ChartDataBuild;
+import io.dataease.utils.LogUtil;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import io.dataease.engine.sql.SQLProvider;
 import io.dataease.engine.trans.Dimension2SQLObj;
 import io.dataease.engine.trans.Quota2SQLObj;
@@ -56,8 +61,7 @@ public class TableHeatmapHandler extends DefaultChartHandler {
         boolean needOrder = Utils.isNeedOrder(dsList);
         boolean crossDs = Utils.isCrossDs(dsMap);
         DatasourceRequest datasourceRequest = new DatasourceRequest();
-        datasourceRequest.setIsCross(((DatasetGroupInfoDTO) formatResult.getContext().get("dataset")).getIsCross());
-        datasourceRequest.setDsList(dsMap);
+        fillDatasourceRequest(datasourceRequest, ((DatasetGroupInfoDTO) formatResult.getContext().get("dataset")).getIsCross(), dsMap, sqlMap);
         var xAxis = formatResult.getAxisMap().get(ChartAxis.xAxis);
         var yAxis = formatResult.getAxisMap().get(ChartAxis.yAxis);
         var allFields = (List<ChartViewFieldDTO>) filterResult.getContext().get("allFields");
@@ -77,9 +81,39 @@ public class TableHeatmapHandler extends DefaultChartHandler {
         calcResult.setContext(filterResult.getContext());
         calcResult.setQuerySql(querySql);
         calcResult.setOriginData(data);
+        try {
+            // 计算条件样式中的动态阈值辅助线
+            var dynamicAssistFields = getDynamicThresholdFields(view);
+            var assistFields = getAssistFields(dynamicAssistFields, yAxis, xAxis);
+            if (CollectionUtils.isNotEmpty(assistFields)) {
+                var req = new DatasourceRequest();
+                fillDatasourceRequest(req, crossDs, dsMap, sqlMap);
+
+                List<ChartSeniorAssistDTO> assists = dynamicAssistFields.stream().filter(ele -> !StringUtils.equalsIgnoreCase(ele.getSummary(), "last_item")).toList();
+                if (ObjectUtils.isNotEmpty(assists)) {
+                    var assistSql = assistSQL(querySql, assistFields, dsMap, crossDs);
+                    var tmpSql = provider.rebuildSQL(assistSql, sqlMeta, crossDs, dsMap);
+                    req.setQuery(tmpSql);
+                    logger.debug("calcite assistSql sql: " + tmpSql);
+                    var assistData = (List<String[]>) provider.fetchResultField(req).get("data");
+                    calcResult.setAssistData(assistData);
+                    calcResult.setDynamicAssistFields(assists);
+                }
+
+                List<ChartSeniorAssistDTO> assistsOriginList = dynamicAssistFields.stream().filter(ele -> StringUtils.equalsIgnoreCase(ele.getSummary(), "last_item")).toList();
+                if (ObjectUtils.isNotEmpty(assistsOriginList)) {
+                    var assistSqlOriginList = assistSQLOriginList(querySql, assistFields, dsMap, crossDs);
+                    var tmpSql = provider.rebuildSQL(assistSqlOriginList, sqlMeta, crossDs, dsMap);
+                    req.setQuery(tmpSql);
+                    logger.debug("calcite assistSql sql origin list: " + tmpSql);
+                    var assistDataOriginList = (List<String[]>) provider.fetchResultField(req).get("data");
+                    calcResult.setAssistDataOriginList(assistDataOriginList);
+                    calcResult.setDynamicAssistFieldsOriginList(assistsOriginList);
+                }
+            }
+        } catch (Exception e) {
+            LogUtil.error(e);
+        }
         return calcResult;
     }
-
 }
-
-

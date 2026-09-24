@@ -91,7 +91,6 @@ public class XpackShareManage {
         return xpackShareMapper.selectOne(queryWrapper);
     }
 
-
     @Transactional
     public void switcher(Long resourceId) {
         XpackShare originData = queryByResource(resourceId);
@@ -104,6 +103,7 @@ public class XpackShareManage {
         Long userId = user.getUserId();
         XpackShare xpackShare = new XpackShare();
         xpackShare.setId(IDUtils.snowID());
+        xpackShare.setVisitorPermissions(0);
         xpackShare.setCreator(userId);
         xpackShare.setTime(System.currentTimeMillis());
         xpackShare.setResourceId(resourceId);
@@ -166,7 +166,6 @@ public class XpackShareManage {
         originData.setAutoPwd(ObjectUtils.isEmpty(autoPwd) || autoPwd);
         xpackShareMapper.updateById(originData);
     }
-
 
     public IPage<XpackSharePO> querySharePage(int goPage, int pageSize, VisualizationWorkbranchQueryRequest request) {
         Long uid = AuthUtils.getUser().getUserId();
@@ -261,15 +260,18 @@ public class XpackShareManage {
             vo.setInIframeError(false);
             return vo;
         }
-        String defaultPwd = shareSecretManage.getDefaultPwd();
-        String secret = StringUtils.isBlank(xpackShare.getPwd()) ? defaultPwd : xpackShare.getPwd();
-        String linkToken = LinkTokenUtil.generate(xpackShare.getCreator(), xpackShare.getResourceId(), xpackShare.getExp(), secret, xpackShare.getOid());
-        HttpServletResponse response = ServletUtils.response();
-        response.addHeader(AuthConstant.LINK_TOKEN_KEY, linkToken);
+
         Integer type = xpackShare.getType();
         String typeText = (ObjectUtils.isNotEmpty(type) && type == 1) ? "dashboard" : "dataV";
         TicketValidVO validVO = shareTicketManage.validateTicket(request.getTicket(), xpackShare);
-        return new XpackShareProxyVO(xpackShare.getResourceId(), xpackShare.getCreator(), linkExp(xpackShare), pwdValid(xpackShare, request.getCiphertext()), typeText, inIframeError, false, true, validVO);
+
+        boolean linkExp = linkExp(xpackShare);
+        boolean pwdValid = pwdValid(xpackShare, request.getCiphertext());
+
+        if (!linkExp && pwdValid && validVO.isTicketValid() && !validVO.isTicketExp()) {
+            generateLinkToken(xpackShare);
+        }
+        return new XpackShareProxyVO(xpackShare.getResourceId(), xpackShare.getCreator(), linkExp, pwdValid, typeText, inIframeError, false, true, validVO);
     }
 
     private boolean linkExp(XpackShare xpackShare) {
@@ -307,12 +309,26 @@ public class XpackShareManage {
         QueryWrapper<XpackShare> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("uuid", uuid);
         XpackShare xpackShare = xpackShareMapper.selectOne(queryWrapper);
-        return StringUtils.equals(xpackShare.getUuid(), uuid) && StringUtils.equals(xpackShare.getPwd(), pwd);
+        boolean valid = StringUtils.equals(xpackShare.getUuid(), uuid) && StringUtils.equals(xpackShare.getPwd(), pwd);
+        if (valid && !Boolean.TRUE.equals(xpackShare.getTicketRequire())) {
+            generateLinkToken(xpackShare);
+        }
+        return valid;
+    }
+
+    private void generateLinkToken(XpackShare xpackShare) {
+        String defaultPwd = shareSecretManage.getDefaultPwd();
+        String secret = StringUtils.isBlank(xpackShare.getPwd()) ? defaultPwd : xpackShare.getPwd();
+        String linkToken = LinkTokenUtil.generate(xpackShare.getCreator(), xpackShare.getResourceId(), xpackShare.getExp(), secret, xpackShare.getOid());
+        HttpServletResponse response = ServletUtils.response();
+        assert response != null;
+        response.addHeader(AuthConstant.LINK_TOKEN_KEY, linkToken);
     }
 
     public Map<String, String> queryRelationByUserId(Long uid) {
+        Long currentUserId = AuthUtils.getUser().getUserId();
         QueryWrapper<XpackShare> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("creator", uid);
+        queryWrapper.eq("creator", currentUserId);
         List<XpackShare> result = xpackShareMapper.selectList(queryWrapper);
         if (CollectionUtils.isNotEmpty(result)) {
             return result.stream()

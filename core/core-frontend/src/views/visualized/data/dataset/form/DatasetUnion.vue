@@ -230,7 +230,8 @@ const saveSqlNode = (val: SqlNode, cb) => {
         info: state.visualNode.info,
         tableName,
         type: 'sql',
-        isCross: isCross.value
+        isCross: isCross.value,
+        sqlVariableDetails
       }).then(res => {
         state.visualNode.confirm = true
         state.nodeList.push(state.visualNode)
@@ -251,7 +252,8 @@ const saveSqlNode = (val: SqlNode, cb) => {
         info: state.visualNode.info,
         tableName,
         type: 'sql',
-        isCross: isCross.value
+        isCross: isCross.value,
+        sqlVariableDetails
       }).then(() => {
         state.visualNode.confirm = true
         cb?.()
@@ -1310,7 +1312,7 @@ const emits = defineEmits([
   height: 100%;
   width: 100%;
   border: 1px solid #dee0e3;
-  border-radius: 4px;
+  border-radius: 6px;
   font-family: var(--de-custom_font, 'PingFang');
   font-size: 14px;
   font-weight: 400;
@@ -1350,7 +1352,7 @@ const emits = defineEmits([
     left: -1px;
     top: -1px;
     background: var(--ed-color-primary);
-    border-radius: 4px 0px 0px 4px;
+    border-radius: 6px 0px 0px 4px;
   }
 }
 

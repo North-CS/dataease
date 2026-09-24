@@ -1,4 +1,5 @@
 package io.dataease.commons.utils;
+import io.dataease.utils.LogUtil;
 
 import io.dataease.api.permissions.user.vo.UserFormVO;
 import io.dataease.i18n.Translator;
@@ -16,10 +17,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 public class ExcelWatermarkUtils {
     private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+    private static final int MAX_TEXT_LENGTH = 100;
+    private static final int MAX_IMAGE_WIDTH = 4096;
+    private static final int MAX_IMAGE_HEIGHT = 4096;
+    private static final Pattern IP_PATTERN = Pattern.compile(
+            "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$");
 
     public static String transContent(WatermarkContentDTO watermarkContent, UserFormVO userInfo) {
         String content = "";
@@ -31,13 +38,16 @@ public class ExcelWatermarkUtils {
             default -> content = "${username}";
         }
         String nickName = userInfo.getName().contains("i18n_") ?Translator.get(userInfo.getName()):userInfo.getName();
-        content = content.replaceAll("\\$\\{ip}", IPUtils.get() == null ? "127.0.0.1" : IPUtils.get());
+        String ip = IPUtils.get();
+        if (ip == null || !IP_PATTERN.matcher(ip.trim()).matches()) {
+            ip = "127.0.0.1";
+        }
+        content = content.replaceAll("\\$\\{ip}", ip);
         content = content.replaceAll("\\$\\{username}", userInfo.getAccount());
         content = content.replaceAll("\\$\\{nickName}", nickName);
         content = content.replaceAll("\\$\\{time}", sdf.format(new Date()));
         return content;
     }
-
 
     /**
      * 添加水印图片到工作簿并返回图片 ID
@@ -88,17 +98,22 @@ public class ExcelWatermarkUtils {
         picture.resize(1 + (0.000001 * picCount));
     }
 
+    private static final int MIN_FONT_SIZE = 12;
+    private static final int MAX_FONT_SIZE = 100;
+
     public static byte[] createTextImage(String text, WatermarkContentDTO watermarkContent) {
-        double radians = Math.toRadians(15);// 15度偏转
-        int width = watermarkContent.getWatermark_fontsize() * text.length();
-        int height = (int) Math.round(watermarkContent.getWatermark_fontsize() + width * Math.sin(radians));
-        int fontSize = watermarkContent.getWatermark_fontsize();
+        if (text.length() > MAX_TEXT_LENGTH) {
+            text = text.substring(0, MAX_TEXT_LENGTH);
+        }
+        int fontSize = Math.max(MIN_FONT_SIZE, Math.min(watermarkContent.getWatermark_fontsize(), MAX_FONT_SIZE));
+        double radians = Math.toRadians(15);
+        int width = Math.min(fontSize * text.length(), MAX_IMAGE_WIDTH);
+        int height = Math.min((int) Math.round(fontSize + width * Math.sin(radians)), MAX_IMAGE_HEIGHT);
         Color baseColor = Color.decode(watermarkContent.getWatermark_color());
 
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = image.createGraphics();
 
-        // 设置透明背景
         image = g2d.getDeviceConfiguration().createCompatibleImage(width, height, Transparency.TRANSLUCENT);
         g2d.dispose();
         g2d = image.createGraphics();
@@ -125,7 +140,7 @@ public class ExcelWatermarkUtils {
         try {
             ImageIO.write(image, "png", baos);
         } catch (IOException e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
         return baos.toByteArray();
     }

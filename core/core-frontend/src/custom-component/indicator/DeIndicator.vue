@@ -13,8 +13,10 @@ import {
 } from '@/views/chart/components/editor/util/chart'
 import { valueFormatter } from '@/views/chart/components/js/formatter'
 import { storeToRefs } from 'pinia'
-import { isDashboard, trackBarStyleCheck } from '@/utils/canvasUtils'
+import { isDashboard, isTabCanvas, trackBarStyleCheck } from '@/utils/canvasUtils'
 import ViewTrackBar from '@/components/visualization/ViewTrackBar.vue'
+import { hasNextDrillLevel } from '@/views/chart/components/views/util/drill'
+import { ElMessage } from 'element-plus-secondary'
 
 const props = defineProps({
   // 公共参数集
@@ -71,10 +73,35 @@ const dvMainStore = dvMainStoreWithOut()
 const dataVMobile = !isDashboard() && isMobile()
 const { embeddedCallBack, nowPanelTrackInfo, nowPanelJumpInfo, mobileInPc, inMobile } =
   storeToRefs(dvMainStore)
+// Tab 移动端指标数值的最小字号，避免组件缩放后内容无法辨认
+const MOBILE_VALUE_MIN_FONT_SIZE = 16
+// Tab 移动端指标名称和后缀的最小字号
+const MOBILE_NAME_MIN_FONT_SIZE = 12
+// Tab 移动端名称与数值之间允许保留的最大间距
+const MOBILE_NAME_MAX_SPACING = 8
+
+/**
+ * 标识当前指标是否需要启用 Tab 移动端防裁剪样式
+ * 主画布及 PC 指标保持原配置，避免影响用户已有字号和间距
+ */
+const mobileResponsive = computed(
+  () =>
+    isDashboard() && (mobileInPc.value || inMobile.value) && isTabCanvas(props.element?.canvasId)
+)
+
+/**
+ * 根据当前运行环境计算指标实际字号
+ * @param fontSize 用户配置的原始字号
+ * @param minimum Tab 移动端允许使用的最小字号
+ * @returns Tab 移动端取两者较大值，其他环境原样返回
+ */
+const responsiveFontSize = (fontSize, minimum) =>
+  mobileResponsive.value ? Math.max(fontSize, minimum) : fontSize
 const viewTrack = ref(null)
 const indicatorRef = ref(null)
 const errMsg = ref('')
 const isError = ref(false)
+const drillFilters = ref([])
 const state = reactive({
   pointParam: null,
   data: null,
@@ -321,7 +348,7 @@ const renderChart = async view => {
 
       indicatorClass.value = {
         color: thresholdColor.value.color,
-        'font-size': indicator.fontSize + 'px',
+        'font-size': responsiveFontSize(indicator.fontSize, MOBILE_VALUE_MIN_FONT_SIZE) + 'px',
         'font-family': defaultTo(
           indicator.fontFamily,
           CHART_FONT_FAMILY_MAP[DEFAULT_INDICATOR_STYLE.fontFamily]
@@ -336,7 +363,7 @@ const renderChart = async view => {
 
       indicatorSuffixClass.value = {
         color: suffixColor,
-        'font-size': indicator.suffixFontSize + 'px',
+        'font-size': responsiveFontSize(indicator.suffixFontSize, MOBILE_NAME_MIN_FONT_SIZE) + 'px',
         'font-family': defaultTo(
           indicator.suffixFontFamily,
           CHART_FONT_FAMILY_MAP[DEFAULT_INDICATOR_STYLE.suffixFontFamily]
@@ -357,7 +384,7 @@ const renderChart = async view => {
       indicatorNameShow.value = true
       indicatorNameClass.value = {
         color: nameColor,
-        'font-size': indicatorName.fontSize + 'px',
+        'font-size': responsiveFontSize(indicatorName.fontSize, MOBILE_NAME_MIN_FONT_SIZE) + 'px',
         'font-family': defaultTo(
           indicatorName.fontFamily,
           CHART_FONT_FAMILY_MAP[DEFAULT_INDICATOR_NAME_STYLE.fontFamily]
@@ -368,8 +395,13 @@ const renderChart = async view => {
         'text-shadow': indicatorName.fontShadow ? '2px 2px 4px' : 'none',
         'font-synthesis': 'weight style'
       }
+      const nameValueSpacing =
+        indicatorName.nameValueSpacing ?? DEFAULT_INDICATOR_NAME_STYLE.nameValueSpacing
+      // 移动端只限制过大的名称间距，PC 继续使用用户原配置
       indicatorNameWrapperStyle['margin-top'] =
-        (indicatorName.nameValueSpacing ?? DEFAULT_INDICATOR_NAME_STYLE.nameValueSpacing) + 'px'
+        (mobileResponsive.value
+          ? Math.min(nameValueSpacing, MOBILE_NAME_MAX_SPACING)
+          : nameValueSpacing) + 'px'
       indicatorNamePositionBottom.value = indicatorName.namePosition !== 'top'
     } else {
       indicatorNameShow.value = false
@@ -390,6 +422,7 @@ const calcData = (view, callback) => {
           errMsg.value = res.msg
         } else {
           chartData.value = res?.data as Partial<Chart['data']>
+          drillFilters.value = res?.drillFilters || []
           emit('onDrillFilters', res?.drillFilters)
 
           dvMainStore.setViewDataDetails(view.id, res)
@@ -398,9 +431,11 @@ const calcData = (view, callback) => {
         callback?.()
       })
       .catch(() => {
+        drillFilters.value = []
         callback?.()
       })
   } else {
+    drillFilters.value = []
     callback?.()
   }
 }
@@ -483,16 +518,27 @@ const trackMenu = computed(() => {
     if (nowPanelTrackInfo.value[sourceInfo]) {
       linkageCount++
     }
-    if (nowPanelJumpInfo.value[sourceInfo]) {
+    if (nowPanelJumpInfo.value[sourceInfo] && nowPanelJumpInfo.value[sourceInfo]['checked']) {
       jumpCount++
     }
   })
+  if (view.value?.drillFields && view.value?.drillFilters && view.value.drillFilters.length > 0) {
+    const lastItem = view.value?.drillFields[view.value.drillFilters.length]
+    const sourceInfo = view.value.id + '#' + lastItem.id
+    if (nowPanelTrackInfo.value[sourceInfo]) {
+      linkageCount++
+    }
+    if (nowPanelJumpInfo.value[sourceInfo] && nowPanelJumpInfo.value[sourceInfo]['checked']) {
+      jumpCount++
+    }
+  }
   jumpCount &&
     view.value?.jumpActive &&
     (!mobileInPc.value || inMobile.value) &&
     trackMenuInfo.push('jump')
   linkageCount && view.value?.linkageActive && trackMenuInfo.push('linkage')
-  view.value.drillFields.length && trackMenuInfo.push('drill')
+  hasNextDrillLevel(view.value.drillFields, drillFilters.value.length) &&
+    trackMenuInfo.push('drill')
   // 如果同时配置jump linkage drill 切配置联动时同时下钻 在实际只显示两个 '跳转' '联动和下钻'
   if (trackMenuInfo.length === 3 && props.element.actionSelection.linkageActive === 'auto') {
     trackMenuInfo = ['jump', 'linkageAndDrill']
@@ -525,6 +571,10 @@ const action = param => {
   pointClickTrans()
   // 联动 跳转
   if (trackMenu.value.length < 2) {
+    if (view.value.drillFields.length > 0 && trackMenu.value.length === 0) {
+      ElMessage.error(t('chart.last_layer'))
+      return
+    }
     // 只有一个事件直接调用
     trackClick(trackMenu.value[0])
   } else {
@@ -578,14 +628,16 @@ const onPointClick = event => {
 
 defineExpose({
   calcData,
-  renderChart
+  renderChart,
+  // 父层标题栏读取操作菜单用于展示动作图标
+  trackMenu
 })
 </script>
 
 <template>
   <div
     ref="indicatorRef"
-    :class="{ 'menu-point': showCursor }"
+    :class="{ 'menu-point': showCursor, 'mobile-indicator': mobileResponsive }"
     :style="contentStyle"
     @mouseup="onPointClick"
   >
@@ -598,17 +650,34 @@ defineExpose({
       @trackClick="trackClick"
       :is-data-v-mobile="dataVMobile"
     />
-    <div v-if="indicatorNameShow && !indicatorNamePositionBottom">
-      <span :style="indicatorNameClass">{{ resultName }}</span>
+    <div class="indicator-name-line" v-if="indicatorNameShow && !indicatorNamePositionBottom">
+      <!-- title 仅在移动端裁剪生效时提供完整名称提示，PC 不新增原生提示行为 -->
+      <span
+        class="indicator-name"
+        :style="indicatorNameClass"
+        :title="mobileResponsive ? resultName : undefined"
+        >{{ resultName }}</span
+      >
       <div :style="indicatorNameWrapperStyle"></div>
     </div>
-    <div>
-      <span :style="indicatorClass">{{ formattedResult }}</span>
-      <span :style="indicatorSuffixClass" v-if="showSuffix">{{ suffixContent }}</span>
+    <!-- 数值被省略时保留完整内容提示，属性仅在 Tab 移动端赋值 -->
+    <div
+      class="indicator-value-line"
+      :title="mobileResponsive ? `${formattedResult}${showSuffix ? suffixContent : ''}` : undefined"
+    >
+      <span class="indicator-value" :style="indicatorClass">{{ formattedResult }}</span>
+      <span class="indicator-suffix" :style="indicatorSuffixClass" v-if="showSuffix">{{
+        suffixContent
+      }}</span>
     </div>
-    <div v-if="indicatorNameShow && indicatorNamePositionBottom">
+    <div class="indicator-name-line" v-if="indicatorNameShow && indicatorNamePositionBottom">
       <div :style="indicatorNameWrapperStyle"></div>
-      <span :style="indicatorNameClass">{{ resultName }}</span>
+      <span
+        class="indicator-name"
+        :style="indicatorNameClass"
+        :title="mobileResponsive ? resultName : undefined"
+        >{{ resultName }}</span
+      >
     </div>
   </div>
 </template>
@@ -616,5 +685,49 @@ defineExpose({
 <style scoped lang="less">
 .menu-point {
   cursor: pointer;
+}
+
+.mobile-indicator {
+  // 该类仅由 mobileResponsive 添加，用于约束 Tab 移动指标内容不溢出组件边界
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px;
+
+  .indicator-value-line,
+  .indicator-name-line {
+    // 数值行和名称行允许在窄容器内收缩，不改变 PC 下的原始排版
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    line-height: 1.2;
+    text-align: inherit;
+  }
+
+  .indicator-value-line {
+    display: flex;
+    align-items: baseline;
+  }
+
+  .indicator-value {
+    // 数值过长时单行省略，完整内容由模板上的 title 属性提供
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .indicator-suffix {
+    flex: 0 0 auto;
+  }
+
+  .indicator-name {
+    // 名称允许最多显示两行，避免继续向下挤压数值区域
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
 }
 </style>

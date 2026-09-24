@@ -12,6 +12,7 @@ import { debounce } from 'lodash-es'
 import { XpackComponent } from '@/components/plugin'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import { useLoading } from '@/hooks/web/useLoading'
+import ExportCenterWindow from '@/pages/panel/ExportCenterWindow.vue'
 
 const { close } = useLoading()
 const currentComponent = shallowRef()
@@ -26,6 +27,10 @@ const ViewWrapper = defineAsyncComponent(() => import('@/pages/panel/ViewWrapper
 const Dataset = defineAsyncComponent(() => import('@/views/visualized/data/dataset/index.vue'))
 const Datasource = defineAsyncComponent(
   () => import('@/views/visualized/data/datasource/index.vue')
+)
+
+const ExportExcel = defineAsyncComponent(
+  () => import('@/views/visualized/data/dataset/ExportExcel.vue')
 )
 const ScreenPanel = defineAsyncComponent(() => import('@/views/data-visualization/PreviewShow.vue'))
 const DashboardPanel = defineAsyncComponent(
@@ -45,7 +50,8 @@ const componentMap = {
   Datasource,
   ScreenPanel,
   DashboardPanel,
-  TemplateManage
+  TemplateManage,
+  ExportExcel
 }
 const iframeStyle = ref(null)
 const setStyle = debounce(() => {
@@ -104,4 +110,5 @@ useEmitt({
   <div :style="iframeStyle">
     <component :is="currentComponent" :jsname="dataFillingPath" v-if="showComponent"></component>
   </div>
+  <ExportCenterWindow></ExportCenterWindow>
 </template>

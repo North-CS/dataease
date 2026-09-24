@@ -6,14 +6,13 @@ import io.dataease.api.system.request.SQLBotConfigCreator;
 import io.dataease.api.system.vo.SettingItemVO;
 import io.dataease.api.system.vo.ShareBaseVO;
 import io.dataease.datasource.server.DatasourceServer;
+import io.dataease.exception.DEException;
+import io.dataease.i18n.Translator;
 import io.dataease.license.config.XpackInteract;
 import io.dataease.system.dao.auto.entity.CoreSysSetting;
 import io.dataease.system.dao.auto.mapper.CoreSysSettingMapper;
 import io.dataease.system.dao.ext.mapper.ExtCoreSysSettingMapper;
-import io.dataease.utils.BeanUtils;
-import io.dataease.utils.CommonBeanFactory;
-import io.dataease.utils.IDUtils;
-import io.dataease.utils.SystemSettingUtils;
+import io.dataease.utils.*;
 import jakarta.annotation.Resource;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
@@ -105,11 +104,14 @@ public class SysParameterManage {
             queryWrapper.eq("pkey", prefix + field);
             CoreSysSetting sysSetting = coreSysSettingMapper.selectOne(queryWrapper);
             var val = (String) BeanUtils.getFieldValueByName(field, editor);
+            if (val == null) {
+                return;
+            }
             if (ObjectUtils.isEmpty(sysSetting)) {
                 sysSetting = new CoreSysSetting();
                 sysSetting.setId(IDUtils.snowID());
                 sysSetting.setPkey(prefix + field);
-                sysSetting.setPval(val == null ? "" : val);
+                sysSetting.setPval(val);
                 sysSetting.setType("text");
                 sysSetting.setSort(1);
                 coreSysSettingMapper.insert(sysSetting);
@@ -119,7 +121,6 @@ public class SysParameterManage {
             coreSysSettingMapper.updateById(sysSetting);
         });
     }
-
 
     public Map<String, String> groupVal(String groupKey) {
         QueryWrapper<CoreSysSetting> queryWrapper = new QueryWrapper<>();
@@ -164,7 +165,6 @@ public class SysParameterManage {
         item.put("pval", pval);
         return item;
     }
-
 
     @Transactional
     public void saveGroup(List<SettingItemVO> vos, String groupKey) {
@@ -220,7 +220,6 @@ public class SysParameterManage {
         validVo.setId(IDUtils.snowID());
         configList.add(validVo);
 
-
         QueryWrapper<CoreSysSetting> queryWrapper = new QueryWrapper<>();
         queryWrapper.likeRight("pkey", key);
         coreSysSettingMapper.delete(queryWrapper);
@@ -231,6 +230,9 @@ public class SysParameterManage {
     @XpackInteract(value = "perSetting", before = false)
     @Transactional
     public void saveBasic(List<SettingItemVO> vos) {
+        if (!AuthUtils.isSysAdmin()) {
+            DEException.throwException(Translator.get("i18n_no_permission"));
+        }
         String key = "basic.";
         proxy().saveGroup(vos, key);
     }
@@ -255,5 +257,4 @@ public class SysParameterManage {
     public void insert(CoreSysSetting coreSysSetting) {
         coreSysSettingMapper.insert(coreSysSetting);
     }
-
 }

@@ -6,7 +6,7 @@
 <script lang="ts" setup>
 import { ref, toRefs, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useEmitt } from '@/hooks/web/useEmitt'
-import { formatDataEaseBi } from '@/utils/url'
+import { formatDataEaseBi, getResourceBaseUrl } from '@/utils/url'
 import tinymce from 'tinymce/tinymce' // tinymce默认hidden，不引入不显示
 import Editor from '@tinymce/tinymce-vue' // 编辑器引入
 import 'tinymce/themes/silver/theme' // 编辑器主题
@@ -21,7 +21,6 @@ import 'tinymce/plugins/charmap' // 特殊字符
 import 'tinymce/plugins/media' // 插入编辑媒体
 import 'tinymce/plugins/wordcount' // 字数统计
 import 'tinymce/plugins/table' // 表格
-import 'tinymce/plugins/contextmenu' // contextmenu
 import 'tinymce/plugins/directionality'
 import 'tinymce/plugins/nonbreaking'
 import 'tinymce/plugins/pagebreak'
@@ -60,10 +59,12 @@ const tinymceId = 'tinymce-view-alarm'
 const init = ref({
   selector: '#' + tinymceId,
   toolbar_items_size: 'small',
-  language_url: formatDataEaseBi('./tinymce-dataease-private/langs/zh_CN.js'), // 汉化路径是自定义的，一般放在public或static里面
+  language_url: formatDataEaseBi(`${getResourceBaseUrl()}tinymce-dataease-private/langs/zh_CN.js`), // 汉化路径是自定义的，一般放在public或static里面
   language: 'zh_CN',
-  skin_url: formatDataEaseBi('./tinymce-dataease-private/skins/ui/oxide'), // 皮肤
-  content_css: formatDataEaseBi('./tinymce-dataease-private/skins/content/default/content.css'),
+  skin_url: formatDataEaseBi(`${getResourceBaseUrl()}tinymce-dataease-private/skins/ui/oxide`), // 皮肤
+  content_css: formatDataEaseBi(
+    `${getResourceBaseUrl()}tinymce-dataease-private/skins/content/default/content.css`
+  ),
   plugins:
     'advlist autolink link image lists charmap  media wordcount table contextmenu directionality pagebreak', // 插件
   // 工具栏
@@ -80,13 +81,16 @@ const init = ref({
   outer_placeholder: '双击输入文字',
   inline: false,
   branding: true,
+  relative_urls: false,
+  remove_script_host: false,
+  convert_urls: false,
   setup: editor => {
     const emoticons = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
 <path d="M8.66683 4.66671H11.0002C11.1843 4.66671 11.3335 4.81595 11.3335 5.00004V5.66671C11.3335 5.8508 11.1843 6.00004 11.0002 6.00004H8.66683V11C8.66683 11.1841 8.51759 11.3334 8.3335 11.3334H7.66683C7.48273 11.3334 7.3335 11.1841 7.3335 11V6.00004H5.00016C4.81607 6.00004 4.66683 5.8508 4.66683 5.66671V5.00004C4.66683 4.81595 4.81607 4.66671 5.00016 4.66671H7.3335C7.3335 4.66671 8.66683 4.68559 8.66683 4.66671Z" fill="#1F2329"/>
 <path fill-rule="evenodd" clip-rule="evenodd" d="M1.3335 2.00004C1.3335 1.63185 1.63197 1.33337 2.00016 1.33337H14.0002C14.3684 1.33337 14.6668 1.63185 14.6668 2.00004V14C14.6668 14.3682 14.3684 14.6667 14.0002 14.6667H2.00016C1.63197 14.6667 1.3335 14.3682 1.3335 14V2.00004ZM2.66683 13.3334V2.66671H13.3335V13.3334H2.66683Z" fill="#1F2329"/>
 </svg>`
 
-    const icon_text_outlined = `<svg width="24" height="24" viewBox="0 0 24 24"  xmlns="http://www.w3.org/2000/svg">
+    const icon_text_outlined = `<svg width="16" height="16" viewBox="0 0 24 24"  xmlns="http://www.w3.org/2000/svg">
 <path d="M13 5V20.5C13 20.5657 12.9871 20.6307 12.9619 20.6913C12.9368 20.752 12.9 20.8071 12.8536 20.8536C12.8071 20.9 12.752 20.9368 12.6913 20.9619C12.6307 20.9871 12.5657 21 12.5 21H11.5C11.4343 21 11.3693 20.9871 11.3087 20.9619C11.248 20.9368 11.1929 20.9 11.1464 20.8536C11.1 20.8071 11.0632 20.752 11.0381 20.6913C11.0129 20.6307 11 20.5657 11 20.5V5H3.5C3.43434 5 3.36932 4.98707 3.30866 4.96194C3.248 4.93681 3.19288 4.89998 3.14645 4.85355C3.10002 4.80712 3.06319 4.752 3.03806 4.69134C3.01293 4.63068 3 4.56566 3 4.5V3.5C3 3.43434 3.01293 3.36932 3.03806 3.30866C3.06319 3.248 3.10002 3.19288 3.14645 3.14645C3.19288 3.10002 3.248 3.06319 3.30866 3.03806C3.36932 3.01293 3.43434 3 3.5 3H20.5C20.5657 3 20.6307 3.01293 20.6913 3.03806C20.752 3.06319 20.8071 3.10002 20.8536 3.14645C20.9 3.19288 20.9368 3.248 20.9619 3.30866C20.9871 3.36932 21 3.43434 21 3.5V4.5C21 4.63261 20.9473 4.75979 20.8536 4.85355C20.7598 4.94732 20.6326 5 20.5 5H13Z" class="svg-primary-color"/>
 </svg>
 `
@@ -96,7 +100,7 @@ const init = ref({
 <path d="M11.9997 9.83398C11.9997 9.55784 11.7758 9.33398 11.4997 9.33398H10.4997C10.2235 9.33398 9.99967 9.55784 9.99967 9.83398V10.834C9.99967 11.1101 10.2235 11.334 10.4997 11.334H11.4997C11.7758 11.334 11.9997 11.1101 11.9997 10.834V9.83398Z"  class="svg-primary-color" />
 </svg>
 `
-    const icon_number_outlined = `<svg width="24" height="24" viewBox="0 0 24 24"  xmlns="http://www.w3.org/2000/svg">
+    const icon_number_outlined = `<svg width="16" height="16" viewBox="0 0 24 24"  xmlns="http://www.w3.org/2000/svg">
 <path d="M8.70351 2C8.94543 2 9.13197 2.21307 9.1 2.45287L8.67565 5.63553H15.9457L16.3842 2.34714C16.4107 2.14841 16.5802 2 16.7807 2H18.0359C18.2778 2 18.4643 2.21307 18.4324 2.45287L18.008 5.63553H21.7283C21.9492 5.63553 22.1283 5.81461 22.1283 6.03553V7.29781C22.1283 7.51872 21.9492 7.69781 21.7283 7.69781H17.733L16.7636 14.9689H20.3949C20.6158 14.9689 20.7949 15.1479 20.7949 15.3689V16.6311C20.7949 16.8521 20.6158 17.0311 20.3949 17.0311H16.4886L15.8724 21.6529C15.8459 21.8516 15.6763 22 15.4759 22H14.2207C13.9787 22 13.7922 21.7869 13.8242 21.5471L14.4263 17.0311H7.15623L6.54 21.6529C6.5135 21.8516 6.34399 22 6.14351 22H4.88831C4.64639 22 4.45985 21.7869 4.49182 21.5471L5.09395 17.0311H1.19493C0.974016 17.0311 0.794929 16.8521 0.794929 16.6311V15.3689C0.794929 15.1479 0.974015 14.9689 1.19493 14.9689H5.36892L6.3384 7.69781H2.52826C2.30735 7.69781 2.12826 7.51872 2.12826 7.29781V6.03553C2.12826 5.81461 2.30735 5.63553 2.52826 5.63553H6.61337L7.05182 2.34714C7.07831 2.14841 7.24783 2 7.44831 2H8.70351ZM14.7013 14.9689L15.6707 7.69781H8.40067L7.4312 14.9689H14.7013Z" fill="#04B49C"/>
 </svg>
 `
@@ -141,7 +145,7 @@ const viewInit = () => {
   tinymce.init({})
 }
 const fieldSelect = name => {
-  const ed = tinymce.editors[tinymceId]
+  const ed = tinymce.get(tinymceId)
   const obj = props.fieldList.find(ele => ele.name === name)
   const field = {
     id: obj.id,

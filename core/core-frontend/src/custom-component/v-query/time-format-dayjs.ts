@@ -1,11 +1,30 @@
 import dayjs from 'dayjs'
-import type { ManipulateType } from 'dayjs'
-function getThisStart(val = 'month' as ManipulateType | 'quarter') {
-  return new Date(dayjs().startOf(val).format('YYYY/MM/DD HH:mm:ss'))
+import type { ManipulateType, QUnitType } from 'dayjs'
+import 'dayjs/locale/zh-cn'
+import quarterOfYear from 'dayjs/plugin/quarterOfYear'
+import updateLocale from 'dayjs/plugin/updateLocale'
+type ManipulateTypeWithQuarter = ManipulateType | 'quarter'
+dayjs.extend(quarterOfYear)
+dayjs.extend(updateLocale)
+dayjs.updateLocale('zh-cn', {
+  weekStart: 1
+})
+dayjs.locale('zh-cn')
+
+function getThisStart(val = 'month' as ManipulateTypeWithQuarter) {
+  return new Date(
+    dayjs()
+      .startOf(val as QUnitType)
+      .format('YYYY/MM/DD HH:mm:ss')
+  )
 }
 
-function getThisEnd(val = 'month' as ManipulateType | 'quarter') {
-  return new Date(dayjs().endOf(val).format('YYYY/MM/DD HH:mm:ss'))
+function getThisEnd(val = 'month' as ManipulateTypeWithQuarter) {
+  return new Date(
+    dayjs()
+      .endOf(val as QUnitType)
+      .format('YYYY/MM/DD HH:mm:ss')
+  )
 }
 
 function getLastStart(val = 'month' as ManipulateType) {
@@ -16,26 +35,33 @@ function getLastEnd(val = 'month' as ManipulateType) {
   return new Date(dayjs().subtract(1, val).endOf(val).format('YYYY/MM/DD HH:mm:ss'))
 }
 
+function getYearToLastMonthEnd(): [Date, Date] {
+  const start = getThisStart('year')
+  const end = getLastEnd('month')
+  if (+start > +end) {
+    return [start, getThisEnd('day')]
+  }
+  return [start, end]
+}
+
 function getAround(val = 'month' as ManipulateType, type = 'add', num = 0) {
   if (val === 'week') {
-    return new Date(dayjs().endOf('week').add(1, 'day').endOf('day').format('YYYY/MM/DD HH:mm:ss'))
+    return new Date(dayjs().endOf('week').endOf('day').format('YYYY/MM/DD HH:mm:ss'))
   }
   return new Date(dayjs()[type](num, val).endOf('day').format('YYYY/MM/DD HH:mm:ss'))
 }
 
 function getAroundStart(val = 'month' as ManipulateType, type = 'add', num = 0) {
   if (val === 'week') {
-    return new Date(
-      dayjs().startOf('week').add(1, 'day').startOf('day').format('YYYY/MM/DD HH:mm:ss')
-    )
+    return new Date(dayjs().startOf('week').startOf('day').format('YYYY/MM/DD HH:mm:ss'))
   }
   return new Date(dayjs()[type](num, val).startOf('day').format('YYYY/MM/DD HH:mm:ss'))
 }
 
 function getThisWeek(): [Date, Date] {
   return [
-    new Date(dayjs().startOf('week').add(1, 'day').startOf('day').format('YYYY/MM/DD HH:mm:ss')),
-    new Date(dayjs().endOf('week').add(1, 'day').endOf('day').format('YYYY/MM/DD HH:mm:ss'))
+    new Date(dayjs().startOf('week').startOf('day').format('YYYY/MM/DD HH:mm:ss')),
+    new Date(dayjs().endOf('week').endOf('day').format('YYYY/MM/DD HH:mm:ss'))
   ]
 }
 
@@ -70,6 +96,8 @@ function getCustomRange(relativeToCurrentRange: string): [Date, Date] {
       ]
     case 'YearToThisMonth':
       return [new Date(dayjs().startOf('year').format('YYYY/MM/DD HH:mm:ss')), getThisEnd('month')]
+    case 'YearToLastMonthEnd':
+      return getYearToLastMonthEnd()
     case 'monthToYesterday':
       const sm = new Date(dayjs().startOf('month').format('YYYY/MM/DD HH:mm:ss'))
       const ld = getLastEnd('day')
@@ -86,6 +114,8 @@ function getCustomRange(relativeToCurrentRange: string): [Date, Date] {
         new Date(dayjs().subtract(2, 'day').startOf('day').format('YYYY/MM/DD HH:mm:ss')),
         getThisEnd('day')
       ]
+    case 'LastMonthFull':
+      return [getLastStart('month'), getLastEnd('month')]
     case 'monthBeginning':
       return [getThisStart('month'), getThisEnd('day')]
     case 'yearBeginning':
@@ -99,6 +129,7 @@ export {
   getThisEnd,
   getLastStart,
   getLastEnd,
+  getYearToLastMonthEnd,
   getAround,
   getCustomRange,
   getAroundStart

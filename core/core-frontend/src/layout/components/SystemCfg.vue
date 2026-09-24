@@ -16,12 +16,17 @@ const redirectUser = () => {
 </script>
 
 <template>
-  <el-tooltip class="box-item" effect="dark" :content="$t('toolbox.org_center')" placement="top">
+  <el-tooltip
+    offset="10"
+    class="box-item"
+    effect="dark"
+    :content="$t('toolbox.org_center')"
+    placement="top"
+  >
     <div
       class="sys-setting"
       :class="{
-        'is-light-setting': navigateBg && navigateBg === 'light',
-        'in-iframe-setting': !showDoc
+        'is-light-setting': navigateBg && navigateBg === 'light'
       }"
     >
       <el-icon @click="redirectUser">
@@ -48,9 +53,6 @@ const redirectUser = () => {
   &:hover {
     background-color: #1e2738;
   }
-}
-.in-iframe-setting {
-  margin-left: 10px !important;
 }
 .is-light-setting {
   &:hover {

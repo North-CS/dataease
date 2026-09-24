@@ -45,6 +45,7 @@ import { ChartLibraryType } from '@/views/chart/components/js/panel/types'
 import chartViewManager from '@/views/chart/components/js/panel'
 import { storeToRefs } from 'pinia'
 import { checkAddHttp, setIdValueTrans } from '@/utils/canvasUtils'
+import { sanitizeHtml } from '@/utils/utils'
 import { Base64 } from 'js-base64'
 import DeRichTextView from '@/custom-component/rich-text/DeRichTextView.vue'
 import DePictureGroup from '@/custom-component/picture-group/Component.vue'
@@ -206,6 +207,37 @@ const titleAlign = computed<string>(() => {
   return 'flex-start'
 })
 
+// 标题宽度交给 flex 计算，图标显示时优先占位
+// 阴影使用固定 CSS 像素，预留空间也保持同一单位以兼容缩小后的图表
+const titleShadowPadding = computed(() => (state.title_class.textShadow === 'none' ? 0 : 6))
+const titleTextStyle = computed<CSSProperties>(() => ({
+  ...state.title_class,
+  flex: '1 1 auto',
+  minWidth: 0,
+  width: 'auto',
+  maxWidth: '100%',
+  wordBreak: 'normal',
+  whiteSpace: 'nowrap',
+  // 在省略号裁剪框内给阴影留出空间，避免字体或阴影被固定标题行截断
+  padding: `${titleShadowPadding.value}px`,
+  boxSizing: 'border-box'
+}))
+
+// 固定标题行高度，避免图标显示时触发图表区域 resize
+const titleContentHeight = computed<string>(() => {
+  const iconFontSize = Number.parseFloat(iconSize.value) || 0
+  const titleFontSize = Number.parseFloat(`${state.title_class.fontSize}`) || iconFontSize
+  return Math.max(iconFontSize, titleFontSize * 1.2) + titleShadowPadding.value * 2 + 'px'
+})
+
+const titleContentStyle = computed<CSSProperties>(() => ({
+  height: titleContentHeight.value,
+  minHeight: titleContentHeight.value,
+  lineHeight: `calc(${titleContentHeight.value} - ${titleShadowPadding.value * 2}px)`
+}))
+
+const safeTitleRemark = computed(() => sanitizeHtml(state.title_remark.remark || ''))
+
 const trackMenu = computed<Array<string>>(() => {
   return chartComponent?.value?.trackMenu ?? []
 })
@@ -328,7 +360,7 @@ const initTitle = () => {
     }
 
     state.title_remark.show = customStyle.text.show && customStyle.text.remarkShow
-    state.title_remark.remark = customStyle.text.remark
+    state.title_remark.remark = sanitizeHtml(customStyle.text.remark || '')
   }
 }
 
@@ -376,7 +408,7 @@ const chartClick = param => {
 
 // 仪表板和大屏所有额外过滤参数都在此处
 const filter = (firstLoad?: boolean) => {
-  const { filter } = useFilter(view.value.id, firstLoad)
+  const { filter } = useFilter(view.value.id, firstLoad, showPosition.value)
   const result = {
     user: wsCache.get('user.uid'),
     filter,
@@ -938,8 +970,11 @@ const chartAreaShow = computed(() => {
 
 const titleInputRef = ref()
 const titleEditStatus = ref(false)
+const titleEditable = computed(() => {
+  return ['canvas', 'canvasDataV'].includes(showPosition.value) && !props.disabled
+})
 function changeEditTitle() {
-  if (!props.active || mobileInPc.value) {
+  if (!titleEditable.value || !props.active || mobileInPc.value) {
     return
   }
   if (!titleEditStatus.value) {
@@ -983,7 +1018,7 @@ function onTitleChange() {
 }
 
 const toolTip = computed(() => {
-  return props.themes === 'dark' ? 'light' : 'dark'
+  return props.themes || 'dark'
 })
 
 const marginBottom = computed<string | 0>(() => {
@@ -1000,17 +1035,6 @@ const iconSize = computed<string>(() => {
   return 16 * scale.value + 'px'
 })
 
-/**
- * 保证标题容器高度最小高度不低于图标高度
- */
-const titleContainerMinHeight = computed<string>(() => {
-  if (['picture-group', 'rich-text'].includes(element.value.innerType)) {
-    return '0px'
-  } else if (!titleShow.value) {
-    return 16 * scale.value + 4 + 'px'
-  }
-  return 16 * scale.value + 'px'
-})
 /**
  * 修改透明度
  * 边框透明度为0时会是存色，顾配置低透明度
@@ -1050,16 +1074,17 @@ const titleIconStyle = computed(() => {
   }
   return {
     color: canvasStyleData.value.component.seniorStyleSetting.linkageIconColor,
+    height: iconSize.value,
+    lineHeight: iconSize.value,
     ...(titleShow.value ? {} : style)
   }
 })
-const chartHover = ref(false)
-const showActionIcons = computed(() => {
-  if (!chartHover.value) {
-    return false
-  }
-  return trackMenu.value.length > 0 || state.title_remark.show
-})
+// 只稳定标题行高度，图标隐藏时不占用标题横向空间
+const hasActionIcons = computed(
+  () => state.title_remark.show || hasLinkIcon.value || hasJumpIcon.value || hasDrillIcon.value
+)
+// 编辑标题时隐藏操作图标，避免遮挡输入框
+const showTitleActionIcons = computed(() => hasActionIcons.value && !titleEditStatus.value)
 const chartConfigs = ref(CHART_TYPE_CONFIGS)
 const pluginLoaded = computed(() => {
   let result = false
@@ -1141,88 +1166,98 @@ const clearG2Tooltip = () => {
     :class="{ 'report-load-finish': !loadingFlag }"
     v-loading="loadingFlag"
     element-loading-background="rgba(0,0,0,0)"
-    @mouseover="chartHover = true"
-    @mouseleave="chartHover = false"
   >
     <div
       class="title-container"
       :style="{
         'justify-content': titleAlign,
-        'margin-bottom': marginBottom,
-        'min-height': titleContainerMinHeight
+        'margin-bottom': marginBottom
       }"
     >
-      <template v-if="!titleEditStatus">
-        <p class="ellipsis" v-if="titleShow" :style="state.title_class" @dblclick="changeEditTitle">
-          {{ view.title }}
-        </p>
-      </template>
-      <template v-else>
-        <el-input
-          style="flex: 1"
-          :effect="canvasStyleData.dashboard.themeColor"
-          ref="titleInputRef"
-          v-model="view.title"
-          @keydown.stop
-          @keydown.enter="onLeaveTitleInput"
-          v-click-outside="onLeaveTitleInput"
-          @change="onTitleChange"
-        />
-      </template>
-      <transition name="fade">
-        <div
-          class="icons-container"
-          :class="{ 'is-editing': titleEditStatus }"
-          :style="titleIconStyle"
-          v-show="showActionIcons"
-        >
-          <el-tooltip :effect="toolTip" placement="top" v-if="state.title_remark.show">
-            <template #content>
-              <div
-                :style="{
-                  maxWidth: titleTooltipWidth,
-                  wordBreak: 'break-all',
-                  wordWrap: 'break-word',
-                  whiteSpace: 'pre-wrap'
-                }"
-                v-html="state.title_remark.remark"
-              ></div>
-            </template>
-            <el-icon :size="iconSize" class="inner-icon">
-              <Icon name="icon_info_outlined"><icon_info_outlined class="svg-icon" /></Icon>
-            </el-icon>
-          </el-tooltip>
-          <el-tooltip :effect="toolTip" placement="top" content="已设置联动" v-if="hasLinkIcon">
-            <el-icon :size="iconSize" class="inner-icon">
-              <Icon name="icon_link-record_outlined"
-                ><icon_linkRecord_outlined class="svg-icon"
-              /></Icon>
-            </el-icon>
-          </el-tooltip>
-          <el-tooltip
-            :effect="toolTip"
-            placement="top"
-            :content="t('visualization.jump_set_tips')"
-            v-if="hasJumpIcon"
+      <div
+        class="title-content"
+        :class="{ 'is-editing': titleEditStatus }"
+        :style="titleShow && !titleEditStatus ? titleContentStyle : undefined"
+      >
+        <template v-if="!titleEditStatus">
+          <p
+            class="ellipsis"
+            v-if="titleShow"
+            :style="titleTextStyle"
+            :title="view.title || ''"
+            @dblclick="changeEditTitle"
           >
-            <el-icon :size="iconSize" class="inner-icon">
-              <Icon name="icon_viewinchat_outlined"
-                ><icon_viewinchat_outlined class="svg-icon"
-              /></Icon>
-            </el-icon>
-          </el-tooltip>
-          <el-tooltip
-            :effect="toolTip"
-            placement="top"
-            :content="t('visualization.drill_set_tips')"
-            v-if="hasDrillIcon"
+            {{ view.title }}
+          </p>
+        </template>
+        <template v-else>
+          <el-input
+            style="flex: 1; min-width: 0"
+            :effect="canvasStyleData.dashboard.themeColor"
+            ref="titleInputRef"
+            v-model="view.title"
+            @keydown.stop
+            @keydown.enter="onLeaveTitleInput"
+            v-click-outside="onLeaveTitleInput"
+            @change="onTitleChange"
+          />
+        </template>
+        <div v-if="showTitleActionIcons" class="icons-container-out">
+          <div
+            class="icons-container"
+            :class="{ 'is-editing': titleEditStatus }"
+            :style="titleIconStyle"
           >
-            <el-icon :size="iconSize" class="inner-icon">
-              <Icon name="icon_drilling_outlined"><icon_drilling_outlined class="svg-icon" /></Icon>
-            </el-icon>
-          </el-tooltip>
+            <el-tooltip :effect="toolTip" placement="top" v-if="state.title_remark.show">
+              <template #content>
+                <div
+                  :style="{
+                    maxWidth: titleTooltipWidth,
+                    wordBreak: 'break-all',
+                    wordWrap: 'break-word',
+                    whiteSpace: 'pre-wrap'
+                  }"
+                  v-html="safeTitleRemark"
+                ></div>
+              </template>
+              <el-icon :size="iconSize" class="inner-icon">
+                <Icon name="icon_info_outlined"><icon_info_outlined class="svg-icon" /></Icon>
+              </el-icon>
+            </el-tooltip>
+            <el-tooltip :effect="toolTip" placement="top" content="已设置联动" v-if="hasLinkIcon">
+              <el-icon :size="iconSize" class="inner-icon">
+                <Icon name="icon_link-record_outlined"
+                  ><icon_linkRecord_outlined class="svg-icon"
+                /></Icon>
+              </el-icon>
+            </el-tooltip>
+            <el-tooltip
+              :effect="toolTip"
+              placement="top"
+              :content="t('visualization.jump_set_tips')"
+              v-if="hasJumpIcon"
+            >
+              <el-icon :size="iconSize" class="inner-icon">
+                <Icon name="icon_viewinchat_outlined"
+                  ><icon_viewinchat_outlined class="svg-icon"
+                /></Icon>
+              </el-icon>
+            </el-tooltip>
+            <el-tooltip
+              :effect="toolTip"
+              placement="top"
+              :content="t('visualization.drill_set_tips')"
+              v-if="hasDrillIcon"
+            >
+              <el-icon :size="iconSize" class="inner-icon">
+                <Icon name="icon_drilling_outlined"
+                  ><icon_drilling_outlined class="svg-icon"
+                /></Icon>
+              </el-icon>
+            </el-tooltip>
+          </div>
         </div>
-      </transition>
+      </div>
     </div>
     <!--这里去渲染不同图库的图表-->
     <div v-if="allEmptyCheck || (chartAreaShow && !showEmpty)" style="flex: 1; overflow: hidden">
@@ -1355,6 +1390,13 @@ const clearG2Tooltip = () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  // hover 后图标参与 flex 宽度计算，隐藏时不占标题空间
+  &:hover {
+    .icons-container-out {
+      display: flex;
+    }
+  }
 }
 .title-container {
   position: relative;
@@ -1367,42 +1409,67 @@ const clearG2Tooltip = () => {
 
   gap: 8px;
 
-  .icons-container {
+  .title-content {
     display: inline-flex;
-    flex-direction: row;
     align-items: center;
     flex-wrap: nowrap;
     gap: 8px;
-
-    color: #646a73;
-
-    &.icons-container__dark {
-      color: #a6a6a6;
-    }
+    max-width: 100%;
+    min-width: 0;
 
     &.is-editing {
-      gap: 6px;
+      width: 100%;
     }
+  }
 
-    .inner-icon {
-      cursor: pointer;
+  .icons-container-out {
+    position: relative;
+    display: none;
+    align-items: center;
+    flex: 0 0 auto;
+    max-width: 100%;
+    height: 100%;
+    margin-right: 16px;
+
+    .icons-container {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      flex: 0 0 auto;
+      flex-wrap: nowrap;
+      gap: 8px;
+      height: 100%;
+      white-space: nowrap;
+
+      color: #646a73;
+
+      &.icons-container__dark {
+        color: #a6a6a6;
+      }
+
+      &.is-editing {
+        gap: 6px;
+      }
+
+      .inner-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
     }
   }
 }
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
 
 .ellipsis {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  line-height: inherit;
   white-space: nowrap !important;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 100%;
 }
 </style>

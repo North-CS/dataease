@@ -26,6 +26,7 @@ import {
 } from '@/views/chart/components/js/panel/charts/map/common'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import { find } from 'lodash-es'
+import { CUSTOM_TILE_MAP_TYPE, VECTOR_STYLE_SERVICE_TYPE } from '@/utils/onlineMap'
 
 const dvMainStore = dvMainStoreWithOut()
 const localeStore = useLocaleStoreWithOut()
@@ -49,8 +50,17 @@ const showProperty = prop => {
   if (!has) {
     return false
   }
-  if (props.chart.type.includes('map') && mapType.value === 'tianditu' && prop === 'showLabel') {
-    return false
+  if (props.chart.type.includes('map') && prop === 'showLabel') {
+    if (mapType.value === 'tianditu') {
+      return false
+    }
+    // 自定义地图仅矢量 Style 支持独立控制底图地名
+    if (
+      mapType.value === CUSTOM_TILE_MAP_TYPE &&
+      mapStore.mapKey.serviceType !== VECTOR_STYLE_SERVICE_TYPE
+    ) {
+      return false
+    }
   }
   return has
 }
@@ -319,7 +329,7 @@ const symbolOptions = [
 const mapStore = useMapStoreWithOut()
 
 const getMapKey = async () => {
-  if (!mapStore.mapKey.key) {
+  if (!mapStore.mapKeyLoaded) {
     await queryMapKeyApi().then(res => mapStore.setKey(res.data))
   }
   if (mapStore.mapKey.securityCode) {
@@ -334,6 +344,8 @@ const mapType = ref<string>(undefined)
 
 const mapStyleOptions = computed(() => {
   switch (mapType.value) {
+    case CUSTOM_TILE_MAP_TYPE:
+      return []
     case 'tianditu':
       return tdtMapStyleOptions
     case 'qq':
@@ -522,6 +534,85 @@ onMounted(async () => {
     </div>
 
     <el-form-item
+      v-if="showProperty('showOutliers')"
+      class="form-item"
+      :class="'form-item-' + themes"
+    >
+      <el-checkbox
+        size="small"
+        :effect="themes"
+        v-model="state.basicStyleForm.showOutliers"
+        @change="changeBasicStyle('showOutliers')"
+      >
+        <!-- 异常值说明跟随复选框标签并保留统一间距，扩大可点击区域 -->
+        <span class="data-area-label">
+          <span style="margin-right: 4px">{{ t('chart.box_plot_show_outliers') }}</span>
+          <el-tooltip :effect="themes" placement="top">
+            <template #content>
+              <div class="box-plot-outlier-tip">{{ t('chart.box_plot_outlier_tip') }}</div>
+            </template>
+            <el-icon class="hint-icon" :class="{ 'hint-icon--dark': themes === 'dark' }">
+              <Icon name="icon_info_outlined"><icon_info_outlined class="svg-icon" /></Icon>
+            </el-icon>
+          </el-tooltip>
+        </span>
+      </el-checkbox>
+    </el-form-item>
+
+    <el-form-item
+      v-if="showProperty('outlierColorMode')"
+      :label="t('chart.box_plot_outlier_color')"
+      class="form-item"
+      :class="'form-item-' + themes"
+    >
+      <el-select
+        v-model="state.basicStyleForm.outlierColorMode"
+        :effect="themes"
+        :disabled="!state.basicStyleForm.showOutliers"
+        @change="changeBasicStyle('outlierColorMode')"
+      >
+        <el-option :label="t('chart.box_plot_outlier_follow_series')" value="series"></el-option>
+        <el-option :label="t('chart.box_plot_outlier_custom_color')" value="custom"></el-option>
+      </el-select>
+    </el-form-item>
+
+    <el-form-item
+      v-if="showProperty('outlierColor') && state.basicStyleForm.outlierColorMode === 'custom'"
+      :label="t('chart.box_plot_outlier_custom_color')"
+      class="form-item"
+      :class="'form-item-' + themes"
+    >
+      <el-color-picker
+        :persistent="false"
+        v-model="state.basicStyleForm.outlierColor"
+        :effect="themes"
+        :disabled="!state.basicStyleForm.showOutliers"
+        is-custom
+        :trigger-width="108"
+        class="color-picker-style"
+        :predefine="predefineColors"
+        @change="changeBasicStyle('outlierColor')"
+      />
+    </el-form-item>
+
+    <el-form-item
+      v-if="showProperty('outlierSize')"
+      :label="t('chart.box_plot_outlier_size')"
+      class="form-item"
+      :class="'form-item-' + themes"
+    >
+      <el-input-number
+        v-model="state.basicStyleForm.outlierSize"
+        :effect="themes"
+        :disabled="!state.basicStyleForm.showOutliers"
+        controls-position="right"
+        :min="1"
+        :max="20"
+        @change="changeBasicStyle('outlierSize')"
+      />
+    </el-form-item>
+
+    <el-form-item
       class="form-item"
       v-if="showProperty('radiusColumnBar')"
       :label="t('chart.radiusColumnBar')"
@@ -582,7 +673,7 @@ onMounted(async () => {
       </el-select>
     </el-form-item>
     <div class="map-style" v-if="showProperty('mapBaseStyle') || showProperty('heatMapStyle')">
-      <el-row style="flex: 1">
+      <el-row style="flex: 1" v-if="mapType !== CUSTOM_TILE_MAP_TYPE">
         <el-col>
           <el-form-item
             :label="t('chart.map_style')"
@@ -604,7 +695,10 @@ onMounted(async () => {
           </el-form-item>
         </el-col>
       </el-row>
-      <el-row style="flex: 1" v-if="state.basicStyleForm.mapStyle === 'custom'">
+      <el-row
+        style="flex: 1"
+        v-if="mapType !== CUSTOM_TILE_MAP_TYPE && state.basicStyleForm.mapStyle === 'custom'"
+      >
         <el-col>
           <el-form-item
             :label="t('chart.map_style_url')"
@@ -1703,7 +1797,7 @@ onMounted(async () => {
     min-width: 56px;
 
     &.dark {
-      color: #a6a6a6;
+      color: #ebebeb;
     }
   }
 }
@@ -1711,7 +1805,7 @@ onMounted(async () => {
   .ed-select {
     width: 100px !important;
     :deep(.ed-input__wrapper) {
-      border-radius: 4px 0 0 4px !important;
+      border-radius: 6px 0 0 4px !important;
     }
   }
   .ed-input-group {
@@ -1753,7 +1847,7 @@ onMounted(async () => {
   :deep(.ed-upload--picture-card) {
     background: #eff0f1;
     border: 1px dashed #dee0e3;
-    border-radius: 4px;
+    border-radius: 6px;
 
     .ed-icon {
       color: #1f2329;
@@ -1818,7 +1912,7 @@ onMounted(async () => {
   :deep(.ed-upload--picture-card) {
     background: #eff0f1;
     border: 1px dashed #dee0e3;
-    border-radius: 4px;
+    border-radius: 6px;
 
     .ed-icon {
       color: #1f2329;
@@ -1843,6 +1937,11 @@ onMounted(async () => {
   display: flex;
   flex-direction: row;
   align-items: center;
+}
+.box-plot-outlier-tip {
+  max-width: 360px;
+  line-height: 20px;
+  white-space: pre-line;
 }
 .radius-class {
   :deep(.ed-radio) {

@@ -84,6 +84,13 @@ const handleLogin = () => {
         wsCache.set(appStore.getDekey, res.data)
       }
       const param = { name: rsaEncryp(name), pwd: rsaEncryp(pwd) }
+      if (!param.name || !param.pwd) {
+        // 密钥对不上（跨版本残留/损坏缓存）：刷新 key 并提示，用户重试即可登录
+        const res = await queryDekey()
+        wsCache.set(appStore.getDekey, res.data)
+        ElMessage.error(t('common.secret_changed_tips'))
+        return
+      }
       const isLdap = activeName.value === 'ldap'
       if (isLdap) {
         param['origin'] = 1
@@ -143,6 +150,10 @@ const showLoginImage = computed<boolean>(() => {
 const preheat = ref(true)
 const showLoginErrorMsg = () => {
   if (!loginErrorMsg.value) {
+    return
+  }
+  if (loginErrorMsg.value.includes('pwd has been changed')) {
+    ElMessage.error(t('user.password_changed_relogin'))
     return
   }
   if (loginErrorMsg.value.includes('token is empty')) {
@@ -471,13 +482,16 @@ onMounted(async () => {
     padding-top: 20px;
     box-shadow: 0px 6px 24px rgba(31, 35, 41, 0.08);
     border: 1px solid #dee0e3;
-    border-radius: 4px;
+    border-radius: 6px;
 
     .login-input-module {
       width: 100%;
       :deep(.ed-input) {
         height: 40px;
         line-height: 40px;
+      }
+      :deep(.ed-input__wrapper) {
+        padding: 1px 12px;
       }
     }
 
@@ -527,8 +541,6 @@ onMounted(async () => {
   }
 
   .login-image {
-    //object-fit: cover;
-    //background: url(../../assets/login-desc-de.png);
     background-size: 100% 100%;
     width: 100%;
     height: 100%;

@@ -1,5 +1,6 @@
 package io.dataease.doc;
 
+import com.github.xiaoymin.knife4j.spring.extension.Knife4jJakartaOperationCustomizer;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
@@ -47,7 +48,6 @@ public class SwaggerConfig {
                         .version(version));
     }
 
-
     @Bean
     public GroupedOpenApi visualizationApi() {
         return GroupedOpenApi.builder().group("1-visualization").displayName("可视化管理").packagesToScan("io.dataease.visualization", "io.dataease.share").build();
@@ -92,5 +92,8 @@ public class SwaggerConfig {
         return GroupedOpenApi.builder().group("8-xpacksync").displayName("同步管理").packagesToScan("io.dataease.xpack.sync.task").build();
     }
 
-
+    @Bean
+    public Knife4jJakartaOperationCustomizer knife4jJakartaOperationCustomizer() {
+        return new Knife4jJakartaOperationCustomizer();
+    }
 }

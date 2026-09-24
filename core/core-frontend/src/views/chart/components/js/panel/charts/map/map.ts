@@ -14,6 +14,9 @@ import {
   parseJson
 } from '@/views/chart/components/js/util'
 import {
+  bindMapHoverTooltipRefresh,
+  configL7PlotZoom,
+  formatL7TooltipValue,
   handleGeoJson,
   mapRendered,
   mapRendering
@@ -40,6 +43,10 @@ import { configCarouselTooltip } from '@/views/chart/components/js/panel/charts/
 import { getCustomGeoArea } from '@/api/map'
 import { centroid } from '@turf/centroid'
 import { TextLayer } from '@antv/l7plot/dist/esm'
+import {
+  isPointOnlyGeoJson,
+  drawPointFallbackChart
+} from '@/views/chart/components/js/panel/charts/map/point-fallback'
 
 const { t } = useI18n()
 
@@ -157,6 +164,54 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
         })
       }
     }
+    if (isPointOnlyGeoJson(geoJson)) {
+      const { basicStyle } = parseJson(chart.customAttr)
+      const dataColor = hexColorToRGBA(basicStyle.colors?.[0] || '#5470c6', basicStyle.alpha ?? 1)
+      const ignoredLabelFields = this.getIgnoredDataFields(chart)
+      sourceData = this.getDataByEmptyDataStrategy(chart, sourceData)
+      const view = await drawPointFallbackChart(drawOption, chart, geoJson, sourceData, action, {
+        dotSize: 6,
+        dotColor: {
+          field: 'hasData',
+          value: ({ hasData }) => (hasData ? dataColor : '#cccccc')
+        },
+        dotName: 'dotLayer',
+        disableInteraction: false,
+        hideLabel: name => ignoredLabelFields.has(name),
+        customizeChoroplethOptions: (opts, c, dotData) => {
+          this.customConfigLegend(c, opts)
+          const legendSourceData = dotData
+            .filter(d => d.hasData)
+            .map(d => ({ name: d.name, value: d.size }))
+          if (legendSourceData.length && opts.legend && typeof opts.legend === 'object') {
+            const colors = basicStyle.colors.map(cc => hexColorToRGBA(cc, basicStyle.alpha))
+            const values = legendSourceData.map(d => d.value)
+            const min = Math.min(...values)
+            const max = Math.max(...values)
+            const step = values.length > 1 ? (max - min) / Math.min(colors.length, 5) : 1
+            const items: { value: number[]; color: string }[] = []
+            if (values.length === 1) {
+              items.push({ value: [min, max], color: colors[0] })
+            } else {
+              for (let i = 0; i < Math.min(colors.length, 5); i++) {
+                const lo = min + step * i
+                const hi = i === Math.min(colors.length, 5) - 1 ? max : min + step * (i + 1)
+                items.push({ value: [lo, hi], color: colors[i % colors.length] })
+              }
+            }
+            opts.legend.customContent = () => {
+              if (items.length) {
+                return this.createLegendCustomContent(items)
+              }
+              return ''
+            }
+          }
+          return opts
+        }
+      })
+      configL7PlotZoom(chart, view)
+      return view
+    }
     let data = []
     // 自定义图例
     if (!misc.mapAutoLegend && legend.show) {
@@ -235,11 +290,17 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
       // 禁用线上地图数据
       customFetchGeoData: () => null
     }
-    const context: Record<string, any> = { drawOption, geoJson, customSubArea }
+    const context: Record<string, any> = {
+      drawOption,
+      geoJson,
+      customSubArea,
+      ignoredLabelFields: this.getIgnoredDataFields(chart)
+    }
     options = this.setupOptions(chart, options, context)
     const { Choropleth } = await import('@antv/l7plot/dist/esm/plots/choropleth')
     const view = new Choropleth(container, options)
     this.configZoomButton(chart, view)
+    bindMapHoverTooltipRefresh(container, view.scene, () => view.tooltip?.hideTooltip())
     mapRendering(container)
     view.once('loaded', () => {
       mapRendered(container)
@@ -288,6 +349,7 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
   ): ChoroplethOptions {
     const { areaId }: L7PlotDrawOptions<any> = context.drawOption
     const geoJson: FeatureCollection = context.geoJson
+    const ignoredLabelFields: Set<string> = context.ignoredLabelFields
     const { basicStyle, label, misc } = parseJson(chart.customAttr)
     const senior = parseJson(chart.senior)
     const curAreaNameMapping = senior.areaMapping?.[areaId]
@@ -340,6 +402,10 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
       const name = item.properties['name']
       // trick, maybe move to configLabel, here for perf
       if (label.show) {
+        if (ignoredLabelFields.has(name)) {
+          item.properties['_DE_LABEL_'] = ''
+          return
+        }
         const content = []
         if (label.showDimension) {
           content.push(name)
@@ -440,7 +506,11 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
   private customConfigLegend(chart: Chart, options: ChoroplethOptions): ChoroplethOptions {
     const { basicStyle, misc } = parseJson(chart.customAttr)
     const colors = basicStyle.colors.map(item => hexColorToRGBA(item, basicStyle.alpha))
-    if (basicStyle.suspension === false && basicStyle.showZoom === undefined) {
+    if (
+      basicStyle.suspension === false &&
+      basicStyle.showZoom === undefined &&
+      options.legend === false
+    ) {
       return options
     }
     const { legend } = parseJson(chart.customStyle)
@@ -588,7 +658,8 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
     }
     const customAttr = parseJson(chart.customAttr)
     const { label } = customAttr
-    const data = chart.data.data
+    const data = this.getDataByEmptyDataStrategy(chart, chart.data.data)
+    const ignoredLabelFields: Set<string> = context.ignoredLabelFields
     const areaMap = data?.reduce((obj, value) => {
       obj[value['field']] = value
       return obj
@@ -622,7 +693,7 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
     if (label.show) {
       const labelLocation = []
       customSubArea.forEach(area => {
-        if (area.centroid) {
+        if (area.centroid && !ignoredLabelFields.has(area.name)) {
           const content = []
           if (label.showDimension) {
             content.push(area.name)
@@ -698,15 +769,17 @@ export class Map extends L7PlotChartView<ChoroplethOptions, Choropleth> {
         }
         const formatter = formatterMap[valItem.quotaList?.[0]?.id]
         if (!isEmpty(formatter)) {
-          const originValue = parseFloat(valItem.value as string)
-          const value = valueFormatter(originValue, formatter.formatterCfg)
+          const value = formatL7TooltipValue(valItem.value, formatter.formatterCfg)
           const name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
           result.push({ ...valItem, name, value: `${value ?? ''}` })
         }
         valItem.dynamicTooltipValue?.forEach(item => {
           const formatter = formatterMap[item.fieldId]
           if (formatter) {
-            const value = valueFormatter(parseFloat(item.value), formatter.formatterCfg)
+            const value =
+              item.value != null
+                ? formatL7TooltipValue(item.value, formatter.formatterCfg)
+                : item.stringValue ?? ''
             const name = isEmpty(formatter.chartShowName) ? formatter.name : formatter.chartShowName
             result.push({ color: 'grey', name, value: `${value ?? ''}` })
           }

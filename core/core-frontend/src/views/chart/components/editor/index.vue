@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { MIN_REFRESH_TIME, MAX_REFRESH_TIME, normalizeRefreshTime } from '@/utils/refreshTime'
 import dvInfoSvg from '@/assets/svg/dv-info.svg'
 import icon_down_outlined1 from '@/assets/svg/icon_down_outlined-1.svg'
 import icon_deleteTrash_outlined from '@/assets/svg/icon_delete-trash_outlined.svg'
@@ -399,11 +400,19 @@ const queryList = computed(() => {
   return arr
 })
 
-const quotaData = computed(() => {
-  let result = JSON.parse(JSON.stringify(state.quota))
-  if (view.value?.type === 'table-info' || view.value?.type === 'multi-scatter') {
-    result = result?.filter(item => item.id !== '-1')
+// 箱线图基于原始数值样本计算分位数，排除非数值指标和 COUNT(*) 记录数
+const filterQuotaByChartType = quotaList => {
+  if (view.value?.type === 'box-plot') {
+    return quotaList?.filter(item => [2, 3].includes(item.deType) && item.originName !== '*')
   }
+  if (view.value?.type === 'table-info' || view.value?.type === 'multi-scatter') {
+    return quotaList?.filter(item => item.id !== '-1')
+  }
+  return quotaList
+}
+
+const quotaData = computed(() => {
+  let result = filterQuotaByChartType(JSON.parse(JSON.stringify(state.quota)))
   if (state.searchField) {
     result = result.filter(item =>
       item.name.toLowerCase().includes(state.searchField.toLowerCase())
@@ -421,11 +430,7 @@ const dimensionData = computed(() => {
   return result
 })
 const realQuota = computed(() => {
-  let result = JSON.parse(JSON.stringify(state.quota))
-  if (view.value?.type === 'table-info' || view.value?.type === 'multi-scatter') {
-    result = result?.filter(item => item.id !== '-1')
-  }
-  return result
+  return filterQuotaByChartType(JSON.parse(JSON.stringify(state.quota)))
 })
 provide('quotaData', realQuota)
 
@@ -685,12 +690,25 @@ const disableUpdate = computed(() => {
   if (!axisConfig) {
     return flag
   }
+  // 优先使用当前数据集返回的实时脱敏结果
+  const currentFieldDesensitized = new Map<string, boolean>()
+  ;[...state.dimension, ...state.quota].forEach(field => {
+    currentFieldDesensitized.set(String(field.id), field.desensitized === true)
+  })
   for (const key in axisConfig) {
+    // 透视表允许脱敏指标参与后端计算，维度仍沿用原有限制。
+    if (view.value.type === 'table-pivot' && key === 'yAxis') {
+      continue
+    }
     if (Object.prototype.hasOwnProperty.call(axisConfig, key)) {
       const axis = view.value[key]
       if (axis instanceof Array) {
         axis.forEach(a => {
-          if (a.desensitized) {
+          const fieldId = String(a.id)
+          const desensitized = currentFieldDesensitized.has(fieldId)
+            ? currentFieldDesensitized.get(fieldId)
+            : a.desensitized === true
+          if (desensitized) {
             flag = true
           }
         })
@@ -749,6 +767,27 @@ const addAxis = (e, axis: AxisType) => {
         })
       }
       typeValid = valid
+    }
+  } else if (view.value.type === 'box-plot' && axis === 'yAxis') {
+    const list = view.value[axis]
+    typeValid = dragCheckType(list, type)
+    if (list?.length) {
+      let hasInvalidField = false
+      // 批量拖入时逐个剔除不支持的字段，避免无效指标残留在值轴
+      for (let index = list.length - 1; index >= 0; index--) {
+        const item = list[index]
+        if (![2, 3].includes(item.deType) || item.originName === '*') {
+          list.splice(index, 1)
+          hasInvalidField = true
+        }
+      }
+      if (hasInvalidField) {
+        ElMessage({
+          message: t('chart.error_not_number'),
+          type: 'warning'
+        })
+        typeValid = false
+      }
     }
   } else if (view.value.type === 'multi-scatter' && axis === 'xAxis') {
     // 多维散点图 xAxis 只接受指标或时间维度
@@ -955,14 +994,7 @@ const onAxisChange = (e, axis: AxisType) => {
 }
 
 const calcData = (view, resetDrill = false, updateQuery = '') => {
-  if (
-    view.refreshTime === '' ||
-    parseFloat(view.refreshTime).toString() === 'NaN' ||
-    parseFloat(view.refreshTime) < 1
-  ) {
-    ElMessage.error(t('chart.only_input_number'))
-    return
-  }
+  view.refreshTime = normalizeRefreshTime(view.refreshTime)
   if (resetDrill) {
     useEmitt().emitter.emit('resetDrill-' + view.id, 0)
   } else {
@@ -1837,11 +1869,8 @@ const dragVerticalTop = computed(() => {
 })
 
 const onRefreshChange = val => {
+  view.value.refreshTime = normalizeRefreshTime(val)
   recordSnapshotInfo('render')
-  if (val === '' || parseFloat(val).toString() === 'NaN' || parseFloat(val) < 1) {
-    ElMessage.error(t('chart.only_input_number'))
-    return
-  }
 }
 
 const isCtrl = ref(false)
@@ -2134,7 +2163,7 @@ const chartStyleScroll = (val: any) => {
           <el-icon
             :title="view.title"
             class="custom-icon"
-            size="20px"
+            size="16"
             @click="collapseChange('chartAreaCollapse')"
           >
             <Fold v-if="canvasCollapse.chartAreaCollapse" class="collapse-icon" />
@@ -3400,8 +3429,10 @@ const chartStyleScroll = (val: any) => {
                               :effect="themes"
                               :class="[themes === 'dark' && 'dv-dark']"
                               size="small"
-                              :min="1"
-                              :max="3600"
+                              :min="MIN_REFRESH_TIME"
+                              :max="MAX_REFRESH_TIME"
+                              type="number"
+                              :step="1"
                               :disabled="!view.refreshViewEnable"
                               @change="onRefreshChange"
                             >
@@ -3602,7 +3633,7 @@ const chartStyleScroll = (val: any) => {
           <el-icon
             :title="$t('visualization.dataset')"
             class="custom-icon"
-            size="20px"
+            size="16"
             @click="collapseChange('datasetAreaCollapse')"
           >
             <Fold v-if="canvasCollapse.datasetAreaCollapse" class="collapse-icon" />
@@ -4257,7 +4288,7 @@ const chartStyleScroll = (val: any) => {
     .items {
       width: 100%;
       height: 28px;
-      border-radius: 4px;
+      border-radius: 6px;
       border: 1px solid transparent;
       color: #a6a6a6;
       font-size: 12px;
@@ -4311,7 +4342,7 @@ const chartStyleScroll = (val: any) => {
   }
 }
 .collapse-icon {
-  color: @canvas-main-font-color;
+  color: #a6a6a6;
 }
 
 .hint-icon {
@@ -4631,7 +4662,6 @@ span {
   .drag-list {
     height: calc(100% - 26px);
     min-height: 24px;
-    //overflow: auto;
     padding: 2px 0;
   }
 
@@ -4646,7 +4676,7 @@ span {
     white-space: nowrap;
     text-overflow: ellipsis;
     position: relative;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid transparent;
 
     font-size: 12px;
@@ -4705,7 +4735,7 @@ span {
     color: #646a73;
 
     &.dark {
-      color: #a6a6a6;
+      color: #ebebeb;
     }
   }
 
@@ -4795,7 +4825,7 @@ span {
     padding: 2px 0 0 0;
     width: 100%;
     min-height: 32px;
-    border-radius: 4px;
+    border-radius: 6px;
     overflow-x: hidden;
     overflow-y: hidden;
     display: block;
@@ -4843,7 +4873,7 @@ span {
       margin-top: 8px;
       background: #fff;
       height: 28px;
-      border-radius: 4px;
+      border-radius: 6px;
       border: 1px solid #dcdfe6;
       display: flex;
       color: #cccccc;
@@ -5014,7 +5044,7 @@ span {
         position: absolute;
         width: 24px;
         height: 24px;
-        border-radius: 4px;
+        border-radius: 6px;
         top: -4px;
         left: -4px;
         background: rgba(31, 35, 41, 0.1);
@@ -5091,14 +5121,15 @@ span {
 
 .custom-icon {
   position: absolute;
-  right: 5px;
-  top: 10px;
+  right: 9px;
+  top: 13px;
   cursor: pointer;
   z-index: 2;
 }
 :deep(.ed-collapse) {
   width: 100%;
   border-top: unset;
+  border-bottom: unset;
 }
 :deep(.ed-form-item) {
   .ed-radio.ed-radio--small .ed-radio__inner {
@@ -5434,7 +5465,7 @@ span {
     width: 100%;
     outline: none;
     border: 1px solid #295acc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 0 4px;
     height: 100%;
   }
@@ -5449,7 +5480,7 @@ span {
     background-color: #050e21;
     outline: none;
     border: 1px solid #295acc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 0 4px;
     height: 100%;
   }

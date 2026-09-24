@@ -2,6 +2,7 @@
 import { shallowRef, defineAsyncComponent, ref, onMounted, nextTick } from 'vue'
 import { propTypes } from '@/utils/propTypes'
 import { useEmitt } from '@/hooks/web/useEmitt'
+import ExportCenterWindow from '@/pages/panel/ExportCenterWindow.vue'
 
 const VisualizationEditor = defineAsyncComponent(
   () => import('@/views/data-visualization/index.vue')
@@ -12,6 +13,9 @@ const Dashboard = defineAsyncComponent(() => import('./DashboardPreview.vue'))
 const ViewWrapper = defineAsyncComponent(() => import('./ViewWrapper.vue'))
 const Iframe = defineAsyncComponent(() => import('./Iframe.vue'))
 const Dataset = defineAsyncComponent(() => import('@/views/visualized/data/dataset/index.vue'))
+const ExportExcel = defineAsyncComponent(
+  () => import('@/views/visualized/data/dataset/ExportExcel.vue')
+)
 const DatasetEditor = defineAsyncComponent(
   () => import('@/views/visualized/data/dataset/form/index.vue')
 )
@@ -48,7 +52,8 @@ const componentMap = {
   DashboardPanel,
   DatasetEditor,
   DashboardEmpty,
-  TemplateManage
+  TemplateManage,
+  ExportExcel
 }
 
 const isDataFilling = ref(false)
@@ -93,4 +98,5 @@ onMounted(() => {
   <template v-else>
     <component :is="currentComponent" :jsname="dataFillingPath"></component>
   </template>
+  <ExportCenterWindow></ExportCenterWindow>
 </template>

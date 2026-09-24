@@ -10,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -18,11 +19,12 @@ public class CorsConfig implements WebMvcConfigurer {
     @Value("${dataease.cors-strict:false}")
     private boolean corsStrict;
 
-
     @Value("#{'${dataease.origin-list:http://127.0.0.1:8100}'.split(',')}")
     private List<String> originList;
 
     private CorsRegistration operateCorsRegistration;
+
+    private List<String> mergedOrigins = List.of();
 
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {
@@ -44,12 +46,26 @@ public class CorsConfig implements WebMvcConfigurer {
     }
 
     public void addAllowedOrigins(List<String> origins) {
+        mergedOrigins = origins == null ? List.of() : origins.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .map(String::strip)
+                .toList();
+
         if (!corsStrict || CollectionUtils.isEmpty(origins)) {
             return;
         }
-        origins.addAll(originList);
-        List<String> newOrigins = origins.stream().distinct().toList();
-        String[] originArray = newOrigins.toArray(new String[0]);
-        operateCorsRegistration.allowedOrigins(originArray);
+        List<String> newOrigins = new ArrayList<>(origins);
+        newOrigins.addAll(originList);
+        operateCorsRegistration.allowedOrigins(newOrigins.stream().distinct().toArray(String[]::new));
+    }
+
+    public List<String> getAllOrigins() {
+        List<String> result = new ArrayList<>(originList);
+        result.addAll(mergedOrigins);
+        return result.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .map(String::strip)
+                .distinct()
+                .toList();
     }
 }

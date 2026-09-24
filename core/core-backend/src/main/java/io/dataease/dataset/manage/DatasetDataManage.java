@@ -1,4 +1,5 @@
 package io.dataease.dataset.manage;
+import io.dataease.utils.LogUtil;
 
 import io.dataease.api.chart.dto.DeSortField;
 import io.dataease.api.dataset.dto.*;
@@ -10,6 +11,7 @@ import io.dataease.api.permissions.dataset.dto.DataSetRowPermissionsTreeDTO;
 import io.dataease.api.permissions.user.vo.UserFormVO;
 import io.dataease.auth.bo.TokenUserBO;
 import io.dataease.chart.utils.ChartDataBuild;
+import io.dataease.commons.utils.SqlVariableHandleResult;
 import io.dataease.commons.utils.SqlparserUtils;
 import io.dataease.constant.AuthEnum;
 import io.dataease.constant.SQLConstants;
@@ -89,6 +91,8 @@ public class DatasetDataManage {
     private RowPermissionsApi rowPermissionsApi;
     @Resource
     private DataSourceManage dataSourceManage;
+    @Resource
+    private DatasetCacheManage datasetCacheManage;
 
     private static Logger logger = LoggerFactory.getLogger(DatasetDataManage.class);
 
@@ -104,6 +108,10 @@ public class DatasetDataManage {
         String type = datasetTableDTO.getType();
         DatasetTableInfoDTO tableInfoDTO = JsonUtil.parseObject(datasetTableDTO.getInfo(), DatasetTableInfoDTO.class);
         if (StringUtils.equalsIgnoreCase(type, DatasetTableType.DB) || StringUtils.equalsIgnoreCase(type, DatasetTableType.SQL)) {
+            if (StringUtils.equalsIgnoreCase(type, DatasetTableType.DB)) {
+                // check table name
+                datasetCacheManage.validateTable(datasetTableDTO.getDatasourceId(), tableInfoDTO.getTable());
+            }
             CoreDatasource coreDatasource = dataSourceManage.getCoreDatasource(datasetTableDTO.getDatasourceId());
             DatasourceSchemaDTO datasourceSchemaDTO = new DatasourceSchemaDTO();
             if (coreDatasource.getType().contains(DatasourceConfiguration.DatasourceType.Excel.name()) || coreDatasource.getType().contains(DatasourceConfiguration.DatasourceType.API.name())) {
@@ -140,8 +148,10 @@ public class DatasetDataManage {
             } else {
                 // parser sql params and replace default value
                 String s = new String(Base64.getDecoder().decode(tableInfoDTO.getSql()));
-                String originSql = new SqlparserUtils().handleVariableDefaultValue(s, datasetTableDTO.getSqlVariableDetails(), true, false, null, datasourceRequest.getIsCross(), datasourceRequest.getDsList(), pluginManage, getUserEntity());
-                originSql = provider.replaceComment(originSql);
+                s = provider.replaceComment(s);
+                SqlVariableHandleResult sqlResult = new SqlparserUtils().handleVariableDefaultValueWithPreparedParams(s, datasetTableDTO.getSqlVariableDetails(), true, false, null, datasourceRequest.getIsCross(), datasourceRequest.getDsList(), pluginManage, getUserEntity());
+                String originSql = sqlResult.getSql();
+                datasourceRequest.setTableFieldWithValues(sqlResult.getTableFieldWithValues());
                 // add sql table schema
 
                 if (!datasourceRequest.getIsCross()) {
@@ -172,6 +182,8 @@ public class DatasetDataManage {
             datasourceRequest.setTable(datasetTableDTO.getTableName());
             tableFields = provider.fetchTableField(datasourceRequest);
         } else {
+            // check table name
+            datasetCacheManage.validateTable(datasetTableDTO.getDatasourceId(), tableInfoDTO.getTable());
             // excel,api
             CoreDatasource coreDatasource = engineManage.getDeEngine();
             DatasourceSchemaDTO datasourceSchemaDTO = new DatasourceSchemaDTO();
@@ -278,6 +290,7 @@ public class DatasetDataManage {
         datasourceRequest.setQuery(querySQL);
         datasourceRequest.setDsList(dsMap);
         datasourceRequest.setIsCross(crossDs);
+        applyPreparedParams(datasourceRequest, sqlMap);
         Map<String, Object> data = provider.fetchResultField(datasourceRequest);
 
         Map<String, Object> map = new LinkedHashMap<>();
@@ -382,6 +395,7 @@ public class DatasetDataManage {
         datasourceRequest.setQuery(querySQL);
         datasourceRequest.setDsList(dsMap);
         datasourceRequest.setIsCross(crossDs);
+        applyPreparedParams(datasourceRequest, sqlMap);
 
         Provider provider;
         if (crossDs) {
@@ -412,6 +426,7 @@ public class DatasetDataManage {
             sqlLogDTO.setSpend(sqlLogDTO.getEndTime() - sqlLogDTO.getStartTime());
             sqlLogDTO.setStatus("Completed");
         } catch (Exception e) {
+            LogUtil.error(e);
             sqlLogDTO.setStatus("Error");
             DEException.throwException(e.getMessage());
         } finally {
@@ -421,6 +436,18 @@ public class DatasetDataManage {
             }
         }
         return map;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyPreparedParams(DatasourceRequest datasourceRequest, Map<String, Object> sqlMap) {
+        if (sqlMap == null) {
+            return;
+        }
+        List<TableFieldWithValue> tableFieldWithValues = (List<TableFieldWithValue>) sqlMap.get("tableFieldWithValues");
+        if (CollectionUtils.isEmpty(tableFieldWithValues)) {
+            return;
+        }
+        datasourceRequest.setTableFieldWithValues(tableFieldWithValues.stream().map(TableFieldWithValue::copy).toList());
     }
 
     private UserFormVO getUserEntity() {
@@ -456,8 +483,10 @@ public class DatasetDataManage {
         // parser sql params and replace default value
 
         String s = new String(Base64.getDecoder().decode(dto.getSql()));
-        String originSql = new SqlparserUtils().handleVariableDefaultValue(datasetSQLManage.subPrefixSuffixChar(s), dto.getSqlVariableDetails(), true, true, null, dto.getIsCross(), dsMap, pluginManage, getUserEntity());
-        originSql = provider.replaceComment(originSql);
+        s = provider.replaceComment(s);
+        SqlVariableHandleResult sqlResult = new SqlparserUtils().handleVariableDefaultValueWithPreparedParams(datasetSQLManage.subPrefixSuffixChar(s), dto.getSqlVariableDetails(), true, true, null, dto.getIsCross(), dsMap, pluginManage, getUserEntity());
+        String originSql = sqlResult.getSql();
+        datasourceRequest.setTableFieldWithValues(sqlResult.getTableFieldWithValues());
 
         // sql 作为临时表，外层加上limit
         String sql;
@@ -649,6 +678,7 @@ public class DatasetDataManage {
         datasourceRequest.setQuery(querySQL);
         datasourceRequest.setDsList(dsMap);
         datasourceRequest.setIsCross(crossDs);
+        applyPreparedParams(datasourceRequest, sqlMap);
 
         Map<String, Object> data = provider.fetchResultField(datasourceRequest);
         List<String[]> dataList = (List<String[]>) data.get("data");
@@ -680,7 +710,7 @@ public class DatasetDataManage {
         return previewData;
     }
 
-    public List<String> getFieldEnum(MultFieldValuesRequest multFieldValuesRequest) throws Exception {
+    public List<String> getFieldEnum(MultFieldValuesRequest multFieldValuesRequest, boolean withPermissions) throws Exception {
         if (CollectionUtils.isEmpty(multFieldValuesRequest.getFieldIds())) {
             return Collections.emptyList();
         }
@@ -726,12 +756,13 @@ public class DatasetDataManage {
             // 获取allFields
             List<DatasetTableFieldDTO> fields = Collections.singletonList(field);
             Map<String, ColumnPermissionItem> desensitizationList = new HashMap<>();
-            fields = permissionManage.filterColumnPermissions(fields, desensitizationList, datasetGroupInfoDTO.getId(), null);
-            if (ObjectUtils.isEmpty(fields)) {
-                DEException.throwException(Translator.get("i18n_no_column_permission"));
+            if (withPermissions) {
+                fields = permissionManage.filterColumnPermissions(fields, desensitizationList, datasetGroupInfoDTO.getId(), null);
+                if (ObjectUtils.isEmpty(fields)) {
+                    DEException.throwException(Translator.get("i18n_no_column_permission"));
+                }
             }
             buildFieldName(sqlMap, fields);
-
             List<String> dsList = new ArrayList<>();
             for (Map.Entry<Long, DatasourceSchemaDTO> next : dsMap.entrySet()) {
                 dsList.add(next.getValue().getType());
@@ -740,7 +771,7 @@ public class DatasetDataManage {
 
             List<DataSetRowPermissionsTreeDTO> rowPermissionsTree = new ArrayList<>();
             TokenUserBO user = AuthUtils.getUser();
-            if (user != null) {
+            if (user != null && withPermissions) {
                 rowPermissionsTree = permissionManage.getRowPermissionsTree(datasetGroupInfoDTO.getId(), user.getUserId());
             }
 
@@ -775,6 +806,7 @@ public class DatasetDataManage {
             datasourceRequest.setQuery(querySQL);
             datasourceRequest.setDsList(dsMap);
             datasourceRequest.setIsCross(crossDs);
+            applyPreparedParams(datasourceRequest, sqlMap);
 
             Map<String, Object> data = provider.fetchResultField(datasourceRequest);
             List<String[]> dataList = (List<String[]>) data.get("data");
@@ -1038,6 +1070,7 @@ public class DatasetDataManage {
         datasourceRequest.setQuery(querySQL);
         datasourceRequest.setDsList(dsMap);
         datasourceRequest.setIsCross(crossDs);
+        applyPreparedParams(datasourceRequest, sqlMap);
 
         Map<String, Object> data = provider.fetchResultField(datasourceRequest);
         List<String[]> dataList = (List<String[]>) data.get("data");
@@ -1239,6 +1272,7 @@ public class DatasetDataManage {
         datasourceRequest.setQuery(querySQL);
         datasourceRequest.setDsList(dsMap);
         datasourceRequest.setIsCross(crossDs);
+        applyPreparedParams(datasourceRequest, sqlMap);
 
         Map<String, Object> data = provider.fetchResultField(datasourceRequest);
         List<String[]> rows = (List<String[]>) data.get("data");

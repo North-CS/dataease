@@ -174,6 +174,22 @@ declare interface ChartBasicStyle {
    */
   lineSmooth: boolean
   /**
+   * 双线组合图左轴线宽
+   */
+  leftLineWidth: number
+  /**
+   * 双线组合图左轴折点形状
+   */
+  leftLineSymbol: string
+  /**
+   * 双线组合图左轴折点大小
+   */
+  leftLineSymbolSize: number
+  /**
+   * 双线组合图左轴平滑折线
+   */
+  leftLineSmooth: boolean
+  /**
    * 自适应
    */
   barDefault: boolean
@@ -209,6 +225,22 @@ declare interface ChartBasicStyle {
    * 散点气泡大小
    */
   scatterSymbolSize: number
+  /**
+   * 箱线图是否显示异常值点
+   */
+  showOutliers: boolean
+  /**
+   * 箱线图异常点颜色模式，默认跟随所属箱体或分组系列
+   */
+  outlierColorMode: 'series' | 'custom'
+  /**
+   * 箱线图异常点自定义颜色，仅在自定义颜色模式下生效
+   */
+  outlierColor: string
+  /**
+   * 箱线图异常点半径大小
+   */
+  outlierSize: number
   /**
    * 雷达图外形形状
    */
@@ -393,6 +425,18 @@ declare interface ChartBasicStyle {
    * 透视表行头宽度百分比
    */
   tableRowHeaderWidthPercent: number
+  /**
+   * 表格空数据提示字体颜色
+   */
+  tableEmptyFontColor: string
+  /**
+   * 表格空数据提示字体大小
+   */
+  tableEmptyFontSize: number
+  /**
+   * 主题反色，浅色主题黑色，深色主题白色
+   */
+  themeContrastColor?: string
 }
 /**
  * 表头属性
@@ -1115,6 +1159,15 @@ declare interface ChartTooltipAttr {
    * 格式化
    */
   tooltipFormatter: BaseFormatter
+  /**
+   * 是否显示指标值
+   */
+  showQuota?: boolean
+  /**
+   * 箱线图是否展开五数统计、样本数和异常值数量
+   * 关闭时仅显示分组字段以及指标中位数
+   */
+  showBoxPlotDetails?: boolean
   /**
    * 背景颜色
    */

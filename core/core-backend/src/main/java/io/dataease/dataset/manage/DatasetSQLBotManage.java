@@ -16,10 +16,12 @@ import io.dataease.auth.bo.TokenUserBO;
 import io.dataease.chart.dao.ext.mapper.ExtChartViewMapper;
 import io.dataease.commons.utils.EncryptUtils;
 import io.dataease.constant.ColumnPermissionConstants;
+import io.dataease.constant.SQLConstants;
 import io.dataease.dataset.dao.auto.entity.CoreDatasetGroup;
 import io.dataease.dataset.dao.ext.mapper.DataSetAssistantMapper;
 import io.dataease.dataset.utils.TableUtils;
 import io.dataease.datasource.dao.auto.entity.CoreDatasource;
+import io.dataease.datasource.manage.DataSourceManage;
 import io.dataease.datasource.manage.EngineManage;
 import io.dataease.engine.constant.ExtFieldConstant;
 import io.dataease.engine.sql.SQLProvider;
@@ -30,10 +32,7 @@ import io.dataease.engine.trans.WhereTree2Str;
 import io.dataease.engine.utils.Utils;
 import io.dataease.exception.DEException;
 import io.dataease.extensions.datasource.api.PluginManageApi;
-import io.dataease.extensions.datasource.dto.CalParam;
-import io.dataease.extensions.datasource.dto.DatasetTableFieldDTO;
-import io.dataease.extensions.datasource.dto.DatasourceSchemaDTO;
-import io.dataease.extensions.datasource.dto.FieldGroupDTO;
+import io.dataease.extensions.datasource.dto.*;
 import io.dataease.extensions.datasource.factory.ProviderFactory;
 import io.dataease.extensions.datasource.model.SQLMeta;
 import io.dataease.extensions.datasource.model.SQLObj;
@@ -56,10 +55,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import java.sql.SQLException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
+import java.sql.Types;
 
 @Component
 public class DatasetSQLBotManage {
@@ -86,6 +86,9 @@ public class DatasetSQLBotManage {
 
     @Autowired(required = false)
     private PluginManageApi pluginManage;
+
+    @Resource
+    private DataSourceManage dataSourceManage;
 
     @Value("${dataease.sqlbot.encrypt:false}")
     private boolean encryptEnabled;
@@ -125,7 +128,6 @@ public class DatasetSQLBotManage {
         DataSetColumnPermissionsDTO dataSetColumnPermissionsDTO = new DataSetColumnPermissionsDTO();
         dataSetColumnPermissionsDTO.setAuthTargetId(uid);
         dataSetColumnPermissionsDTO.setAuthTargetType("user");
-        // dataSetColumnPermissionsDTO.setEnable(true);
         List<DataSetColumnPermissionsDTO> dataSetColumnPermissionsDTOS = columnPermissionsApi.list(dataSetColumnPermissionsDTO);
 
         if (CollectionUtils.isNotEmpty(roleIds)) {
@@ -137,11 +139,9 @@ public class DatasetSQLBotManage {
                 for (DataSetColumnPermissionsDTO dto : roleDataSetColumnPermissionsDTOS) {
                     List<Long> userIdList = JsonUtil.parseList(dto.getWhiteListUser(), listTypeReference);
                     if (CollectionUtils.isEmpty(userIdList) || !userIdList.contains(uid)) {
-                        //  roleColumnPermissionsDTOS.add(columnPermissionsDTO);
                         dataSetColumnPermissionsDTOS.add(dto);
                     }
                 }
-                // dataSetColumnPermissionsDTOS.addAll(roleDataSetColumnPermissionsDTOS);
             }
         }
         if (CollectionUtils.isEmpty(dataSetColumnPermissionsDTOS)) {
@@ -154,7 +154,6 @@ public class DatasetSQLBotManage {
         List<DataSetRowPermissionsTreeDTO> datasetRowPermissions = permissionManage.getRowPermissionsTree(null, uid);
         return datasetRowPermissions.stream().collect(Collectors.groupingBy(DataSetRowPermissionsTreeDTO::getDatasetId));
     }
-
 
     public List<DataSQLBotDatasetVO> getDatasetList(String dvInfo) {
         return extChartViewMapper.findDataSQLBotDatasetDvId(dvInfo);
@@ -366,6 +365,10 @@ public class DatasetSQLBotManage {
             throw new RuntimeException(e);
         }
         String sql = (String) sqlMap.get("sql");
+        List<TableFieldWithValue> tableFieldWithValues = (List<TableFieldWithValue>) sqlMap.get("tableFieldWithValues");
+        if (CollectionUtils.isNotEmpty(tableFieldWithValues)) {
+            sql = replacePreparedPlaceholders(sql, tableFieldWithValues);
+        }
 
         // 获取allFields
         List<DatasetTableFieldDTO> fields = datasetGroupInfoDTO.getAllFields();
@@ -393,7 +396,6 @@ public class DatasetSQLBotManage {
                 }
                 return fieldColumnPermissionItems.stream().map(ColumnPermissionItem::getOpt).toList().contains(ColumnPermissionConstants.Desensitization);
             }).collect(Collectors.toList());
-            // fields = permissionManage.filterColumnPermissions(fields, desensitizationList, datasetGroupInfoDTO.getId(), null);
             if (ObjectUtils.isEmpty(fields)) {
                 DEException.throwException(Translator.get("i18n_no_column_permission"));
             }
@@ -470,22 +472,6 @@ public class DatasetSQLBotManage {
                 voIterator.remove();
             }
         }
-        /*vos.forEach(vo -> {
-            Map<String, Object> dsRowData = vo.getRowData();
-            List<SQLBotAssistanTable> tables = vo.getTables();
-            tables.forEach(table -> {
-                Long datasetGroupId = table.getDatasetGroupId();
-                List<DataSetColumnPermissionsDTO> columnPermissionsDTOS = ObjectUtils.isEmpty(colPermissionMap) ? null : colPermissionMap.get(datasetGroupId);
-                List<DataSetRowPermissionsTreeDTO> rowPermissionsTreeDTOS = ObjectUtils.isEmpty(rowPermissionMap) ? null : rowPermissionMap.get(datasetGroupId);
-                if (table.isNeedTransform() || ObjectUtils.isNotEmpty(columnPermissionsDTOS) || ObjectUtils.isNotEmpty(rowPermissionsTreeDTOS)) {
-                    try {
-                        rebuildTable(table, columnPermissionsDTOS, rowPermissionsTreeDTOS, dsRowData);
-                    } catch (Exception e) {
-                        LogUtil.error(e);
-                    }
-                }
-            });
-        });*/
     }
 
     private SQLBotAssistantField buildField(Map<String, Object> row) {
@@ -514,7 +500,6 @@ public class DatasetSQLBotManage {
         field.setRowData(fieldRowData);
         return field;
     }
-
 
     private DataSQLBotAssistantVO buildDs(Map<String, Object> row) {
         Object dsConfig = row.get("cd_configuration");
@@ -555,6 +540,38 @@ public class DatasetSQLBotManage {
         vo.setUser(config.getUsername());
         vo.setPassword(config.getPassword());
         vo.setMode(config.getConnectionType());
+        if (dsType.contains(DatasourceConfiguration.DatasourceType.sqlServer.name())) {
+            ConnectionObj connection = null;
+            try {
+                String datasourceId = row.get("cd_id").toString();
+                CoreDatasource coreDatasource = dataSourceManage.getCoreDatasource(Long.valueOf(datasourceId));
+                DatasourceSchemaDTO datasourceSchemaDTO = new DatasourceSchemaDTO();
+                if (coreDatasource.getType().contains(DatasourceConfiguration.DatasourceType.Excel.name()) || coreDatasource.getType().contains(DatasourceConfiguration.DatasourceType.API.name())) {
+                    coreDatasource = engineManage.getDeEngine();
+                }
+                if (StringUtils.isNotEmpty(coreDatasource.getStatus()) && !"Error".equalsIgnoreCase(coreDatasource.getStatus())) {
+                    BeanUtils.copyBean(datasourceSchemaDTO, coreDatasource);
+                    datasourceSchemaDTO.setSchemaAlias(String.format(SQLConstants.SCHEMA, datasourceSchemaDTO.getId()));
+                    Provider provider = ProviderFactory.getProvider(coreDatasource.getType());
+                    connection = provider.getConnection(datasourceSchemaDTO);
+                    // 获取数据库version
+                    if (connection != null) {
+                        datasourceSchemaDTO.setDsVersion(connection.getConnection().getMetaData().getDatabaseMajorVersion());
+                        vo.setLowVersion(datasourceSchemaDTO.getDsVersion() < 11);
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            } finally {
+                if (connection != null && connection.getConnection() != null) {
+                    try {
+                        connection.getConnection().close();
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }
         if (dsIdFixed) {
             vo.setId(Long.parseLong(row.get("cd_id").toString()));
         }
@@ -628,4 +645,35 @@ public class DatasetSQLBotManage {
         return table;
     }
 
+    private String replacePreparedPlaceholders(String sql, List<TableFieldWithValue> bindings) {
+        for (TableFieldWithValue binding : bindings) {
+            int idx = sql.indexOf('?');
+            if (idx < 0) {
+                break;
+            }
+            sql = sql.substring(0, idx) + toSqlLiteral(binding) + sql.substring(idx + 1);
+        }
+        return sql;
+    }
+
+    private String toSqlLiteral(TableFieldWithValue binding) {
+        Object value = binding.getValue();
+        if (value == null) {
+            return "NULL";
+        }
+        Integer type = binding.getType();
+        if (type != null) {
+            switch (type) {
+                case Types.BIGINT:
+                case Types.INTEGER:
+                case Types.DECIMAL:
+                case Types.NUMERIC:
+                case Types.FLOAT:
+                case Types.DOUBLE:
+                case Types.BOOLEAN:
+                    return value.toString();
+            }
+        }
+        return "'" + value.toString().replace("'", "''") + "'";
+    }
 }

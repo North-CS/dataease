@@ -171,7 +171,7 @@ const onComponentNameChange = () => {
       <el-icon
         :title="title"
         :class="['custom-icon-' + themeInfo, 'collapse-icon-' + themeInfo]"
-        size="20px"
+        size="16"
         @click="collapseChange"
       >
         <Expand
@@ -258,7 +258,7 @@ const onComponentNameChange = () => {
   }
   .custom-icon {
     position: absolute;
-    right: 5px;
+    right: 9px;
     top: 12px;
     cursor: pointer;
   }
@@ -302,7 +302,7 @@ const onComponentNameChange = () => {
 }
 
 .collapse-icon-dark {
-  color: @canvas-main-font-color-dark;
+  color: #a6a6a6;
   cursor: pointer;
 }
 
@@ -324,7 +324,7 @@ const onComponentNameChange = () => {
     width: 100%;
     outline: none;
     border: 1px solid #295acc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 0 4px;
     height: 100%;
   }
@@ -339,7 +339,7 @@ const onComponentNameChange = () => {
     background-color: #050e21;
     outline: none;
     border: 1px solid #295acc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 0 4px;
     height: 100%;
   }

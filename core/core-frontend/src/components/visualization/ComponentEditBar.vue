@@ -94,6 +94,7 @@
       placement="right-start"
       v-if="barShowCheck('setting')"
       ref="curDropdown"
+      popper-class="hide-focus_bg"
     >
       <el-icon class="bar-base-icon">
         <el-tooltip :content="t('visualization.more')" effect="dark" placement="bottom">
@@ -120,7 +121,7 @@
               >{{ t('visualization.show_data_info') }}</el-dropdown-item
             >
             <el-dropdown-item
-              style="padding: 0"
+              style="padding: 0; padding-left: 8px"
               v-if="
                 !['picture-group', 'rich-text'].includes(element.innerType) &&
                 barShowCheck('download') &&
@@ -131,13 +132,8 @@
             >
               <el-dropdown style="width: 100%" trigger="hover" placement="right-start">
                 <div
-                  class="flex-align-center"
-                  style="
-                    position: relative;
-                    width: 100%;
-                    padding: 5px 32px 5px 16px;
-                    line-height: 24px;
-                  "
+                  class="flex-align-center dropdown-in_dropdown-item"
+                  style="position: relative; width: 100%; line-height: 32px"
                 >
                   {{ t('visualization.export_as') }}
                   <el-icon size="16px" style="position: absolute; right: 8px; margin-right: 0"
@@ -250,7 +246,7 @@ import { ElMessage, ElTooltip, ElButton } from 'element-plus-secondary'
 import CustomTabsSort from '@/custom-component/de-tabs/CustomTabsSort.vue'
 import { exportPivotExcel } from '@/views/chart/components/js/panel/common/common_table'
 import { XpackComponent } from '@/components/plugin'
-import { exportPermission, isMobile } from '@/utils/utils'
+import { exportPermission, isMobile, shareAllows } from '@/utils/utils'
 import { isMainCanvas } from '@/utils/canvasUtils'
 const dvMainStore = dvMainStoreWithOut()
 const snapshotStore = snapshotStoreWithOut()
@@ -315,6 +311,7 @@ const componentTypeBarShow = {
 }
 
 const barShowCheck = barName => {
+  if (barName === 'details' && !shareAllows(1)) return false
   return (
     positionBarShow[showPosition.value] &&
     positionBarShow[showPosition.value].includes(barName) &&
@@ -364,6 +361,7 @@ const {
   mobileInPc,
   dvInfo,
   isPopWindow,
+  publicLinkStatus,
   hiddenListStatus
 } = storeToRefs(dvMainStore)
 
@@ -466,6 +464,7 @@ const callbackExport = () => {
   useEmitt().emitter.emit('data-export-center', { activeName: 'IN_PROGRESS' })
 }
 const exportAsFormattedExcel = () => {
+  if (!shareAllows(2)) return
   const s2Instance = dvMainStore.getViewInstanceInfo(element.value.id)
   if (!s2Instance) {
     return
@@ -475,6 +474,7 @@ const exportAsFormattedExcel = () => {
 }
 
 const exportAsExcel = () => {
+  if (!shareAllows(2)) return
   const viewDataInfo = dvMainStore.getViewDataDetails(element.value.id)
   const chartExtRequest = dvMainStore.getLastViewRequestInfo(element.value.id)
   const viewInfo = dvMainStore.getViewDetails(element.value.id)
@@ -484,6 +484,7 @@ const exportAsExcel = () => {
   })
 }
 const exportAsImage = () => {
+  if (!shareAllows(4)) return
   emits('componentImageDownload')
 }
 const deleteComponent = () => {
@@ -633,7 +634,9 @@ const initCurFields = () => {
 }
 
 const showDownload = computed(
-  () => canvasViewInfo.value[element.value.id]?.dataFrom !== 'template' && !isPopWindow.value
+  () =>
+    canvasViewInfo.value[element.value.id]?.dataFrom !== 'template' &&
+    (!isPopWindow.value || publicLinkStatus.value)
 )
 // 富文本-End
 
@@ -725,5 +728,21 @@ watch(
 .bar-checkbox-area {
   padding: 0 5px;
   height: 24px;
+}
+</style>
+
+<style lang="less">
+.ed-dropdown:has(.dropdown-in_dropdown-item) {
+  :focus-visible {
+    outline: none;
+  }
+}
+.ed-dropdown__popper.hide-focus_bg .ed-dropdown-menu__item:not(.is-disabled) {
+  &:focus {
+    background-color: transparent;
+  }
+  &:hover {
+    background-color: #1f23291a;
+  }
 }
 </style>

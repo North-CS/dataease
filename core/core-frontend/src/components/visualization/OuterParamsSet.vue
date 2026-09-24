@@ -1,7 +1,8 @@
 <template>
   <el-dialog
     class="params-class"
-    :append-to-body="true"
+    append-to-body
+    :before-close="cancelDialog"
     :title="t('visualization.outer_param_set')"
     v-model="state.outerParamsSetVisible"
     width="80vw"
@@ -362,7 +363,7 @@
         </el-row>
       </el-row>
       <el-row class="root-class">
-        <el-button @click="cancel()">{{ t('commons.cancel') }} </el-button>
+        <el-button @click="cancelDialog">{{ t('commons.cancel') }} </el-button>
         <el-button type="primary" @click="save()">{{ t('commons.confirm') }} </el-button>
       </el-row>
     </el-row>
@@ -491,7 +492,16 @@ const setArgRef = (el, id) => {
     argRefs.value[id] = el
   }
 }
-
+const cancelDialog = () => {
+  if (state.outerParamsInfo?.filterInfo?.length || state.outerParamsInfo?.datasetInfo?.length) {
+    state.outerParamsInfo.filterInfo = []
+    state.outerParamsInfo.datasetInfo = []
+    state.outerParamsInfoArray = []
+    state.curNodeId = null
+  }
+  state.outerParamsSetVisible = false
+  curEditDataId.value = null
+}
 const validateArgs = (val, id) => {
   const cref = argRefs.value[id]
   const e = cref.input
@@ -669,10 +679,6 @@ const paramsCheckedAdaptor = (outerParamsInfo, newBaseFilterInfo, newBaseDataset
   }
   outerParamsInfo['filterInfo'] = newBaseFilterInfo
   outerParamsInfo['datasetInfo'] = newBaseDatasetInfo
-}
-
-const cancel = () => {
-  state.outerParamsSetVisible = false
 }
 
 const jsonArrayCheck = params => {
@@ -859,7 +865,7 @@ defineExpose({
 .preview {
   margin-top: 5px;
   border: 1px solid #e6e6e6;
-  border-radius: 4px;
+  border-radius: 6px;
   height: 470px !important;
   overflow: hidden;
   background-size: 100% 100% !important;
@@ -1120,7 +1126,7 @@ defineExpose({
 .expand-custom {
   width: 16px;
   height: 16px;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 0px 1px;
   color: rgba(100, 106, 115, 1);
   &:hover {
@@ -1131,7 +1137,7 @@ defineExpose({
 
 .ds-view-content {
   width: calc(100% - 16px);
-  border-radius: 4px;
+  border-radius: 6px;
   margin: 8px 16px 0 16px;
   padding: 12px;
   background: rgba(245, 246, 247, 1);
