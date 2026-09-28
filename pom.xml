@@ -44,6 +44,7 @@
         <bcprov-jdk18on.version>1.85</bcprov-jdk18on.version>
         <junit.version>4.13.2</junit.version>
         <httpclient.version>4.5.14</httpclient.version>
+        <poi.version>5.4.0</poi.version>
         <httpcore.version>4.4.16</httpcore.version>
         <easyexcel.version>4.0.3</easyexcel.version>
         <commons-io.version>2.16.1</commons-io.version>
