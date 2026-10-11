@@ -58,6 +58,12 @@ public interface DataFillingApi {
     @GetMapping("delete/{id}")
     void delete(@PathVariable("id") Long id);
 
+    @Operation(summary = "删除数据填报（二开：可选删除底层物理表）")
+    @DePermit({"#p0+':manage'"})
+    @PostMapping("delete/{id}")
+    void deleteWithDropTable(@PathVariable("id") Long id,
+                             @RequestParam(value = "dropTable", required = false, defaultValue = "false") boolean dropTable);
+
     @Operation(summary = "获取创建数据填报表单用的数据源列表")
     @GetMapping("/datasource/list")
     List<SimpleDatasourceDTO> listDatasourceList();
