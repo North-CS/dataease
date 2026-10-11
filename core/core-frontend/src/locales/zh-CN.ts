@@ -4243,6 +4243,10 @@ export default {
     delete_folder_hint: '删除后，此文件夹下的所有资源都会被删除，请谨慎操作。',
     confirm_delete_folder: '确定删除该文件夹吗',
     confirm_delete_form: '确定删除该表单吗',
+    delete_form_warn: '删除后该填报将无法恢复。',
+    delete_form_warn_dataset:
+      '若底层数据表已被数据集等引用，勾选「同时删除底层数据表」会删除物理表且不可恢复，请谨慎操作。',
+    delete_form_drop_table: '同时删除底层数据表',
     confirm_delete_multiple_data: '确定删除 {0} 条数据吗？',
     confirm_delete_data: '确定删除数据？',
     no_form: '暂无表单',

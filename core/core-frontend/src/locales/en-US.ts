@@ -3969,6 +3969,10 @@ export default {
       'After deletion, all resources under this folder will be deleted. Please operate with caution.',
     confirm_delete_folder: 'Are you sure you want to delete this folder?',
     confirm_delete_form: 'Are you sure you want to delete this form?',
+    delete_form_warn: 'Once deleted, this data entry form cannot be recovered.',
+    delete_form_warn_dataset:
+      'If the underlying table is referenced by a dataset or similar, checking "Also delete the underlying table" will drop the physical table irreversibly. Please proceed with caution.',
+    delete_form_drop_table: 'Also delete the underlying table',
     confirm_delete_multiple_data: 'Are you sure you want to delete {0} pieces of data?',
     confirm_delete_data: 'Are you sure you want to delete the data? ',
     no_form: 'No form yet',
@@ -4081,8 +4085,10 @@ export default {
       batch_set_type: 'Batch set type',
       apply_to_all: 'Apply to all',
       map_name_success: 'Mapped {0} field name(s) to column names',
-      map_name_empty: 'No field to map. Please check whether all fields are bound to existing columns or have a name.',
-      map_name_overwrite_confirm: 'This will overwrite the column names already filled in. Continue?',
+      map_name_empty:
+        'No field to map. Please check whether all fields are bound to existing columns or have a name.',
+      map_name_overwrite_confirm:
+        'This will overwrite the column names already filled in. Continue?',
       map_reset_empty: 'Nothing to reset',
       map_reset_success: 'Column names restored',
       batch_type_empty: 'Please select a column type first',

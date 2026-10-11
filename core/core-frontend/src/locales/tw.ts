@@ -4236,6 +4236,10 @@ export default {
     delete_folder_hint: '刪除後，此資料夾下的所有資源都會被刪除，請謹慎操作。 ',
     confirm_delete_folder: '確定刪除該資料夾嗎',
     confirm_delete_form: '確定刪除該表單嗎',
+    delete_form_warn: '刪除後該填報將無法恢復。',
+    delete_form_warn_dataset:
+      '若底層資料表已被資料集等引用，勾選「同時刪除底層資料表」會刪除實體表且不可恢復，請謹慎操作。',
+    delete_form_drop_table: '同時刪除底層資料表',
     confirm_delete_multiple_data: '確定刪除{0} 資料嗎？ ',
     confirm_delete_data: '確定刪除資料？ ',
     no_form: '暫無表單',
