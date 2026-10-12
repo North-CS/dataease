@@ -234,3 +234,25 @@ export const findTaskInfoByIdApi = (taskId: string) => {
 export const getDatasourceTableListApi = (dsId: string) => {
   return request.get({ url: `/sync/datasource/table/list/${dsId}` })
 }
+
+/**
+ * 导出字段映射 Excel（以源表字段为基准生成模板，已映射字段带出当前配置）
+ */
+export const exportFieldMappingApi = data => {
+  return request.post({
+    url: '/sync/task/field/export',
+    data,
+    responseType: 'blob'
+  })
+}
+
+/**
+ * 解析字段映射 Excel，返回预览结果（不落库）
+ */
+export const importFieldMappingApi = data => {
+  return request.post({
+    url: '/sync/task/field/import',
+    headersType: 'multipart/form-data',
+    data
+  })
+}

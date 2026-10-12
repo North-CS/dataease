@@ -2,8 +2,10 @@ package io.dataease.api.sync.task.api;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.github.xiaoymin.knife4j.annotations.ApiSupport;
+import io.dataease.api.sync.task.dto.FieldMappingExcelRequest;
 import io.dataease.api.sync.task.dto.TaskGridRequest;
 import io.dataease.api.sync.task.dto.TaskInfoDTO;
+import io.dataease.api.sync.task.vo.FieldImportVO;
 import io.dataease.api.sync.task.vo.TaskInfoVO;
 import io.dataease.auth.DeApiPath;
 import io.dataease.exception.DEException;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -72,5 +76,21 @@ public interface TaskApi {
 
     @GetMapping("/getLogResourceId/{id}")
     Long getLogResourceId(@PathVariable("id") String id);
+
+    /**
+     * 导出字段映射 Excel（以源表字段为基准生成模板，已映射字段带出当前配置）
+     */
+    @Operation(hidden = true)
+    @PostMapping("/field/export")
+    void exportFieldTemplate(@RequestBody FieldMappingExcelRequest request) throws DEException;
+
+    /**
+     * 解析字段映射 Excel，仅校验并返回预览结果，不落库
+     */
+    @Operation(hidden = true)
+    @PostMapping("/field/import")
+    FieldImportVO importField(@RequestParam("file") MultipartFile file,
+                              @RequestParam("mode") String mode,
+                              @RequestParam("context") String context) throws DEException;
 
 }
