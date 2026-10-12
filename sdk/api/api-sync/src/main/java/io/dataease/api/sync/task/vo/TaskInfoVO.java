@@ -142,4 +142,14 @@ public class TaskInfoVO {
      */
     private Integer taskType;
 
+    /**
+     * 父节点ID:目录或任务组（per_sync_tree.id）
+     */
+    private String parentId;
+
+    /**
+     * 组内忽略执行（任务组成员有效，true 时不参与组执行）
+     */
+    private Boolean skipExecute;
+
 }
