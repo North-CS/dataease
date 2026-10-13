@@ -4321,6 +4321,11 @@ export default {
     es_query_param_formatter_error:
       'Query parameter format error, please enter the correct JSON format, please check',
     show_task_id: 'View Task ID',
+    copy_task: 'Copy Task',
+    copy_stale_fields_title: 'Field Mapping Check',
+    copy_stale_fields_tip: 'The following fields no longer exist in the current source table. Their mappings will be removed: {0}',
+    copy_stale_fields_confirm: 'Remove and Continue',
+    copy_stale_fields_cancel: 'Go Back',
     offset: 'Offset',
     offset_tip: 'Offset: negative for backward, positive for forward',
     millisecond: 'Millisecond',
