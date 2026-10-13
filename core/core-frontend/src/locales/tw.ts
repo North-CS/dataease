@@ -3955,6 +3955,7 @@ export default {
     schedule_fix_rate_tip: '格式：數字+m/h/d，例如 5m 表示每 5 分鐘執行一次',
     schedule_conf_required: '調度配置不能為空',
     scheduled_badge: '定時調度中',
+    schedule_time_tip: '提示：開始時間不填預設立即生效；結束時間不填表示長期有效',
     schedule_by_group: '該任務歸屬任務組，調度由任務組統一管理，此處配置不生效',
     group_no_child: '任務組為最末層級，不能在其下創建子目錄或任務組',
     root_folder: '頂級目錄（第一層）',

@@ -42,6 +42,16 @@ public class SyncTreeNodeVO {
     private String schedulerConf;
 
     /**
+     * 调度开始时间(yyyy-MM-dd HH:mm)，仅group有效
+     */
+    private String startTime;
+
+    /**
+     * 调度结束时间(yyyy-MM-dd HH:mm)，仅group有效
+     */
+    private String stopTime;
+
+    /**
      * 任务组失败策略
      */
     private String failPolicy;

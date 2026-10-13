@@ -24,6 +24,16 @@ public class GroupScheduleRequest {
     private String schedulerConf;
 
     /**
+     * 开始时间(yyyy-MM-dd HH:mm)，空表示立即生效
+     */
+    private String startTime;
+
+    /**
+     * 结束时间(yyyy-MM-dd HH:mm)，空表示不限
+     */
+    private String stopTime;
+
+    /**
      * 失败策略:CONTINUE 某任务失败后继续执行后续任务/ABORT 立即中止整组
      */
     private String failPolicy;

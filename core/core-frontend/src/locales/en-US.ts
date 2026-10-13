@@ -3722,6 +3722,7 @@ export default {
     schedule_fix_rate_tip: 'Format: number+m/h/d, e.g. 5m means every 5 minutes',
     schedule_conf_required: 'Schedule configuration cannot be empty',
     scheduled_badge: 'Scheduled',
+    schedule_time_tip: 'Tip: leave start empty to take effect immediately; leave end empty for no end',
     schedule_by_group: 'This task belongs to a task group; scheduling is managed by the group and this configuration will not take effect',
     group_no_child: 'Task group is the last level; no sub-folders or sub-groups allowed',
     root_folder: 'Top level',

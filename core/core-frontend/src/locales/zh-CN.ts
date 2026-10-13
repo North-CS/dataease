@@ -3958,6 +3958,7 @@ export default {
     schedule_fix_rate_tip: '格式：数字+m/h/d，例如 5m 表示每 5 分钟执行一次',
     schedule_conf_required: '调度配置不能为空',
     scheduled_badge: '定时调度中',
+    schedule_time_tip: '提示：开始时间不填默认立即生效；结束时间不填表示长期有效',
     schedule_by_group: '该任务归属任务组，调度由任务组统一管理，此处配置不生效',
     group_no_child: '任务组为最末层级，不能在其下创建子目录或任务组',
     root_folder: '顶级目录（第一层）',
