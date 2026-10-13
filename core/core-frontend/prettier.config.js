@@ -16,5 +16,7 @@ module.exports = {
     arrowParens: 'avoid',     
     // 对象大括号内两边是否加空格 { a:0 }
     bracketSpacing: true,      
+    // 换行符保留文件现有（Windows 工作区为 CRLF，仓库统一 LF，检出时 text=auto 转 CRLF）
+    endOfLine: 'auto',         
   }
   
