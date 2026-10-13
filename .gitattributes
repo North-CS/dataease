@@ -1,7 +1,33 @@
-*.sql linguist-language=java
-*.yml linguist-language=Java
-*.html linguist-language=Java
-*.js linguist-language=Java
-*.xml linguist-language=Java
-*.css linguist-language=Java
-*.ts linguist-language=Java
+# DataEase 统一行尾规范
+# 所有文本文件在仓库内统一以 LF 存储；检出时按本机平台转换（Windows 为 CRLF）。
+# 这样各平台协作者/编辑器写入的行尾差异不会再被 git 误判为"修改"。
+* text=auto
+
+# 明确标记二进制文件，防止被 text=auto 误判为文本导致损坏
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.tif binary
+*.tiff binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+*.jar binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.7z binary
+*.DS_Store binary
+
+# Windows 批处理/脚本保留 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Linux/Unix 脚本保留 LF
+*.sh text eol=lf
