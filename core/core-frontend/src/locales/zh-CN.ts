@@ -4698,5 +4698,25 @@ export default {
     content_type: '内容类型',
     del_confirm: '确定删除该 Webhook吗？',
     batch_del_confirm: '确定删除 {0} 个 Webhook吗'
+  },
+  jd_sync: {
+    jingme: '京ME',
+    base_url: '服务地址',
+    app_key: 'APP Key',
+    app_secret: 'APP Secret',
+    robot_id: 'Robot ID',
+    open_team_id: '开放团队 ID',
+    tenant_id: '租户 ID',
+    scene: 'scene',
+    erp: '操作人 erp',
+    tenant_code: 'tenantCode',
+    page_id: 'pageId',
+    notify_channel: '通知方式',
+    email: '邮件',
+    recipient: '接收人',
+    success_recipient: '成功接收人',
+    fail_recipient: '失败接收人',
+    choose_recipient: '请选择成功或失败接收人',
+    sheet_id: '页签 ID'
   }
 }
