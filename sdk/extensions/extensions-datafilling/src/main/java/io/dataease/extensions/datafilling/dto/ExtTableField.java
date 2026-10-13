@@ -114,9 +114,10 @@ public class ExtTableField implements Serializable {
 
         private BaseType type;
 
-        //长度
+        // Target-provider parameter: MySQL character count / Doris UTF-8 byte count;
+        // for decimal, total precision. Null preserves the provider default.
         private Integer size;
-        //精度
+        // Decimal scale (0 is valid).
         private Integer accuracy;
 
         private boolean useExistsTable;

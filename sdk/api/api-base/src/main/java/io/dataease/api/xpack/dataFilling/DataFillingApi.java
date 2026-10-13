@@ -26,6 +26,24 @@ import static io.dataease.constant.AuthResourceEnum.DATA_FILLING;
 @DeApiPath(value = "/data-filling", rt = DATA_FILLING)
 public interface DataFillingApi {
 
+    @Operation(summary = "从 Excel 解析表单草稿，不创建表或导入数据")
+    @PostMapping(value = "/excel/parse", consumes = "multipart/form-data")
+    ExcelParseResponse parseExcel(@RequestParam("file") MultipartFile file,
+                                 @RequestParam("datasourceId") Long datasourceId,
+                                 @RequestParam(value = "sheetIndex", required = false) Integer sheetIndex,
+                                 @RequestParam(value = "headerRowNumber", defaultValue = "1") int headerRowNumber,
+                                 @RequestParam(value = "options", required = false) String options) throws Exception;
+
+    @Operation(summary = "下载 Excel 自动建表单模板（二开）")
+    @GetMapping("/excel/template")
+    void excelFormTemplate(HttpServletResponse response) throws Exception;
+
+    @Operation(summary = "删除数据填报（二开：可选删除底层物理表）")
+    @DePermit({"#p0+':manage'"})
+    @PostMapping("delete/{id}")
+    void deleteWithDropTable(@PathVariable("id") Long id,
+                             @RequestParam(value = "dropTable", required = false, defaultValue = "false") boolean dropTable);
+
     @Operation(summary = "查询列表")
     @PostMapping("tree")
     List<BusiNodeVO> tree(@RequestBody BusiNodeRequest request) throws DEException;

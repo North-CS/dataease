@@ -90,4 +90,7 @@ public class DataFillingDTO implements Serializable {
     private String updater;
 
     private boolean useExistsTable;
+
+    /** Present only on an Excel-created form's first save; UUID used for durable idempotency. */
+    private String excelCreateRequestId;
 }

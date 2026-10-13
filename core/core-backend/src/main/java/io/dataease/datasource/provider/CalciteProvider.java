@@ -1209,7 +1209,9 @@ public class CalciteProvider extends Provider {
                 if (database.contains(".")) {
                     sql = "select * from " + datasourceRequest.getTable() + " limit 0 offset 0 ";
                 } else {
-                    sql = String.format("SELECT COLUMN_NAME,DATA_TYPE,COLUMN_COMMENT,IF(COLUMN_KEY='PRI',1,0),IF(EXTRA LIKE '%%auto_increment%%',1,0) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'", database, datasourceRequest.getTable());
+                    // Doris/StarRocks 的 UNIQUE KEY 列在 information_schema.COLUMNS 中 COLUMN_KEY='UNI'（非 'PRI'），
+                    // 需与 'PRI' 一并视为主键，否则数据填报 saveRowData 无法识别主键
+                    sql = String.format("SELECT COLUMN_NAME,DATA_TYPE,COLUMN_COMMENT,IF(COLUMN_KEY IN ('PRI','UNI'),1,0),IF(EXTRA LIKE '%%auto_increment%%',1,0) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'", database, datasourceRequest.getTable());
                 }
                 break;
             case mysql:

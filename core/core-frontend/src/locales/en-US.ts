@@ -3927,6 +3927,38 @@ export default {
     save_apply: 'Save and apply'
   },
   data_fill: {
+    excel: {
+      title: 'Create form from Excel',
+      description:
+        'Excel is used to infer fields and preview only; no rows are imported. The selected sheet is fully scanned and overrides are revalidated. Supports .xlsx/.xls, up to 20 MiB, 50,000 rows, 200 columns and 1,000,000 cells. Formulas and merged cells are unsupported.',
+      file: 'Excel file',
+      sheet: 'Worksheet',
+      header_row: 'Header row',
+      parse: 'Parse / Reparse',
+      template: 'Download template',
+      form_name: 'Form name',
+      table_name: 'Physical table name',
+      scanned: 'Fully scanned {rows} data rows',
+      include: 'Include',
+      column: 'Column',
+      original_header: 'Original header',
+      label: 'Display name',
+      column_name: 'Physical column',
+      type: 'Field type',
+      size: 'Length / Precision',
+      scale: 'Scale',
+      issues: 'Issues to resolve',
+      preview: 'Data preview (up to 20 rows)',
+      row: 'Excel row',
+      design: 'Validate and design',
+      create: 'Create form (structure only)',
+      parse_failed: 'Parsing failed. Check the workbook and retry.',
+      resolve_issues:
+        'Resolve issues in all included columns and confirm again. Empty-column and text proposals can be explicitly confirmed.',
+      invalid_table:
+        'Use a lowercase letter followed by lowercase letters, digits or underscores, at most 50 characters.',
+      new_table_only: 'Excel proposals must create a new physical table.'
+    },
     data_fill: 'Data filling',
     fill_in_the_task: 'Filling task',
     data_fill_name: 'Data filling name',
