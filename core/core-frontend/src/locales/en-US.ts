@@ -3802,6 +3802,7 @@ export default {
     sync: 'Synchronize',
     target_table: 'Target table',
     batch_del: 'Batch delete',
+    batch_move: 'Batch Move',
     selection_info: '{0} items selected',
     clear_button: 'Clear',
     task_text: 'Task',

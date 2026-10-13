@@ -4032,6 +4032,7 @@ export default {
     sync: '同步',
     target_table: '目标表',
     batch_del: '批量删除',
+    batch_move: '批量移动',
     selection_info: '已选 {0} 项',
     clear_button: '清空',
     task_text: '任务',
