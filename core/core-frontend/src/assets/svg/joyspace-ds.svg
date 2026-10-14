@@ -1,4 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-  <rect width="24" height="24" rx="4" fill="#E1251B"/>
-  <text x="12" y="16" text-anchor="middle" font-size="9" font-family="Arial, sans-serif" fill="#FFFFFF">JS</text>
+  <g transform="translate(1.6,5.4) rotate(-14 6.8 6.8)">
+    <rect width="13.6" height="13.6" rx="3.6" fill="#F6C4C0"/>
+  </g>
+  <g transform="translate(8.2,4) rotate(-14 6.8 6.8)">
+    <rect width="13.6" height="13.6" rx="3.6" fill="#E53935"/>
+  </g>
 </svg>
