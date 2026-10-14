@@ -152,4 +152,9 @@ public class TaskInfoVO {
      */
     private Boolean skipExecute;
 
+    /**
+     * 待编辑任务：批量复制生成（isDraft=true 不参与任何执行），编辑保存后转正
+     */
+    private Boolean isDraft;
+
 }

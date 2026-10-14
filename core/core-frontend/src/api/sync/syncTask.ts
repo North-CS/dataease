@@ -223,6 +223,17 @@ export const batchRemoveApi = (taskIds: string[]) => {
   return request.post({ url: `/sync/task/batch/del`, data: taskIds })
 }
 
+/**
+ * 批量复制任务为「待编辑任务」：直接落库、不执行，编辑保存后转正
+ */
+export const batchCopyTaskApi = (taskIds: string[], targetNodeId: string) => {
+  return request.post({ url: `/sync/task/batch/copy`, data: { taskIds, targetNodeId } })
+}
+
+export const groupCopyTaskApi = (groupId: string, targetNodeId: string) => {
+  return request.post({ url: `/sync/task/group/copy`, data: { groupId, targetNodeId } })
+}
+
 export const modifyApi = (data: ITaskInfoUpdateReq) => {
   return request.post({ url: `/sync/task/update`, data: data })
 }

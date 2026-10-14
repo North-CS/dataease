@@ -3,6 +3,8 @@ package io.dataease.api.sync.task.api;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.github.xiaoymin.knife4j.annotations.ApiSupport;
 import io.dataease.api.sync.task.dto.FieldMappingExcelRequest;
+import io.dataease.api.sync.task.dto.GroupCopyRequest;
+import io.dataease.api.sync.task.dto.TaskBatchCopyRequest;
 import io.dataease.api.sync.task.dto.TaskGridRequest;
 import io.dataease.api.sync.task.dto.TaskInfoDTO;
 import io.dataease.api.sync.task.vo.FieldImportVO;
@@ -66,6 +68,19 @@ public interface TaskApi {
     @Operation(hidden = true)
     @PostMapping("/batch/del")
     void batchDelete(@RequestBody List<String> ids) throws DEException;
+
+    @Operation(hidden = true)
+    @PostMapping("/batch/copy")
+    void batchCopy(@RequestBody TaskBatchCopyRequest request) throws DEException;
+
+    /**
+     * 任务组复制：在目标目录下新建任务组，组内成员复制为待编辑任务
+     *
+     * @return 新任务组节点 ID
+     */
+    @Operation(hidden = true)
+    @PostMapping("/group/copy")
+    String groupCopy(@RequestBody GroupCopyRequest request) throws DEException;
 
     @Operation(hidden = true)
     @GetMapping("/count")
