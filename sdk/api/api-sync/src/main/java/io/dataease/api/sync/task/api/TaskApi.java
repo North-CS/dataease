@@ -82,10 +82,6 @@ public interface TaskApi {
     @PostMapping("/group/copy")
     String groupCopy(@RequestBody GroupCopyRequest request) throws DEException;
 
-    @Operation(hidden = true)
-    @GetMapping("/count")
-    Long count() throws DEException;
-
     @GetMapping("/query2Root/{id}")
     String query2Root(@PathVariable("id") Long id);
 
