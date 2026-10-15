@@ -10,6 +10,7 @@ import java.util.List;
 public class ExcelParseResponse {
     private String datasourceId;
     private String datasourceType;
+    private boolean chineseColumnNamesSupported;
     private String suggestedFormName;
     private String suggestedTableName;
     private List<Sheet> sheets = new ArrayList<>();
@@ -30,6 +31,8 @@ public class ExcelParseResponse {
         private int sourceColumnIndex;
         private String sourceColumnLetter;
         private String originalHeader;
+        /** ORIGINAL, CUSTOM, GENERATED_INVALID, GENERATED_UNSUPPORTED, or GENERATED_DUPLICATE. */
+        private String columnNameReason;
         private boolean included = true;
         private ExtTableField field;
         private int nonEmptyCount;

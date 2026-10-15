@@ -38,12 +38,6 @@ public interface DataFillingApi {
     @GetMapping("/excel/template")
     void excelFormTemplate(HttpServletResponse response) throws Exception;
 
-    @Operation(summary = "删除数据填报（二开：可选删除底层物理表）")
-    @DePermit({"#p0+':manage'"})
-    @PostMapping("delete/{id}")
-    void deleteWithDropTable(@PathVariable("id") Long id,
-                             @RequestParam(value = "dropTable", required = false, defaultValue = "false") boolean dropTable);
-
     @Operation(summary = "查询列表")
     @PostMapping("tree")
     List<BusiNodeVO> tree(@RequestBody BusiNodeRequest request) throws DEException;
