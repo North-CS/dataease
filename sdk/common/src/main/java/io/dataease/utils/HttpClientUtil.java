@@ -66,7 +66,7 @@ public class HttpClientUtil {
                 return HttpClientBuilder.create().build();
             }
         } catch (Exception e) {
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         }
     }
 
@@ -86,7 +86,7 @@ public class HttpClientUtil {
                 return HttpClientBuilder.create().build();
             }
         } catch (Exception e) {
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         }
     }
 
@@ -105,17 +105,11 @@ public class HttpClientUtil {
                 httpGet.addHeader(key, header.get(key));
             }
             HttpResponse response = httpClient.execute(httpGet);
-            if (response.getStatusLine().getStatusCode() >= 400) {
-                String msg = EntityUtils.toString(response.getEntity(), config.getCharset());
-                if (StringUtils.isEmpty(msg)) {
-                    msg = "StatusCode: " + response.getStatusLine().getStatusCode();
-                }
-                throw new Exception(msg);
-            }
+            throwIfError(response, config);
             return true;
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 if (httpClient != null) {
@@ -153,7 +147,7 @@ public class HttpClientUtil {
             return getResponseStr(response, config);
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 if (httpClient != null) {
@@ -184,7 +178,7 @@ public class HttpClientUtil {
             return getResponseStr(response, config);
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 httpClient.close();
@@ -225,7 +219,7 @@ public class HttpClientUtil {
             return getResponseStr(response, config);
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 if (httpClient != null) {
@@ -260,7 +254,7 @@ public class HttpClientUtil {
             return response;
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 if (httpClient != null) {
@@ -295,7 +289,7 @@ public class HttpClientUtil {
             return getResponseStr(response, config);
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 if (httpClient != null) {
@@ -354,19 +348,40 @@ public class HttpClientUtil {
             return getResponseStr(response, config);
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         }
     }
 
     private static String getResponseStr(HttpResponse response, HttpClientConfig config) throws Exception {
-        if (response.getStatusLine().getStatusCode() >= 400) {
-            String msg = EntityUtils.toString(response.getEntity(), config.getCharset());
-            if (StringUtils.isEmpty(msg)) {
-                msg = "StatusCode: " + response.getStatusLine().getStatusCode();
-            }
-            throw new Exception(msg);
-        }
+        throwIfError(response, config);
         return EntityUtils.toString(response.getEntity(), config.getCharset());
+    }
+
+    private static void throwIfError(HttpResponse response, HttpClientConfig config) throws Exception {
+        int status = response.getStatusLine().getStatusCode();
+        if (status < 400) {
+            return;
+        }
+        String body = response.getEntity() == null ? "" : EntityUtils.toString(response.getEntity(), config.getCharset());
+        if (StringUtils.isNotEmpty(body)) {
+            logger.error("HttpClient查询失败 status={} body={}", status, OpenMeMessages.redactLimited(body, 2000));
+        }
+        throw new Exception("StatusCode: " + status);
+    }
+
+    /**
+     * 异常消息只给「类名 + 原因」，HTTP 错误只给 StatusCode。类名让上层能区分超时 / 连接拒绝 / 域名解析失败。
+     */
+    private static String failure(Exception e) {
+        String message = e.getMessage();
+        if (e instanceof DEException || (message != null && message.startsWith("StatusCode:"))) {
+            return message;
+        }
+        String type = e.getClass().getSimpleName();
+        if (StringUtils.isBlank(message)) {
+            return type;
+        }
+        return message.contains(type) ? message : type + ": " + message;
     }
 
     public static Map<String, String> downloadFile(String url, HttpClientConfig config, String path) {
@@ -384,13 +399,7 @@ public class HttpClientUtil {
             // 设置请求头
             config.getHeader().forEach(httpGet::addHeader);
             HttpResponse response = httpClient.execute(httpGet);
-            if (response.getStatusLine().getStatusCode() >= 400) {
-                String msg = EntityUtils.toString(response.getEntity(), config.getCharset());
-                if (StringUtils.isEmpty(msg)) {
-                    msg = "StatusCode: " + response.getStatusLine().getStatusCode();
-                }
-                throw new Exception(msg);
-            }
+            throwIfError(response, config);
             String fileName = extractFileName(response, url);
             String suffix = fileName.substring(fileName.lastIndexOf(".") + 1);
             String tranName = UUID.randomUUID().toString() + "." + suffix;
@@ -582,7 +591,7 @@ public class HttpClientUtil {
             return getResponseStr(response, config);
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 if (httpClient != null) {
@@ -655,7 +664,7 @@ public class HttpClientUtil {
             return getResponseStr(response, config);
         } catch (Exception e) {
             logger.error("HttpClient查询失败", e);
-            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + e.getMessage());
+            throw new DEException(SYSTEM_INNER_ERROR.code(), "HttpClient查询失败: " + failure(e));
         } finally {
             try {
                 if (httpClient != null) {
