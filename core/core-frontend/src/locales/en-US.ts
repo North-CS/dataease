@@ -3948,13 +3948,15 @@ export default {
       size: 'Length / Precision',
       scale: 'Scale',
       issues: 'Issues to resolve',
+      acknowledge_type: 'I have checked and confirmed this field type',
+      confirm_type_required: 'Confirm mixed-type and empty columns individually. Mixed values must be stored as string or text.',
       preview: 'Data preview (up to 20 rows)',
       row: 'Excel row',
       design: 'Validate and design',
       create: 'Create form (structure only)',
       parse_failed: 'Parsing failed. Check the workbook and retry.',
       resolve_issues:
-        'Resolve issues in all included columns and confirm again. Empty-column and text proposals can be explicitly confirmed.',
+        'Resolve issues in all included columns. Confirm or skip mixed-type and empty columns.',
       invalid_table:
         'Use a lowercase letter followed by lowercase letters, digits or underscores, at most 50 characters.',
       new_table_only: 'Excel proposals must create a new physical table.'
@@ -4005,6 +4007,9 @@ export default {
     delete_form_warn_dataset:
       'If the underlying table is referenced by a dataset or similar, checking "Also delete the underlying table" will drop the physical table irreversibly. Please proceed with caution.',
     delete_form_drop_table: 'Also delete the underlying table',
+    delete_form_drop_target: 'Also delete the underlying table "{table}"',
+    delete_form_drop_unavailable: 'This form binds an existing table, or the table origin is unverified. Deleting the form will keep the physical table. Ask an administrator to verify it before cleanup.',
+    delete_form_lookup_failed: 'Could not verify the table origin. Refresh and try again.',
     confirm_delete_multiple_data: 'Are you sure you want to delete {0} pieces of data?',
     confirm_delete_data: 'Are you sure you want to delete the data? ',
     no_form: 'No form yet',

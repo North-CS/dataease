@@ -91,6 +91,9 @@ public class DataFillingDTO implements Serializable {
 
     private boolean useExistsTable;
 
+    /** CREATED, EXISTING, or UNKNOWN. Set by the server when the form is first saved. */
+    private String tableOrigin;
+
     /** Present only on an Excel-created form's first save; UUID used for durable idempotency. */
     private String excelCreateRequestId;
 }

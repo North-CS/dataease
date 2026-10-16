@@ -12,6 +12,8 @@ public class ExcelParseOptions {
     @Data public static class ColumnOverride {
         private int sourceColumnIndex;
         private boolean included = true;
+        /** Explicit user acknowledgement for a mixed-type or entirely empty column. */
+        private boolean acknowledged;
         private ExtTableField field;
     }
 }

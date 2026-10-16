@@ -31,6 +31,9 @@ public class ExcelParseResponse {
         private int sourceColumnIndex;
         private String sourceColumnLetter;
         private String originalHeader;
+        /** Requires an explicit choice before the suggested type can be used. */
+        private boolean acknowledgementRequired;
+        private boolean acknowledged;
         /** ORIGINAL, CUSTOM, GENERATED_INVALID, GENERATED_UNSUPPORTED, or GENERATED_DUPLICATE. */
         private String columnNameReason;
         private boolean included = true;
