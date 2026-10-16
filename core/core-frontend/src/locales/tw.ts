@@ -4216,7 +4216,8 @@ export default {
       scale: '小數位數',
       issues: '待處理問題',
       acknowledge_type: '已核對並確認目前欄位類型',
-      confirm_type_required: '混合類型和全空欄位需要在對應欄勾選確認；混合類型只能按字串或長文字儲存。',
+      confirm_type_required:
+        '混合類型和全空欄位需要在對應欄勾選確認；混合類型只能按字串或長文字儲存。',
       preview: '資料預覽（最多 20 列）',
       row: 'Excel 列號',
       design: '驗證並進入設計器',
@@ -4273,7 +4274,8 @@ export default {
       '若底層資料表已被資料集等引用，勾選「同時刪除底層資料表」會刪除實體表且不可恢復，請謹慎操作。',
     delete_form_drop_table: '同時刪除底層資料表',
     delete_form_drop_target: '同時刪除底層資料表「{table}」',
-    delete_form_drop_unavailable: '此表是綁定的既有表，或其來源尚未核實。刪除表單時將保留實體表；如需清理，請先由管理員核實。',
+    delete_form_drop_unavailable:
+      '此表是綁定的既有表，或其來源尚未核實。刪除表單時將保留實體表；如需清理，請先由管理員核實。',
     delete_form_lookup_failed: '無法核實底層表來源，請重新整理後再試',
     confirm_delete_multiple_data: '確定刪除{0} 資料嗎？ ',
     confirm_delete_data: '確定刪除資料？ ',
@@ -4405,8 +4407,10 @@ export default {
       batch_type_success: '已設定{0}個欄位類型',
       batch_type_success_skip: '已設定{0}個欄位類型，{1}個不支援該類型已跳過',
       batch_type_none: '沒有可設定該類型的欄位（該類型與欄位組件不匹配）',
-      map_name_success_skip: '已將{0}個欄位名稱映射為資料表欄位名稱，{1}個欄位未填寫表單欄位名稱已跳過',
-      map_reset_overwrite_confirm: '偵測到映射後有欄位名稱被手動修改，還原將覆蓋這些修改，是否繼續？',
+      map_name_success_skip:
+        '已將{0}個欄位名稱映射為資料表欄位名稱，{1}個欄位未填寫表單欄位名稱已跳過',
+      map_reset_overwrite_confirm:
+        '偵測到映射後有欄位名稱被手動修改，還原將覆蓋這些修改，是否繼續？',
       reserved_column_name: '{0} 為系統保留欄位名稱（新建表主鍵），請更換',
       default: '預設',
       default_built_in: '內建資料庫',

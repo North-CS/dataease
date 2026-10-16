@@ -4335,7 +4335,8 @@ export default {
       scale: 'Scale',
       issues: 'Issues to resolve',
       acknowledge_type: 'I have checked and confirmed this field type',
-      confirm_type_required: 'Confirm mixed-type and empty columns individually. Mixed values must be stored as string or text.',
+      confirm_type_required:
+        'Confirm mixed-type and empty columns individually. Mixed values must be stored as string or text.',
       preview: 'Data preview (up to 20 rows)',
       row: 'Excel row',
       design: 'Validate and design',
@@ -4396,7 +4397,8 @@ export default {
       'If the underlying table is referenced by a dataset or similar, checking "Also delete the underlying table" will drop the physical table irreversibly. Please proceed with caution.',
     delete_form_drop_table: 'Also delete the underlying table',
     delete_form_drop_target: 'Also delete the underlying table "{table}"',
-    delete_form_drop_unavailable: 'This form binds an existing table, or the table origin is unverified. Deleting the form will keep the physical table. Ask an administrator to verify it before cleanup.',
+    delete_form_drop_unavailable:
+      'This form binds an existing table, or the table origin is unverified. Deleting the form will keep the physical table. Ask an administrator to verify it before cleanup.',
     delete_form_lookup_failed: 'Could not verify the table origin. Refresh and try again.',
     confirm_delete_multiple_data: 'Are you sure you want to delete {0} pieces of data?',
     confirm_delete_data: 'Are you sure you want to delete the data?',
@@ -4532,9 +4534,12 @@ export default {
       batch_type_success: 'Set column type for {0} field(s)',
       batch_type_success_skip: 'Set column type for {0} field(s), {1} skipped (type not supported)',
       batch_type_none: 'No field supports this type (type does not match the field component)',
-      map_name_success_skip: 'Mapped {0} field name(s) to column names, {1} skipped (no form field name)',
-      map_reset_overwrite_confirm: 'Some column names were manually edited after mapping. Restoring will overwrite those changes. Continue?',
-      reserved_column_name: '"{0}" is a reserved column name (primary key of the new table). Please change it.',
+      map_name_success_skip:
+        'Mapped {0} field name(s) to column names, {1} skipped (no form field name)',
+      map_reset_overwrite_confirm:
+        'Some column names were manually edited after mapping. Restoring will overwrite those changes. Continue?',
+      reserved_column_name:
+        '"{0}" is a reserved column name (primary key of the new table). Please change it.',
       default: 'Default',
       default_built_in: 'Built-in database',
       lt_check: 'Value needs to be less than {0}: {1}',
