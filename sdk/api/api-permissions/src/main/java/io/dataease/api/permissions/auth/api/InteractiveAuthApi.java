@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -70,6 +71,11 @@ public interface InteractiveAuthApi {
     @ApiOperationSupport(order = 8)
     @PostMapping("/checkAuth")
     void checkAuth(@RequestBody BusiPerCheckDTO checkDTO);
+
+    @Operation(summary = "根资源权限校验（虚拟根节点不在 per_busi_resource 中，须按资源类型直查授权表）")
+    @ApiOperationSupport(order = 8)
+    @PostMapping("/checkRootAuth")
+    void checkRootAuth(@RequestParam("resourceType") Integer resourceType, @RequestParam("weight") Integer weight);
 
     @Operation(summary = "权限查询")
     @ApiOperationSupport(order = 9)
