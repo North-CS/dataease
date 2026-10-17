@@ -47,11 +47,12 @@ public interface DataFillingApi {
     DataFillingDTO get(@PathVariable("id") Long id);
 
     @Operation(summary = "移动数据填报至文件夹")
-    @DePermit({"#p0.id+':manage'"})
+    @DePermit({"#p0.id+':manage'", "#p0.pid+':manage'"})
     @PostMapping("/move")
     DataFillingDTO move(@RequestBody DataFillingDTO dataFillingDTO);
 
     @Operation(summary = "保存数据填报")
+    @DePermit({"#p0.pid+':manage'"})
     @PostMapping("/save")
     DataFillingDTO save(@RequestBody DataFillingDTO dataFillingDTO) throws Exception;
 
