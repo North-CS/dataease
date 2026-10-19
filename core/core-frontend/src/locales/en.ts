@@ -5033,5 +5033,25 @@ export default {
     content_type: 'Content Type',
     del_confirm: 'Are you sure you want to delete this Webhook?',
     batch_del_confirm: 'Are you sure you want to delete {0} Webhooks?'
+  },
+  jd_sync: {
+    jingme: 'JingME',
+    base_url: 'Service URL',
+    app_key: 'APP Key',
+    app_secret: 'APP Secret',
+    robot_id: 'Robot ID',
+    open_team_id: 'Open Team ID',
+    tenant_id: 'Tenant ID',
+    scene: 'scene',
+    erp: 'Operator ERP',
+    tenant_code: 'tenantCode',
+    page_id: 'pageId',
+    notify_channel: 'Channel',
+    email: 'Email',
+    recipient: 'Recipients',
+    success_recipient: 'Success recipients',
+    fail_recipient: 'Failure recipients',
+    choose_recipient: 'Choose success or failure recipients',
+    sheet_id: 'Sheet ID'
   }
 }
