@@ -223,6 +223,17 @@ export const batchRemoveApi = (taskIds: string[]) => {
   return request.post({ url: `/sync/task/batch/del`, data: taskIds })
 }
 
+/**
+ * 批量复制任务为「待编辑任务」：直接落库、不执行，编辑保存后转正
+ */
+export const batchCopyTaskApi = (taskIds: string[], targetNodeId: string) => {
+  return request.post({ url: `/sync/task/batch/copy`, data: { taskIds, targetNodeId } })
+}
+
+export const groupCopyTaskApi = (groupId: string, targetNodeId: string) => {
+  return request.post({ url: `/sync/task/group/copy`, data: { groupId, targetNodeId } })
+}
+
 export const modifyApi = (data: ITaskInfoUpdateReq) => {
   return request.post({ url: `/sync/task/update`, data: data })
 }
@@ -233,4 +244,116 @@ export const findTaskInfoByIdApi = (taskId: string) => {
 
 export const getDatasourceTableListApi = (dsId: string) => {
   return request.get({ url: `/sync/datasource/table/list/${dsId}` })
+}
+
+/**
+ * 导出字段映射 Excel（以源表字段为基准生成模板，已映射字段带出当前配置）
+ */
+export const exportFieldMappingApi = data => {
+  return request.post({
+    url: '/sync/task/field/export',
+    data,
+    responseType: 'blob'
+  })
+}
+
+/**
+ * 解析字段映射 Excel，返回预览结果（不落库）
+ */
+export const importFieldMappingApi = data => {
+  return request.post({
+    url: '/sync/task/field/import',
+    headersType: 'multipart/form-data',
+    data
+  })
+}
+
+/**
+ * 同步任务树（目录/任务组）
+ */
+export const getSyncTreeApi = () => {
+  return request.get({ url: '/sync/tree/tree' })
+}
+
+export const saveSyncTreeNodeApi = data => {
+  return request.post({ url: '/sync/tree/save', data })
+}
+
+export const dragSyncTreeNodeApi = data => {
+  return request.post({ url: '/sync/tree/drag', data })
+}
+
+export const removeSyncTreeNodeApi = id => {
+  return request.post({ url: `/sync/tree/remove/${id}` })
+}
+
+export const moveSyncTaskApi = data => {
+  return request.post({ url: '/sync/tree/move-task', data })
+}
+
+/**
+ * 任务组：触发组执行（组内任务串行），返回组日志ID
+ */
+export const executeGroupApi = (id: string) => {
+  return request.post({ url: `/sync/tree/executeGroup/${id}` })
+}
+
+/**
+ * 任务组：组执行日志分页
+ */
+export const groupLogListApi = (groupId: string, goPage: number, pageSize: number) => {
+  return request.get({ url: `/sync/tree/groupLog/${groupId}/${goPage}/${pageSize}` })
+}
+
+/**
+ * 任务组：组内任务上移/下移
+ */
+export const orderGroupTaskApi = (taskId: string, direction: 'up' | 'down') => {
+  return request.post({ url: '/sync/tree/groupTask/order', data: { taskId, direction } })
+}
+
+/**
+ * 任务组：保存调度配置
+ */
+export const saveGroupScheduleApi = (data: {
+  id: string
+  schedulerType: string
+  schedulerConf?: string
+  failPolicy?: string
+  overlapPolicy?: string
+}) => {
+  return request.post({ url: '/sync/tree/groupSchedule', data })
+}
+
+/**
+ * 任务组：跨组执行日志分页
+ */
+export const groupLogGridApi = (
+  goPage: number,
+  pageSize: number,
+  data: { groupId?: string; status?: string[]; startTime?: number; endTime?: number; keyword?: string }
+) => {
+  return request.post({ url: `/sync/tree/groupLog/pager/${goPage}/${pageSize}`, data })
+}
+
+/**
+ * 任务组：查本次组执行里某成员任务对应的任务日志ID
+ */
+export const groupTaskLogIdApi = (groupLogId: string, taskId: string) => {
+  return request.get({ url: `/sync/tree/groupLog/taskLog/${groupLogId}/${taskId}` })
+}
+
+/**
+ * 任务组：终止组执行
+ * scope: CURRENT_ONE只终止当前任务 / ABORT_ALL终止当前任务并中止整组
+ */
+export const terminateGroupApi = (groupLogId: string, scope: 'CURRENT_ONE' | 'ABORT_ALL') => {
+  return request.post({ url: '/sync/tree/groupLog/terminate', data: { groupLogId, scope } })
+}
+
+/**
+ * 任务组：设置组内任务「忽略执行」
+ */
+export const setGroupTaskSkipApi = (taskId: string, skip: boolean) => {
+  return request.post({ url: '/sync/tree/groupTask/skip', data: { taskId, skip } })
 }

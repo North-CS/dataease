@@ -123,4 +123,9 @@ public class TaskInfoDTO {
      * 任务类型：0=同步任务，1=SQL任务
      */
     private Integer taskType;
+
+    /**
+     * 父节点ID:目录或任务组（per_sync_tree.id）
+     */
+    private String parentId;
 }

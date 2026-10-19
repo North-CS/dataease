@@ -31,7 +31,7 @@ public class TaskInfoVO {
     /**
      * 创建人
      */
-    private Long createBy;;
+    private Long createBy;
     /**
      * 创建人
      */
@@ -141,5 +141,20 @@ public class TaskInfoVO {
      * 任务类型：0=同步任务，1=SQL任务
      */
     private Integer taskType;
+
+    /**
+     * 父节点ID:目录或任务组（per_sync_tree.id）
+     */
+    private String parentId;
+
+    /**
+     * 组内忽略执行（任务组成员有效，true 时不参与组执行）
+     */
+    private Boolean skipExecute;
+
+    /**
+     * 待编辑任务：批量复制生成（isDraft=true 不参与任何执行），编辑保存后转正
+     */
+    private Boolean isDraft;
 
 }
