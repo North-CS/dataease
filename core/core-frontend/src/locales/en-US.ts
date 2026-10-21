@@ -4080,17 +4080,13 @@ export default {
       upload_title: 'Upload Excel to create form',
       upload_button: 'Upload Excel',
       template: 'Download template',
-      drop_here: 'Drag Excel here, or',
+      drop_here: 'Drag Excel here, ',
       click_pick: 'click to select a file',
       basic_limit: '.xlsx, up to 20 MiB',
       only_xlsx: 'Only .xlsx is supported. Please save as .xlsx and retry.',
       file_too_large: 'File exceeds the 20 MiB limit',
       parse_failed: 'Parsing failed. Please check the file and retry.',
       imported: '{0} fields recognized',
-      imported_notice:
-        '{0} fields recognized from the Excel header row; you can add, remove or edit them on the canvas.',
-      imported_notice_warn:
-        '{0} item(s) need attention: {1} (stored as text; adjust in field properties on the right).',
       no_fields:
         'No usable field found. Make sure the first row of the first sheet holds the headers.',
       invalid_table:
