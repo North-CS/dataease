@@ -3917,7 +3917,8 @@ export default {
     overlap_policy: '并发策略',
     overlap_policy_skip: '上一轮未结束时跳过本次',
     overlap_policy_queue: '排队等待上一轮结束',
-    policy_tip: '失败策略决定成员任务失败后是否继续执行；并发策略决定上一轮未结束时如何处理新的触发',
+    policy_tip:
+      '失败策略决定成员任务失败后是否继续执行；并发策略决定上一轮未结束时如何处理新的触发',
     title: '目录',
     create_folder: '新建目录',
     new_sub_folder: '新建子目录',
@@ -3975,7 +3976,7 @@ export default {
     target_folder_required: '请选择目标目录',
     move_success: '移动成功',
     parent_folder: '所属目录',
-    parent_folder_placeholder: '请选择所属目录',
+    parent_folder_placeholder: '请选择所属目录'
   },
   sync_task: {
     log_not_found: '未找到本次执行的任务日志',
@@ -4142,7 +4143,8 @@ export default {
     excel_import_title: 'Excel 导入字段映射',
     excel_import_mode: '导入模式',
     excel_import_mode_update: '修改导入',
-    excel_import_mode_update_tip: '按源字段名匹配并更新已有映射；"是否同步=否"的行会移除该字段映射；Excel 中新增的源字段会添加进来，未出现的保持不变',
+    excel_import_mode_update_tip:
+      '按源字段名匹配并更新已有映射；"是否同步=否"的行会移除该字段映射；Excel 中新增的源字段会添加进来，未出现的保持不变',
     excel_import_mode_replace: '全新导入',
     excel_import_mode_replace_tip: '清空当前字段映射，完全以 Excel 内容为准',
     excel_download_template: '下载模板',

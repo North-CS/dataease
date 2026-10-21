@@ -3914,7 +3914,8 @@ export default {
     overlap_policy: '併發策略',
     overlap_policy_skip: '上一輪未結束時跳過本次',
     overlap_policy_queue: '排隊等待上一輪結束',
-    policy_tip: '失敗策略決定成員任務失敗後是否繼續執行；併發策略決定上一輪未結束時如何處理新的觸發',
+    policy_tip:
+      '失敗策略決定成員任務失敗後是否繼續執行；併發策略決定上一輪未結束時如何處理新的觸發',
     title: '目錄',
     create_folder: '新建目錄',
     new_sub_folder: '新建子目錄',
@@ -3972,7 +3973,7 @@ export default {
     target_folder_required: '請選擇目標目錄',
     move_success: '移動成功',
     parent_folder: '所屬目錄',
-    parent_folder_placeholder: '請選擇所屬目錄',
+    parent_folder_placeholder: '請選擇所屬目錄'
   },
   sync_task: {
     add_sql_task: '新增 SQL 任務',
@@ -4138,7 +4139,8 @@ export default {
     excel_import_title: 'Excel 匯入欄位映射',
     excel_import_mode: '匯入模式',
     excel_import_mode_update: '修改匯入',
-    excel_import_mode_update_tip: '按源欄位名匹配並更新已有映射；"是否同步=否"的行會移除該欄位映射；Excel 中新增的源欄位會添加進來，未出現的保持不變',
+    excel_import_mode_update_tip:
+      '按源欄位名匹配並更新已有映射；"是否同步=否"的行會移除該欄位映射；Excel 中新增的源欄位會添加進來，未出現的保持不變',
     excel_import_mode_replace: '全新匯入',
     excel_import_mode_replace_tip: '清空當前欄位映射，完全以 Excel 內容為準',
     excel_download_template: '下載模板',
