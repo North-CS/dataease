@@ -29,7 +29,7 @@ public interface DataFillingApi {
     @Operation(summary = "从 Excel 解析表单草稿，不创建表或导入数据")
     @PostMapping(value = "/excel/parse", consumes = "multipart/form-data")
     ExcelParseResponse parseExcel(@RequestParam("file") MultipartFile file,
-                                 @RequestParam("datasourceId") Long datasourceId,
+                                 @RequestParam(value = "datasourceId", required = false) Long datasourceId,
                                  @RequestParam(value = "sheetIndex", required = false) Integer sheetIndex,
                                  @RequestParam(value = "headerRowNumber", defaultValue = "1") int headerRowNumber,
                                  @RequestParam(value = "options", required = false) String options) throws Exception;
