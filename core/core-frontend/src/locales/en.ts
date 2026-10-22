@@ -4468,8 +4468,8 @@ export default {
       drop_here: 'Drag Excel here, ',
       click_pick: 'click to select a file',
       basic_limit: '.xlsx, up to 20 MiB',
-      only_xlsx: 'Only .xlsx is supported. Please save as .xlsx and retry.',
       file_too_large: 'File exceeds the 20 MiB limit',
+      unsupported_format: 'Only .xlsx / .xls / .csv files are supported',
       parse_failed: 'Parsing failed. Please check the file and retry.',
       imported: '{0} fields recognized',
       no_fields:
@@ -4653,7 +4653,7 @@ export default {
       reset_map: 'Reset',
       batch_set_type: 'Batch set type',
       apply_to_all: 'Apply to all',
-      batch_type_placeholder: 'Select a type to apply',
+      batch_type_placeholder: 'Select type',
       map_name_success_fallback: '{0} column names mapped; {1} fell back to a safe name',
       map_name_success: 'Mapped {0} field name(s) to column names',
       map_name_empty:
