@@ -4672,6 +4672,13 @@ export default {
         'Some column names were manually edited after mapping. Restoring will overwrite those changes. Continue?',
       reserved_column_name:
         '"{0}" is a reserved column name (primary key of the new table). Please change it.',
+      create_partial_title: 'Table creation incomplete',
+      create_partial_warn:
+        'The physical table "{table}" may have been created, but the form was not saved. Change the form or table name and save again; if it keeps failing, ask an administrator to check whether the table already exists.',
+      create_table_exists:
+        'A table named "{table}" already exists in this datasource. Choose another physical table name.',
+      create_request_conflict: 'This submission differs from the previous one. Please save again.',
+      create_duplicate_name: 'A form with this name already exists. Rename it and try again.',
       default: 'Default',
       default_built_in: 'Built-in database',
       lt_check: 'Value needs to be less than {0}: {1}',

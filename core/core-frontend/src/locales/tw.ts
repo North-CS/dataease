@@ -4529,6 +4529,12 @@ export default {
       map_reset_overwrite_confirm:
         '偵測到映射後有欄位名稱被手動修改，還原將覆蓋這些修改，是否繼續？',
       reserved_column_name: '{0} 為系統保留欄位名稱（新建表主鍵），請更換',
+      create_partial_title: '建表未完成',
+      create_partial_warn:
+        '實體表「{table}」可能已建立，但表單沒有儲存成功。請更換表單名稱或實體表名後重新儲存；若反覆失敗，請聯繫管理員確認該表是否已存在。',
+      create_table_exists: '目前資料源中已存在資料表「{table}」，請更換實體表名',
+      create_request_conflict: '本次提交與上一次的內容不一致，請重新儲存',
+      create_duplicate_name: '表單名稱已存在，請更換名稱後重試',
       default: '預設',
       default_built_in: '內建資料庫',
       lt_check: '值需要小於{0}: {1}',
