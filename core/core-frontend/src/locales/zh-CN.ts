@@ -4532,9 +4532,6 @@ export default {
       create_partial_title: '建表未完成',
       create_partial_warn:
         '物理表「{table}」可能已创建，但表单没有保存成功。请更换表单名称或物理表名后重新保存；若反复失败，请联系管理员确认该表是否已存在。',
-      create_table_exists: '当前数据源中已存在数据表「{table}」，请更换物理表名',
-      create_request_conflict: '本次提交与上一次的内容不一致，请重新保存',
-      create_duplicate_name: '表单名称已存在，请更换名称后重试',
       default: '默认',
       default_built_in: '内建数据库',
       lt_check: '值需要小于{0}: {1}',
