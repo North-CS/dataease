@@ -4482,7 +4482,7 @@ export default {
     fill_in_the_task: 'Filling task',
     data_fill_name: 'Data filling name',
     p_data_fill_name: 'Please enter the data filling name',
-    save_df_success: 'Save data filling successfully',
+    save_df_success: 'Saved successfully',
     permission: 'Filling permission',
     enable: 'Enable',
     enable_hint:

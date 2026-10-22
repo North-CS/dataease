@@ -4348,7 +4348,7 @@ export default {
     fill_in_the_task: '填報任務',
     data_fill_name: '資料填報名稱',
     p_data_fill_name: '請輸入資料填報名稱',
-    save_df_success: '儲存資料填報成功',
+    save_df_success: '儲存成功',
     permission: '填報權限',
     enable: '開啟',
     enable_hint: '資料填入開啟後，可將表單資料存放至資料來源中，一旦開啟後，後期不允許關閉。 ',

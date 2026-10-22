@@ -4350,7 +4350,7 @@ export default {
     fill_in_the_task: '填报任务',
     data_fill_name: '数据填报名称',
     p_data_fill_name: '请输入数据填报名称',
-    save_df_success: '保存数据填报成功',
+    save_df_success: '保存成功',
     permission: '填报权限',
     enable: '开启',
     enable_hint: '数据填报开启后，可将表单数据存放至数据源中，一旦开启后，后期不允许关闭。',
