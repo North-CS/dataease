@@ -4337,7 +4337,7 @@ export default {
       template: '下载模板',
       drop_here: '将 Excel 拖拽到此处，',
       click_pick: '点击选择文件',
-      basic_limit: '.xlsx，≤ 20 MiB',
+      basic_limit: '.xlsx / .xls / .csv，≤ 20 MiB',
       file_too_large: '文件超过 20 MiB 上限',
       unsupported_format: '仅支持 .xlsx / .xls / .csv 文件',
       parse_failed: '解析失败，请检查文件后重试',

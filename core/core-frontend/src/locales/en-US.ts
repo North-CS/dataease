@@ -4082,7 +4082,7 @@ export default {
       template: 'Download template',
       drop_here: 'Drag Excel here, ',
       click_pick: 'click to select a file',
-      basic_limit: '.xlsx, up to 20 MiB',
+      basic_limit: '.xlsx / .xls / .csv, up to 20 MiB',
       file_too_large: 'File exceeds the 20 MiB limit',
       unsupported_format: 'Only .xlsx / .xls / .csv files are supported',
       parse_failed: 'Parsing failed. Please check the file and retry.',

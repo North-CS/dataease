@@ -4333,7 +4333,7 @@ export default {
       template: '下載範本',
       drop_here: '將 Excel 拖曳到此處，',
       click_pick: '點擊選擇檔案',
-      basic_limit: '.xlsx，≤ 20 MiB',
+      basic_limit: '.xlsx / .xls / .csv，≤ 20 MiB',
       file_too_large: '檔案超過 20 MiB 上限',
       unsupported_format: '僅支援 .xlsx / .xls / .csv 檔案',
       parse_failed: '解析失敗，請檢查檔案後重試',
