@@ -545,10 +545,13 @@ public class CalciteProvider extends Provider {
         return map;
     }
 
-    @Override
     /**
      * Doris 系（doris / StarRocks）在 SQL 出现非 ASCII 标识符时，必须先开启 enable_unicode_name_support，
      * 否则解析表名/列名就失败。参数化 DML 无法把 SET 拼进语句，因此在同一连接上单独执行一次。
+     *
+     * <p>与同步模块 {@code xpack-sync} 的 {@code DorisProvider#executeSql} 同策略（同连接先 SET 再执行），
+     * 差别只在于执行通道：同步有自己的 Provider，数据填报借用宿主 Provider，因此这条能力补在这里。
+     * 触发条件收窄为「doris/starrocks + SQL 含非 ASCII」，其它数据源与语句完全不经过此分支。
      * 老版本 Doris 没有该变量时忽略失败，让原 SQL 自己报它该报的错。
      */
     private void ensureUnicodeIdentifiers(DatasourceSchemaDTO value, Connection con, String sql) {
@@ -562,6 +565,7 @@ public class CalciteProvider extends Provider {
         }
     }
 
+    @Override
     public void exec(DatasourceRequest datasourceRequest) throws DEException {
         DatasourceSchemaDTO value = datasourceRequest.getDsList().entrySet().iterator().next().getValue();
         datasourceRequest.setDatasource(value);
