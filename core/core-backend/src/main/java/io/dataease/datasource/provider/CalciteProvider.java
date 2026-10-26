@@ -546,6 +546,22 @@ public class CalciteProvider extends Provider {
     }
 
     @Override
+    /**
+     * Doris 系（doris / StarRocks）在 SQL 出现非 ASCII 标识符时，必须先开启 enable_unicode_name_support，
+     * 否则解析表名/列名就失败。参数化 DML 无法把 SET 拼进语句，因此在同一连接上单独执行一次。
+     * 老版本 Doris 没有该变量时忽略失败，让原 SQL 自己报它该报的错。
+     */
+    private void ensureUnicodeIdentifiers(DatasourceSchemaDTO value, Connection con, String sql) {
+        if (con == null || sql == null || sql.chars().allMatch(c -> c < 128)) return;
+        String type = Objects.toString(value == null ? null : value.getType(), "");
+        if (!("doris".equalsIgnoreCase(type) || "starrocks".equalsIgnoreCase(type))) return;
+        try (Statement set = con.createStatement()) {
+            set.execute("SET enable_unicode_name_support=true;");
+        } catch (Exception ignored) {
+            // 旧版本 Doris 无该会话变量：不阻断，交给原 SQL 报它自己的错
+        }
+    }
+
     public void exec(DatasourceRequest datasourceRequest) throws DEException {
         DatasourceSchemaDTO value = datasourceRequest.getDsList().entrySet().iterator().next().getValue();
         datasourceRequest.setDatasource(value);
@@ -554,6 +570,8 @@ public class CalciteProvider extends Provider {
         ResultSet resultSet = null;
 
         try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId())) {
+
+            ensureUnicodeIdentifiers(value, con, datasourceRequest.getQuery());
 
             Statement statement = getStatement(value, con, datasourceRequest, datasourceConfiguration, null);
 
