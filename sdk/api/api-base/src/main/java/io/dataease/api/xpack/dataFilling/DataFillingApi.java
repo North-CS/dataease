@@ -34,6 +34,10 @@ public interface DataFillingApi {
                                  @RequestParam(value = "headerRowNumber", defaultValue = "1") int headerRowNumber,
                                  @RequestParam(value = "options", required = false) String options) throws Exception;
 
+    @Operation(summary = "获取数据填报数据源能力及字段实际类型预览")
+    @PostMapping("/capability")
+    Object capability(@RequestBody DataFillingDTO dataFillingDTO);
+
     @Operation(summary = "下载 Excel 自动建表单模板（二开）")
     @GetMapping("/excel/template")
     void excelFormTemplate(HttpServletResponse response) throws Exception;

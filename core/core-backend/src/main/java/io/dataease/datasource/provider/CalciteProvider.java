@@ -63,6 +63,7 @@ public class CalciteProvider extends Provider {
     @Value("${dataease.path.custom-drivers:/opt/dataease2.0/custom-drivers/}")
     private String CUSTOM_PATH;
     private static String split = "DE";
+    private static final String DORIS_UNICODE_NAME_INIT_SQL = "SET enable_unicode_name_support = true";
 
     @Resource
     private CommonThreadPool commonThreadPool;
@@ -450,12 +451,26 @@ public class CalciteProvider extends Provider {
         try {
             Driver driverClass = (Driver) jdbcClassLoader.loadClass(driverClassName).newInstance();
             conn = driverClass.connect(configuration.getJdbc(), props);
-
+            if (datasourceType == DatasourceConfiguration.DatasourceType.doris) {
+                initializeDorisUnicodeSession(conn);
+            }
         } catch (Exception e) {
+            // 初始化失败时 ConnectionObj 尚未返回，必须关闭已建立的物理连接；
+            // 正常路径绝不能在这里关闭，否则返回给调用方的连接已失效。
+            closeUndeliveredConnection(conn);
             DEException.throwException(e.getMessage());
         }
         connectionObj.setConnection(conn);
         return connectionObj;
+    }
+
+    private static void closeUndeliveredConnection(Connection connection) {
+        if (connection == null) return;
+        try {
+            connection.close();
+        } catch (SQLException closeFailure) {
+            LogUtil.warn("关闭未交付的数据源连接失败: " + closeFailure.getMessage());
+        }
     }
 
     private DatasetTableDTO getTableDesc(DatasourceRequest datasourceRequest, ResultSet resultSet) throws SQLException {
@@ -546,22 +561,19 @@ public class CalciteProvider extends Provider {
     }
 
     /**
-     * Doris 系（doris / StarRocks）在 SQL 出现非 ASCII 标识符时，必须先开启 enable_unicode_name_support，
-     * 否则解析表名/列名就失败。参数化 DML 无法把 SET 拼进语句，因此在同一连接上单独执行一次。
-     *
-     * <p>与同步模块 {@code xpack-sync} 的 {@code DorisProvider#executeSql} 同策略（同连接先 SET 再执行），
-     * 差别只在于执行通道：同步有自己的 Provider，数据填报借用宿主 Provider，因此这条能力补在这里。
-     * 触发条件收窄为「doris/starrocks + SQL 含非 ASCII」，其它数据源与语句完全不经过此分支。
-     * 老版本 Doris 没有该变量时忽略失败，让原 SQL 自己报它该报的错。
+     * 仅初始化 Doris 连接的 unicode 标识符会话；失败必须阻断，不能把中文 SQL 留到
+     * 未初始化的连接上再报误导性的解析错误。固定常量不涉及用户输入，也不修改 JDBC 配置。
      */
-    private void ensureUnicodeIdentifiers(DatasourceSchemaDTO value, Connection con, String sql) {
-        if (con == null || sql == null || sql.chars().allMatch(c -> c < 128)) return;
-        String type = Objects.toString(value == null ? null : value.getType(), "");
-        if (!("doris".equalsIgnoreCase(type) || "starrocks".equalsIgnoreCase(type))) return;
-        try (Statement set = con.createStatement()) {
-            set.execute("SET enable_unicode_name_support=true;");
-        } catch (Exception ignored) {
-            // 旧版本 Doris 无该会话变量：不阻断，交给原 SQL 报它自己的错
+    static void initializeDorisUnicodeSession(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(DORIS_UNICODE_NAME_INIT_SQL);
+        }
+    }
+
+    /** DBCP 在每个新物理连接上执行；只作用于 Doris，不改 StarRocks/MySQL 的历史连接行为。 */
+    static void configureDorisSession(BasicDataSource dataSource, DatasourceConfiguration.DatasourceType type) {
+        if (type == DatasourceConfiguration.DatasourceType.doris) {
+            dataSource.setConnectionInitSqls(Collections.singletonList(DORIS_UNICODE_NAME_INIT_SQL));
         }
     }
 
@@ -574,8 +586,6 @@ public class CalciteProvider extends Provider {
         ResultSet resultSet = null;
 
         try (Connection con = getConnectionFromPool(datasourceRequest.getDatasource().getId())) {
-
-            ensureUnicodeIdentifiers(value, con, datasourceRequest.getQuery());
 
             Statement statement = getStatement(value, con, datasourceRequest, datasourceConfiguration, null);
 
@@ -980,6 +990,7 @@ public class CalciteProvider extends Provider {
                     Schema schema = null;
                     DatasourceConfiguration configuration = null;
                     DatasourceConfiguration.DatasourceType datasourceType = DatasourceConfiguration.DatasourceType.valueOf(ds.getType());
+                    configureDorisSession(dataSource, datasourceType);
                     try {
                         if (rootSchema.getSubSchema(ds.getSchemaAlias()) != null) {
                             JdbcSchema jdbcSchema = rootSchema.getSubSchema(ds.getSchemaAlias()).unwrap(JdbcSchema.class);

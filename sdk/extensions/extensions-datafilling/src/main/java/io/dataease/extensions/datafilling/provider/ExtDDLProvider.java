@@ -2,6 +2,8 @@ package io.dataease.extensions.datafilling.provider;
 
 
 import io.dataease.extensions.datasource.dto.TableField;
+import io.dataease.extensions.datafilling.dto.DataFillingProviderCapability;
+import io.dataease.extensions.datafilling.dto.DataFillingTypeCapability;
 import io.dataease.extensions.datafilling.dto.ExtIndexField;
 import io.dataease.extensions.datafilling.dto.ExtTableField;
 import io.dataease.extensions.datasource.dto.TableFieldWithValue;
@@ -18,6 +20,73 @@ public abstract class ExtDDLProvider {
     public final String DEFAULT_DATE_FORMAT_STR = "yyyy-MM-dd HH:mm:ss";
 
     public abstract String createTableSql(String table, List<ExtTableField> formFields);
+
+    /**
+     * Stable, optional capability contract. Existing DataFilling plugins inherit the complete
+     * generic model and only override it when their physical DDL needs different rules.
+     */
+    public DataFillingProviderCapability capability() {
+        return DataFillingProviderCapability.generic();
+    }
+
+    /** Returns the physical type using exactly the configured VARCHAR length (no byte conversion). */
+    public String preview(ExtTableField field) {
+        ExtTableField.ExtTableFieldMapping mapping = mappingOf(field);
+        DataFillingTypeCapability type = capability().type(mapping.getType());
+        if (type == null) throw new IllegalArgumentException("UNSUPPORTED_FIELD_TYPE: " + mapping.getType());
+        return type.preview(mapping.getSize(), mapping.getAccuracy());
+    }
+
+    /** Validates one field against capability(); DDL generation remains the final persistence guard. */
+    public void validateField(ExtTableField field) {
+        ExtTableField.ExtTableFieldMapping mapping = mappingOf(field);
+        DataFillingTypeCapability type = capability().type(mapping.getType());
+        if (type == null) throw new IllegalArgumentException("UNSUPPORTED_FIELD_TYPE: " + mapping.getType());
+        Integer size = mapping.getSize();
+        Integer accuracy = mapping.getAccuracy();
+        if (!type.isSizeConfigurable() && size != null)
+            throw new IllegalArgumentException("FIELD_SIZE_NOT_CONFIGURABLE: " + mapping.getColumnName());
+        if (!type.isAccuracyConfigurable() && accuracy != null)
+            throw new IllegalArgumentException("FIELD_ACCURACY_NOT_CONFIGURABLE: " + mapping.getColumnName());
+        if (type.isSizeConfigurable()) {
+            int effectiveSize = type.effectiveSize(size);
+            if (type.getMinSize() != null && effectiveSize < type.getMinSize()
+                    || type.getMaxSize() != null && effectiveSize > type.getMaxSize())
+                throw new IllegalArgumentException("INVALID_FIELD_SIZE: " + mapping.getColumnName());
+        }
+        if (type.isAccuracyConfigurable()) {
+            int effectiveAccuracy = type.effectiveAccuracy(accuracy);
+            if (type.getMinAccuracy() != null && effectiveAccuracy < type.getMinAccuracy()
+                    || type.getMaxAccuracy() != null && effectiveAccuracy > type.getMaxAccuracy())
+                throw new IllegalArgumentException("INVALID_FIELD_ACCURACY: " + mapping.getColumnName());
+            if (mapping.getType() == ExtTableField.BaseType.decimal
+                    && effectiveAccuracy > type.effectiveSize(size))
+                throw new IllegalArgumentException("INVALID_DECIMAL_CAPACITY: " + mapping.getColumnName());
+        }
+    }
+
+    /** newTable is true only when this request will execute CREATE TABLE, not for ordinary edits. */
+    public void validateConfiguration(List<ExtTableField> fields, boolean newTable) {
+        if (fields == null) return;
+        fields.stream()
+                .filter(field -> field != null && !field.isRemoved())
+                // 仅校验本次会真正落库的字段：
+                // - 已有列（绑定已有列）沿用库中定义，不参与容量校验；
+                // - 尚未选择类型的草稿字段由保存入口单独拦，不能拖垮整张表单的能力预览。
+                .filter(field -> field.getSettings() != null
+                        && field.getSettings().getMapping() != null
+                        && field.getSettings().getMapping().getType() != null
+                        && !field.getSettings().getMapping().isUseExistsTable())
+                .forEach(this::validateField);
+    }
+
+    private static ExtTableField.ExtTableFieldMapping mappingOf(ExtTableField field) {
+        if (field == null || field.getSettings() == null || field.getSettings().getMapping() == null)
+            throw new IllegalArgumentException("FIELD_MAPPING_REQUIRED");
+        ExtTableField.ExtTableFieldMapping mapping = field.getSettings().getMapping();
+        if (mapping.getType() == null) throw new IllegalArgumentException("FIELD_TYPE_REQUIRED");
+        return mapping;
+    }
 
     @Deprecated
     public String getTableFieldsSql(String table) {

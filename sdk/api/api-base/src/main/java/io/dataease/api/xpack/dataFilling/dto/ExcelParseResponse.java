@@ -31,6 +31,8 @@ public class ExcelParseResponse {
         private int sourceColumnIndex;
         private String sourceColumnLetter;
         private String originalHeader;
+        /** Configuration-template Excel row number, one-based; null for legacy/sample parsing. */
+        private Integer configRowNumber;
         /** Requires an explicit choice before the suggested type can be used. */
         private boolean acknowledgementRequired;
         private boolean acknowledged;

@@ -4082,13 +4082,15 @@ export default {
       template: 'Download template',
       drop_here: 'Drag Excel here, ',
       click_pick: 'click to select a file',
-      basic_limit: '.xlsx / .xls / .csv, up to 20 MiB',
+      basic_limit:
+        'New .xlsx two-sheet configuration template only, up to 20 MiB, 200 components max',
       file_too_large: 'File exceeds the 20 MiB limit',
-      unsupported_format: 'Only .xlsx / .xls / .csv files are supported',
+      unsupported_format:
+        'Only the new .xlsx configuration template is supported. Download the template first.',
       parse_failed: 'Parsing failed. Please check the file and retry.',
       imported: '{0} fields recognized',
       no_fields:
-        'No usable field found. Make sure the first row of the first sheet holds the headers.',
+        'No usable component found. Check the header and configuration rows in the Form Configuration sheet.',
       invalid_table:
         'Table name must start with a lowercase letter and contain only lowercase letters, digits and underscores (max 50).',
       new_table_only: 'Forms imported from Excel can only create a new physical table.'
@@ -4277,7 +4279,7 @@ export default {
       batch_reason_date: 'a date control can only store dates',
       batch_reason_text_only: 'only supports long text',
       batch_reason_number: 'a number control cannot store text',
-      batch_reason_incompatible: 'incompatible with this type',
+      batch_reason_incompatible: 'incompatible with this component',
       batch_type_success: 'Set column type for {0} field(s)',
       map_name_success_skip:
         'Mapped {0} field name(s) to column names, {1} skipped (no form field name)',

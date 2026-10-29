@@ -4676,7 +4676,7 @@ export default {
       batch_reason_date: 'a date control can only store dates',
       batch_reason_text_only: 'only supports long text',
       batch_reason_number: 'a number control cannot store text',
-      batch_reason_incompatible: 'incompatible with this type',
+      batch_reason_incompatible: 'incompatible with this component',
       batch_type_success: 'Set column type for {0} field(s)',
       map_name_success_skip:
         'Mapped {0} field name(s) to column names, {1} skipped (no form field name)',

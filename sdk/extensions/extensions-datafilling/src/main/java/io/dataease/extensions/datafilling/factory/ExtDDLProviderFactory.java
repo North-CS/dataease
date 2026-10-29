@@ -19,17 +19,14 @@ public class ExtDDLProviderFactory {
     private static final Map<String, DataFillingPlugin> templateMap = new ConcurrentHashMap<>();
 
     public static ExtDDLProvider getExtDDLProvider(String type) {
-        DatasourceConfiguration.DatasourceType datasourceType = DatasourceConfiguration.DatasourceType.valueOf(type);
-        switch (datasourceType) {
-            case mysql, mariadb -> {
-                return SpringContextUtil.getApplicationContext().getBean("mysqlExtDDLProvider", ExtDDLProvider.class);
-            }
-        }
+        // 应用商店的数据源类型不一定存在于主仓枚举中：必须先查插件注册表。
         ExtDDLProvider instance = getInstance(type);
-        if (instance == null) {
-            DEException.throwException("插件异常，请检查插件");
+        if (instance != null) return instance;
+        if ("mysql".equalsIgnoreCase(type) || "mariadb".equalsIgnoreCase(type)) {
+            return SpringContextUtil.getApplicationContext().getBean("mysqlExtDDLProvider", ExtDDLProvider.class);
         }
-        return instance;
+        DEException.throwException("当前数据源没有可用的数据填报插件，请安装并启用对应插件");
+        return null;
     }
 
     public static ExtDDLProvider getInstance(String type) {
