@@ -213,6 +213,11 @@ public interface DataFillingApi {
     @GetMapping("/form/{formId}/excelTemplate")
     void excelTemplate(@PathVariable("formId") Long formId);
 
+    @Operation(summary = "下载批量导入错误明细")
+    @GetMapping("/form/{formId}/importErrors/{excelId}")
+    void downloadImportErrors(@PathVariable("formId") Long formId,
+                              @PathVariable("excelId") String excelId);
+
     @Operation(summary = "确认上传Excel")
     @DePermit({"#p0+':manage'"})
     @PostMapping("/form/{formId}/confirmUpload")
